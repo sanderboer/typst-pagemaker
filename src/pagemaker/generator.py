@@ -35,7 +35,7 @@ def generate_typst(ir):
     out.append("#let Body(txt) = text(size: 24pt)[txt]\n")
     out.append("#let Fig(img, caption: none) = if caption == none { \n  block(width: 100%, height: 100%, clip: true)[#img] \n} else { \n  block(width: 100%, height: 100%)[\n    #block(height: 85%, clip: true)[#img] \n    #block(height: 15%)[#text(size: 0.75em, fill: rgb(60%,60%,60%))[caption]] \n  ] \n}\n")
     out.append("#let ColorRect(color, alpha) = {\n  block(width: 100%, height: 100%, fill: rgb(color).transparentize(100% - alpha * 100%))[]\n}\n")
-    out.append("#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  let pdf_data = read(path, encoding: none)\n  let pg = page - 1\n  let muchpdf_image = muchpdf(pdf_data, pages: range(pg, pg + 1), scale: scale)\n  block(width: 100%, height: 100%, clip: true)[\n    #muchpdf_image\n  ]\n}\n")
+    out.append("#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  let pdf_data = read(path, encoding: none)\n  let pg = page - 1\n  let muchpdf_image = muchpdf(pdf_data, pages: [pg], scale: scale)\n  block(width: 100%, height: 100%, clip: true)[\n    #muchpdf_image\n  ]\n}\n")
     out.append("#let layer(cw, ch, x, y, w, h, body) = place(\n  dx: (x - 1) * cw,\n  dy: (y - 1) * ch,\n  block(\n    width: w * cw,\n    height: h * ch,\n    body\n  )\n)\n")
     out.append("#let draw_grid(cols, rows, cw, ch) = {\n  for col in range(1, cols + 1) {\n    place(line(start: ((col - 1) * cw, 0pt), end: ((col - 1) * cw, rows * ch), stroke: 0.5pt + rgb(\"#ccc\")))\n  }\n  for row in range(1, rows + 1) {\n    place(line(start: (0pt, (row - 1) * ch), end: (cols * cw, (row - 1) * ch), stroke: 0.5pt + rgb(\"#ccc\")))\n  }\n}\n")
     for page_index, page in enumerate(ir['pages']):

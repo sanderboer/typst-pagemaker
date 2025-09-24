@@ -41,12 +41,21 @@ def cmd_build(args):
 
 def _compile_pdf(typst_file: pathlib.Path, pdf_path: pathlib.Path, typst_bin: str = 'typst') -> bool:
     try:
-        cmd = [typst_bin, 'compile', '--font-path', 'assets/fonts', '--font-path', 'assets/fonts/static', str(typst_file), str(pdf_path)]
+        project_root = pathlib.Path.cwd()
+        cmd = [
+            typst_bin,
+            'compile',
+            '--root', str(project_root),
+            '--font-path', 'assets/fonts',
+            '--font-path', 'assets/fonts/static',
+            str(typst_file),
+            str(pdf_path),
+        ]
         res = subprocess.run(cmd, capture_output=True, text=True)
         if res.returncode == 0:
             return True
         else:
-            print(f"ERROR: Typst compile failed (exit {res.returncode}):\n{res.stderr}", file=sys.stderr)
+                print(f"ERROR: Typst compile failed (exit {res.returncode}):\n{res.stderr}", file=sys.stderr)
     except FileNotFoundError:
         print(f"ERROR: typst binary not found at '{typst_bin}'", file=sys.stderr)
     return False

@@ -14,7 +14,7 @@ import json
 import argparse
 import datetime
 import pathlib
-import sys, subprocess, os
+import sys, subprocess, os, shutil
 
 HEADLINE_RE = re.compile(r'^(?P<stars>\*+)\s+(?P<title>.+)$')
 PROP_BEGIN_RE = re.compile(r'^:PROPERTIES:', re.I)
@@ -210,7 +210,7 @@ def generate_typst(ir):
     theme_name = ir['meta'].get('THEME','light')
     theme = TYPOGRAPHY.get(theme_name, TYPOGRAPHY['light'])
     out = []
-    out.append(TYPST_HEADER.format(timestamp=datetime.datetime.utcnow().isoformat()))
+    out.append(TYPST_HEADER.format(timestamp=datetime.datetime.now(datetime.UTC).isoformat()))
     out.append("#import \"@preview/muchpdf:0.1.1\": muchpdf\n")
     out.append(f"#let theme = (")
     out.append(f"  font_header: \"{theme['font_header']}\",")
@@ -296,24 +296,111 @@ def update_html_total(html_path: pathlib.Path, total: int):
     else:
         html_path.write_text(new_txt, encoding='utf-8'); return True
 
+def adjust_asset_paths(ir, typst_dir: pathlib.Path):
+    """
+    Rewrite relative asset paths (figure.src, pdf.src) so they are relative to
+    the directory containing the Typst file (typst_dir). This allows the
+    generated Typst file to live inside an export directory while still
+    resolving assets that are stored elsewhere in the project tree.
+    """
+    try:
+        typst_dir = typst_dir.resolve()
+    except Exception:
+        return
+    for page in ir.get('pages', []):
+        for el in page.get('elements', []):
+            # Figure image
+            fig = el.get('figure')
+            if fig and fig.get('src'):
+                src = fig['src']
+                if not os.path.isabs(src) and not re.match(r'^[a-zA-Z]+:', src):
+                    abs_candidate = (pathlib.Path.cwd() / src).resolve()
+                    try:
+                        rel = os.path.relpath(abs_candidate, typst_dir)
+                        fig['src'] = rel
+                    except Exception:
+                        pass
+            pdf = el.get('pdf')
+            if pdf and pdf.get('src'):
+                src = pdf['src']
+                if not os.path.isabs(src) and not re.match(r'^[a-zA-Z]+:', src):
+                    abs_candidate = (pathlib.Path.cwd() / src).resolve()
+                    try:
+                        rel = os.path.relpath(abs_candidate, typst_dir)
+                        pdf['src'] = rel
+                    except Exception:
+                        pass
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('org', help='Input org file')
-    ap.add_argument('-o','--output', default='deck.typ', help='Output Typst file')
-    ap.add_argument('--ir', default=None, help='Write IR JSON to path')
-    ap.add_argument('--update-html', default=None, help='Update HTML viewer page count placeholder')
+    ap.add_argument('-o','--output', default='deck.typ', help='Output Typst file (relative to export dir if provided)')
+    ap.add_argument('--ir', default=None, help='Write IR JSON to path (relative to export dir if provided)')
+    ap.add_argument('--update-html', default=None, help='Update HTML viewer page count placeholder (path relative to CWD, not export dir)')
+    ap.add_argument('--export-dir', default='export', help='Directory for build artifacts (created if missing)')
+    ap.add_argument('--no-clean', action='store_true', help='Keep intermediate Typst file (do not delete after PDF compile)')
+    ap.add_argument('--pdf', action='store_true', help='Also compile resulting Typst to PDF')
+    ap.add_argument('--pdf-output', default=None, help='PDF output filename (relative to export dir if not absolute). Defaults to <org-stem>.pdf')
+    ap.add_argument('--typst-bin', default='typst', help='Path to typst executable')
     args = ap.parse_args()
 
-    ir = parse_org(args.org)
-    total_pages = len(ir['pages'])
+    export_dir = pathlib.Path(args.export_dir)
+    export_dir.mkdir(parents=True, exist_ok=True)
+
+    # Normalize output paths relative to export dir
+    output_path = export_dir / args.output if not pathlib.Path(args.output).is_absolute() else pathlib.Path(args.output)
+    ir_path = None
     if args.ir:
-        with open(args.ir,'w',encoding='utf-8') as f: json.dump(ir,f,indent=2)
+        ir_path = export_dir / args.ir if not pathlib.Path(args.ir).is_absolute() else pathlib.Path(args.ir)
+
+    ir = parse_org(args.org)
+    # Adjust asset paths to be relative to the directory containing the Typst file
+    # This ensures references remain valid when compiling from within export dir.
+    adjust_asset_paths(ir, pathlib.Path(args.export_dir))
+    total_pages = len(ir['pages'])
+
+    if ir_path:
+        ir_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(ir_path,'w',encoding='utf-8') as f: json.dump(ir,f,indent=2)
+
     typst_code = generate_typst(ir)
-    with open(args.output,'w',encoding='utf-8') as f: f.write(typst_code)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path,'w',encoding='utf-8') as f: f.write(typst_code)
+
     updated = False
     if args.update_html:
         updated = update_html_total(pathlib.Path(args.update_html), total_pages)
-    print(f"Generated {args.output} with {total_pages} pages. HTML updated={updated}")
+
+    pdf_path = None
+    pdf_success = False
+    if args.pdf:
+        # Determine PDF path
+        if args.pdf_output:
+            pdf_path = export_dir / args.pdf_output if not pathlib.Path(args.pdf_output).is_absolute() else pathlib.Path(args.pdf_output)
+        else:
+            org_stem = pathlib.Path(args.org).stem
+            pdf_path = export_dir / f"{org_stem}.pdf"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        # Invoke typst compile
+        try:
+            cmd = [args.typst_bin, 'compile', '--font-path', 'assets/fonts', '--font-path', 'assets/fonts/static', str(output_path), str(pdf_path)]
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            if res.returncode == 0:
+                pdf_success = True
+            else:
+                print(f"ERROR: Typst compile failed (exit {res.returncode}):\n{res.stderr}", file=sys.stderr)
+        except FileNotFoundError:
+            print(f"ERROR: typst binary not found at '{args.typst_bin}'", file=sys.stderr)
+        # Cleanup intermediate if requested
+        if pdf_success and not args.no_clean:
+            try:
+                output_path.unlink()
+            except OSError:
+                pass
+    print(f"Generated {output_path if (args.no_clean or not pdf_success) else '(cleaned)'} with {total_pages} pages. PDF={pdf_success} PDF_path={pdf_path if pdf_path else 'N/A'} HTML updated={updated}")
+    if args.pdf and not pdf_success:
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()

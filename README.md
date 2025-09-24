@@ -44,15 +44,41 @@ typst --version
 
 ### Basic Usage
 ```bash
-# Generate Typst from Org file
-python3 src/gen_typst.py examples/sample.org -o output.typ
+# Generate Typst from Org file (artifacts go into ./export by default)
+python3 src/gen_typst.py examples/sample.org
 
-# Compile to PDF with custom fonts
-typst compile --font-path assets/fonts --font-path assets/fonts/static output.typ output.pdf
+# Explicit output filename relative to export dir
+python3 src/gen_typst.py examples/sample.org -o deck.typ
 
-# Or use the convenient Makefile
+# Specify a different export directory
+python3 src/gen_typst.py examples/sample.org --export-dir build
+
+# Directly generate PDF (auto-compiles with fonts; cleans .typ by default)
+python3 src/gen_typst.py examples/sample.org --pdf
+
+# Keep the intermediate Typst file alongside the PDF
+python3 src/gen_typst.py examples/sample.org --pdf --no-clean
+
+# Custom PDF output name
+python3 src/gen_typst.py examples/sample.org --pdf --pdf-output presentation.pdf
+
+# Specify custom typst binary path
+python3 src/gen_typst.py examples/sample.org --pdf --typst-bin /usr/local/bin/typst
+
+# Manual compile to PDF (if you only produced .typ)
+typst compile --font-path assets/fonts --font-path assets/fonts/static export/deck.typ export/deck.pdf
+
+# Or use the Makefile targets
 make debug-overlay  # Build debug example
 ```
+
+#### Asset Path Semantics
+When exporting into an `export/` directory, any relative asset references in the Org file like:
+```
+[[file:assets/diagram.png]]
+:PDF: assets/spec.pdf
+```
+are automatically rewritten so the generated `deck.typ` can reside in `export/` while still finding the assets in the project root. You can also use absolute paths if preferred.
 
 ### Example Org File
 ```org

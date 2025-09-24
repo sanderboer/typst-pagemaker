@@ -42,7 +42,23 @@ pip install -r requirements.txt  # (if requirements exist)
 typst --version
 ```
 
-### Basic Usage
+### Basic Usage (New Multi-Command CLI)
+```bash
+# Build Typst from Org (org -> typst)
+python -m pagemaker.cli build examples/sample.org -o deck.typ
+
+# Build and produce PDF (cleans .typ by default)
+python -m pagemaker.cli pdf examples/sample.org --pdf-output deck.pdf
+
+# Emit IR JSON to stdout
+python -m pagemaker.cli ir examples/sample.org > ir.json
+
+# Validate IR (non-zero exit on error)
+python -m pagemaker.cli validate examples/sample.org
+```
+
+Legacy single-script usage (still supported, will be deprecated):
+
 ```bash
 # Generate Typst from Org file (artifacts go into ./export by default)
 python3 src/gen_typst.py examples/sample.org

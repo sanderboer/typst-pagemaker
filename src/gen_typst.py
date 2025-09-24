@@ -333,6 +333,11 @@ def adjust_asset_paths(ir, typst_dir: pathlib.Path):
 
 
 def main():
+    # NOTE: This legacy entrypoint will be deprecated. Prefer:
+    #   python -m pagemaker.cli build <org>
+    # or 'pdf', 'ir', 'validate' subcommands.
+    # For now we keep behavior for backward compatibility.
+
     ap = argparse.ArgumentParser()
     ap.add_argument('org', help='Input org file')
     ap.add_argument('-o','--output', default='deck.typ', help='Output Typst file (relative to export dir if provided)')

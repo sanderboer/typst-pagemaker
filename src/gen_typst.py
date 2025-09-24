@@ -333,79 +333,30 @@ def adjust_asset_paths(ir, typst_dir: pathlib.Path):
 
 
 def main():
-    # NOTE: This legacy entrypoint will be deprecated. Prefer:
-    #   python -m pagemaker.cli build <org>
-    # or 'pdf', 'ir', 'validate' subcommands.
-    # For now we keep behavior for backward compatibility.
-
+    # Thin compatibility shim. Prefer: python -m pagemaker.cli <subcommand>
+    import warnings, sys
+    warnings.warn("gen_typst.py is deprecated; use 'pagemaker build' or 'pagemaker pdf'", DeprecationWarning)
     ap = argparse.ArgumentParser()
-    ap.add_argument('org', help='Input org file')
-    ap.add_argument('-o','--output', default='deck.typ', help='Output Typst file (relative to export dir if provided)')
-    ap.add_argument('--ir', default=None, help='Write IR JSON to path (relative to export dir if provided)')
-    ap.add_argument('--update-html', default=None, help='Update HTML viewer page count placeholder (path relative to CWD, not export dir)')
-    ap.add_argument('--export-dir', default='export', help='Directory for build artifacts (created if missing)')
-    ap.add_argument('--no-clean', action='store_true', help='Keep intermediate Typst file (do not delete after PDF compile)')
-    ap.add_argument('--pdf', action='store_true', help='Also compile resulting Typst to PDF')
-    ap.add_argument('--pdf-output', default=None, help='PDF output filename (relative to export dir if not absolute). Defaults to <org-stem>.pdf')
-    ap.add_argument('--typst-bin', default='typst', help='Path to typst executable')
+    ap.add_argument('org')
+    ap.add_argument('-o','--output', default='deck.typ')
+    ap.add_argument('--ir')
+    ap.add_argument('--update-html')
+    ap.add_argument('--export-dir', default='export')
+    ap.add_argument('--pdf', action='store_true')
+    ap.add_argument('--pdf-output')
+    ap.add_argument('--typst-bin', default='typst')
+    ap.add_argument('--no-clean', action='store_true')
     args = ap.parse_args()
-
-    export_dir = pathlib.Path(args.export_dir)
-    export_dir.mkdir(parents=True, exist_ok=True)
-
-    # Normalize output paths relative to export dir
-    output_path = export_dir / args.output if not pathlib.Path(args.output).is_absolute() else pathlib.Path(args.output)
-    ir_path = None
-    if args.ir:
-        ir_path = export_dir / args.ir if not pathlib.Path(args.ir).is_absolute() else pathlib.Path(args.ir)
-
-    ir = parse_org(args.org)
-    # Adjust asset paths to be relative to the directory containing the Typst file
-    # This ensures references remain valid when compiling from within export dir.
-    adjust_asset_paths(ir, pathlib.Path(args.export_dir))
-    total_pages = len(ir['pages'])
-
-    if ir_path:
-        ir_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(ir_path,'w',encoding='utf-8') as f: json.dump(ir,f,indent=2)
-
-    typst_code = generate_typst(ir)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path,'w',encoding='utf-8') as f: f.write(typst_code)
-
-    updated = False
-    if args.update_html:
-        updated = update_html_total(pathlib.Path(args.update_html), total_pages)
-
-    pdf_path = None
-    pdf_success = False
+    # Map to cli behavior
+    from pagemaker.cli import cmd_build, cmd_pdf
+    class A: pass
+    a = A()
+    for k,v in vars(args).items(): setattr(a,k,v)
     if args.pdf:
-        # Determine PDF path
-        if args.pdf_output:
-            pdf_path = export_dir / args.pdf_output if not pathlib.Path(args.pdf_output).is_absolute() else pathlib.Path(args.pdf_output)
-        else:
-            org_stem = pathlib.Path(args.org).stem
-            pdf_path = export_dir / f"{org_stem}.pdf"
-        pdf_path.parent.mkdir(parents=True, exist_ok=True)
-        # Invoke typst compile
-        try:
-            cmd = [args.typst_bin, 'compile', '--font-path', 'assets/fonts', '--font-path', 'assets/fonts/static', str(output_path), str(pdf_path)]
-            res = subprocess.run(cmd, capture_output=True, text=True)
-            if res.returncode == 0:
-                pdf_success = True
-            else:
-                print(f"ERROR: Typst compile failed (exit {res.returncode}):\n{res.stderr}", file=sys.stderr)
-        except FileNotFoundError:
-            print(f"ERROR: typst binary not found at '{args.typst_bin}'", file=sys.stderr)
-        # Cleanup intermediate if requested
-        if pdf_success and not args.no_clean:
-            try:
-                output_path.unlink()
-            except OSError:
-                pass
-    print(f"Generated {output_path if (args.no_clean or not pdf_success) else '(cleaned)'} with {total_pages} pages. PDF={pdf_success} PDF_path={pdf_path if pdf_path else 'N/A'} HTML updated={updated}")
-    if args.pdf and not pdf_success:
-        sys.exit(1)
+        # Reuse pdf command
+        cmd_pdf(a)
+    else:
+        cmd_build(a)
 
 if __name__ == '__main__':
     main()

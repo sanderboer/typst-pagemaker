@@ -42,7 +42,36 @@ pip install -r requirements.txt  # (if requirements exist)
 typst --version
 ```
 
+### Installation (Editable)
+```bash
+pip install -e .
+# Now 'pagemaker' entry point is available
+pagemaker --help
+```
+
 ### Basic Usage (New Multi-Command CLI)
+
+#### Watch Mode
+Continuously rebuild Typst (and optionally PDF) when the source Org file changes.
+```
+# Rebuild typst on change
+pagemaker watch examples/sample.org --export-dir export
+
+# Build PDF on each change, keep intermediate .typ
+pagemaker watch examples/sample.org --pdf --no-clean --export-dir export
+
+# Single build (no loop) - useful for tests
+pagemaker watch examples/sample.org --once --export-dir export
+```
+Options:
+- `--interval <seconds>`: Polling interval (default 1.0)
+- `--pdf`: Also compile PDF each rebuild
+- `--pdf-output <file>`: Custom PDF filename
+- `--typst-bin <path>`: Path to `typst` binary
+- `--no-clean`: Keep the intermediate `.typ` after PDF build
+- `--update-html <path>`: Update existing HTML file's page count placeholder
+- `--once`: Perform exactly one build then exit
+
 ```bash
 # Build Typst from Org (org -> typst)
 python -m pagemaker.cli build examples/sample.org -o deck.typ
@@ -166,6 +195,30 @@ A101-pagemaker/
 - **GRID_DEBUG**: Show/hide debug grid lines
 
 ### Element Properties
+
+#### Validation Rules
+The `validate` subcommand parses Org -> IR, then enforces structural rules.
+Errors (fail the build):
+- Duplicate page IDs
+- Duplicate element IDs
+- Rectangle alpha outside 0.0–1.0
+- Area issues: non-positive dimensions or exceeding page grid bounds (when grid + area fully specified)
+
+Warnings (reported but do not fail):
+- Unknown element types (fallback treatment may change later)
+- Missing figure or PDF asset file (relative path that does not exist when validating)
+
+To escalate missing asset warnings into errors (e.g., for CI pipelines), use:
+```
+pagemaker validate --strict-assets examples/sample.org
+```
+This makes missing figure/pdf assets fail validation (non-zero exit code).
+
+Example:
+```
+pagemaker validate examples/sample.org
+```
+Exit code 0 means no errors (warnings may still appear).
 - **TYPE**: Element type (header, subheader, body, figure, pdf, rectangle)
 - **AREA**: Grid position and size (x, y, width, height)
 - **Z**: Stacking order (higher numbers appear on top)

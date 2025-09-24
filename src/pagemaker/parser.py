@@ -127,14 +127,15 @@ def parse_org(path):
 
     for raw in lines:
         line = raw.rstrip('\n')
-        if line.startswith('#+'):
+        line_stripped = line.lstrip()
+        if line_stripped.startswith('#+'):
             try:
-                k,v = line[2:].split(':',1)
+                k,v = line_stripped[2:].split(':',1)
                 meta[k.strip().upper()] = v.strip()
             except ValueError:
                 pass
             continue
-        m = HEADLINE_RE.match(line)
+        m = HEADLINE_RE.match(line_stripped)
         if m and not prop_mode:
             level = len(m.group('stars'))
             title = m.group('title').strip()
@@ -145,9 +146,9 @@ def parse_org(path):
             elif level >= 2 and current_page:
                 current_element = OrgElement(id_=slugify(title), type_='body', title=title, props={}, area=None)
             continue
-        if PROP_BEGIN_RE.match(line):
+        if PROP_BEGIN_RE.match(line_stripped):
             prop_mode = True; prop_buf = {}; continue
-        if PROP_END_RE.match(line):
+        if PROP_END_RE.match(line_stripped):
             prop_mode = False
             if current_element:
                 current_element.props.update(prop_buf)
@@ -164,14 +165,14 @@ def parse_org(path):
                 current_page.props.update(prop_buf)
             prop_buf = {}; continue
         if prop_mode:
-            if ':' in line:
-                parts = line.split(':', 2)
+            if ':' in line_stripped:
+                parts = line_stripped.split(':', 2)
                 if len(parts) >= 3:
                     key = parts[1].strip().upper(); val = parts[2].strip()
                     if key: prop_buf[key] = val
             continue
         if current_element is not None:
-            content_buf.append(line)
+            content_buf.append(line_stripped)
     close_element()
 
     ir = { 'meta': meta, 'pages': [p.to_ir(meta_defaults(meta)) for p in pages] }

@@ -86,34 +86,14 @@ python -m pagemaker.cli ir examples/sample.org > ir.json
 python -m pagemaker.cli validate examples/sample.org
 ```
 
-Legacy single-script usage (still supported, will be deprecated):
 
+Manual Typst compile (if you only produced .typ):
 ```bash
-# Generate Typst from Org file (artifacts go into ./export by default)
-python3 src/gen_typst.py examples/sample.org
+typst compile --root . --font-path assets/fonts --font-path assets/fonts/static export/deck.typ export/deck.pdf
+```
 
-# Explicit output filename relative to export dir
-python3 src/gen_typst.py examples/sample.org -o deck.typ
-
-# Specify a different export directory
-python3 src/gen_typst.py examples/sample.org --export-dir build
-
-# Directly generate PDF (auto-compiles with fonts; cleans .typ by default)
-python3 src/gen_typst.py examples/sample.org --pdf
-
-# Keep the intermediate Typst file alongside the PDF
-python3 src/gen_typst.py examples/sample.org --pdf --no-clean
-
-# Custom PDF output name
-python3 src/gen_typst.py examples/sample.org --pdf --pdf-output presentation.pdf
-
-# Specify custom typst binary path
-python3 src/gen_typst.py examples/sample.org --pdf --typst-bin /usr/local/bin/typst
-
-# Manual compile to PDF (if you only produced .typ)
-typst compile --font-path assets/fonts --font-path assets/fonts/static export/deck.typ export/deck.pdf
-
-# Or use the Makefile targets
+Or use the Makefile targets:
+```bash
 make debug-overlay  # Build debug example
 ```
 
@@ -170,7 +150,7 @@ Welcome to A101 PageMaker
 ```
 A101-pagemaker/
 ├── src/                    # Source code
-│   └── gen_typst.py       # Main conversion script
+│   ├── pagemaker/         # Package (parser, generator, CLI)
 ├── bin/                   # Build tools and scripts
 │   ├── Makefile          # Build automation
 │   └── debug_test_fonts.sh
@@ -265,10 +245,12 @@ Include high-quality PDF pages:
 
 ### Running Tests
 ```bash
-cd tests
-python3 -m pytest unit/
-python3 -m pytest integration/
+make test
+# or
+python -m unittest discover tests -v
 ```
+
+- The suite includes an optional PDF compile test that runs `pagemaker pdf` end-to-end and compiles via Typst. It automatically skips if `typst` or the `@preview/muchpdf` package are unavailable on your system.
 
 ### Contributing
 1. Fork the repository

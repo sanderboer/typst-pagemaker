@@ -5,22 +5,23 @@ TYP?=deck.typ
 PDF?=deck.pdf
 HTML?=index.html
 IR?=deck.json
-GEN=../src/gen_typst.py
+# Legacy script retired; use CLI
 TYPST?=typst
 PY?=python3
-
+ 
 .PHONY: all build pdf typst ir watch clean assets check debug-overlay
-
+ 
 all: build
-
+ 
 build: $(PDF)
 	@echo 'Build complete -> $(PDF)'
+ 
+$(TYP): $(ORG)
+	PYTHONPATH=../src $(PY) -m pagemaker.cli build $(ORG) -o $(TYP) --ir $(IR) --export-dir . --update-html $(HTML)
+ 
+$(PDF): $(ORG)
+	PYTHONPATH=../src $(PY) -m pagemaker.cli pdf $(ORG) --export-dir . --pdf-output $(PDF)
 
-$(TYP): $(ORG) $(GEN)
-	$(PY) $(GEN) $(ORG) -o $(TYP) --ir $(IR) --update-html $(HTML)
-
-$(PDF): $(TYP)
-	$(TYPST) compile --font-path ../assets/fonts --font-path ../assets/fonts/static $(TYP) $(PDF)
 
 assets:
 	@refs=$$(grep -E '^(\\[\\[file:|:PDF:)' $(ORG) | sed -E -e 's/^\\[\\[file:([^]]*)\\]\\].*/\1/' -e 's/^:PDF:[[:space:]]*//'); \
@@ -30,11 +31,11 @@ assets:
 	done; \
 	if [ $$missing -eq 0 ]; then echo 'All assets present'; else echo 'Asset check failed'; exit 1; fi
 
-ir: $(ORG) $(GEN)
-	$(PY) $(GEN) $(ORG) -o $(TYP) --ir $(IR) --update-html $(HTML)
+ir: $(ORG)
+	PYTHONPATH=../src $(PY) -m pagemaker.cli build $(ORG) -o $(TYP) --ir $(IR) --export-dir . --update-html $(HTML)
 
 watch: build
-	$(PY) watch.py --org $(ORG) --pdf $(PDF) --typ $(TYP) --html $(HTML)
+	PYTHONPATH=../src $(PY) -m pagemaker.cli watch $(ORG) --pdf --pdf-output $(PDF) --export-dir .
 
 clean:
 	rm -f $(TYP) $(PDF) $(IR)
@@ -43,9 +44,8 @@ check: assets build
 
 debug-overlay:
 	@echo "Building debug overlay test with custom fonts..."
-	cd .. && $(PY) src/gen_typst.py examples/debug_overlay_test.org -o debug_overlay_test.typ
-	cd .. && $(TYPST) compile --font-path assets/fonts --font-path assets/fonts/static debug_overlay_test.typ debug_overlay_test.pdf
-	@echo "Debug overlay test complete -> ../debug_overlay_test.pdf"
+	cd .. && PYTHONPATH=src $(PY) -m pagemaker.cli pdf examples/debug_overlay.org --export-dir . --pdf-output debug_overlay.pdf --no-clean
+	@echo "Debug overlay test complete -> ../debug_overlay.pdf"
 
 # Test targets
 .PHONY: test test-unit test-integration test-verbose

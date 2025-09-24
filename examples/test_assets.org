@@ -112,7 +112,7 @@ Technical Architecture Overview
 :PROPERTIES:
 :TYPE: pdf
 :AREA: 1,2,8,6
-:PDF: assets/test-pdfs/test-exploded-view.pdf
+:PDF: assets/test-pdfs/test-plan.pdf
 :PAGE: 1
 :SCALE: 0.8
 :END:

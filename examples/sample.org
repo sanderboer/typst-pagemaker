@@ -39,7 +39,7 @@ Scalable. Observable. Secure.
 :PROPERTIES:
 :TYPE: pdf
 :AREA: 7,1,6,6
-:PDF: assets/spec.pdf
+:PDF: assets/test-pdfs/test-plan.pdf
 :PAGE: 1
 :SCALE: 1.0
 :END:
@@ -67,8 +67,8 @@ The system is composed of modular services communicating over an event bus. Each
 :PROPERTIES:
 :TYPE: pdf
 :AREA: 8,3,5,4
-:PDF: assets/spec.pdf
-:PAGE: 2
+:PDF: assets/test-pdfs/test-plan.pdf
+:PAGE: 1
 :SCALE: 0.9
 :END:
 (Module dependency graph)

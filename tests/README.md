@@ -14,7 +14,7 @@ tests/
 │   └── edge_cases.org  # Edge cases and error conditions
 ├── unit/               # Unit tests
 │   ├── __init__.py
-│   ├── test_gen_typst.py    # Core function tests
+│   ├── test_pagemaker_api.py    # Core function tests (using pagemaker API)
 │   └── test_edge_cases.py   # Edge case and error handling
 └── integration/        # Integration tests
     ├── __init__.py
@@ -47,7 +47,7 @@ python -m unittest discover tests/integration -v
 
 ### Individual Test Files
 ```bash
-python -m unittest tests.unit.test_gen_typst -v
+python -m unittest tests.unit.test_pagemaker_api -v
 python -m unittest tests.integration.test_pipeline -v
 ```
 
@@ -99,12 +99,13 @@ Various edge cases:
 ## Adding New Tests
 
 ### Unit Tests
-Add to `tests/unit/test_gen_typst.py` or create new test files following the pattern:
+Add to `tests/unit/test_pagemaker_api.py` or create new test files following the pattern:
 
 ```python
 class TestNewFunction(unittest.TestCase):
     def test_basic_case(self):
-        result = gen_typst.new_function("input")
+        import pagemaker as pm
+        result = pm.new_function("input")
         self.assertEqual(result, expected_output)
 ```
 
@@ -114,8 +115,9 @@ Add to `tests/integration/test_pipeline.py` for full pipeline tests:
 ```python
 def test_new_feature(self):
     org_path = self.fixtures_path / "new_feature.org"
-    ir = gen_typst.parse_org(str(org_path))
-    typst_code = gen_typst.generate_typst(ir)
+    import pagemaker as pm
+    ir = pm.parse_org(str(org_path))
+    typst_code = pm.generate_typst(ir)
     # Assert expected behavior
 ```
 

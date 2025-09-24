@@ -8,9 +8,6 @@ Subcommands:
   validate  parse and validate IR
   watch     rebuild on changes (polling)
 
-Legacy single-script interface still exists in gen_typst.py and will be
-deprecated in favor of `python -m pagemaker.cli <subcommand>` (or future
-installed entry point).
 """
 import argparse, pathlib, json, sys, subprocess, os, time, hashlib
 from . import parse_org, generate_typst, adjust_asset_paths, update_html_total

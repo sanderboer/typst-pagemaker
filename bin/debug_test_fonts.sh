@@ -6,36 +6,27 @@ echo "======================================="
 
 # Clean up previous files
 echo "🧹 Cleaning up previous files..."
-rm -f debug_overlay_test.typ debug_overlay_test.pdf
+rm -f debug_overlay.typ debug_overlay.pdf
 
-# Generate Typst file
-echo "📝 Generating Typst file..."
-python gen_typst.py debug_overlay_test.org -o debug_overlay_test.typ
+# Build PDF using pagemaker CLI with custom fonts
+echo "📝 Building PDF via pagemaker CLI..."
+# Ensure we run from repo root for assets/fonts
+cd "$(dirname "$0")/.."
+PYTHONPATH=src python3 -m pagemaker.cli pdf examples/debug_overlay.org -o debug_overlay.typ --export-dir . --pdf-output debug_overlay.pdf --no-clean
 
-# Check if generation was successful
 if [ $? -ne 0 ]; then
-    echo "❌ Failed to generate Typst file"
-    exit 1
-fi
-
-# Compile with custom fonts
-echo "🔤 Compiling with custom Manrope fonts..."
-typst compile --font-path assets/fonts --font-path assets/fonts/static debug_overlay_test.typ debug_overlay_test.pdf
-
-# Check if compilation was successful
-if [ $? -ne 0 ]; then
-    echo "❌ Failed to compile PDF"
+    echo "❌ Failed to build PDF"
     exit 1
 fi
 
 # Show results
 echo "✅ Debug overlay test complete!"
-echo "📄 Generated: debug_overlay_test.pdf ($(du -h debug_overlay_test.pdf | cut -f1))"
+echo "📄 Generated: debug_overlay.pdf ($(du -h debug_overlay.pdf | cut -f1))"
 echo "🎯 Font verification:"
-grep -c "text(font: \"Manrope\"" debug_overlay_test.typ | xargs echo "   - Manrope font references:"
+grep -c "text(font: \"Manrope\"" debug_overlay.typ | xargs echo "   - Manrope font references:"
 
 echo ""
-echo "🚀 Open debug_overlay_test.pdf to see:"
+echo "🚀 Open debug_overlay.pdf to see:"
 echo "   - Grid debug overlay"
 echo "   - Custom Manrope typography"
 echo "   - Rectangle overlays with z-ordering"

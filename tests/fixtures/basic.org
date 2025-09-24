@@ -1,0 +1,36 @@
+#+TITLE: Basic Test
+#+AUTHOR: Test User
+#+DATE: 2025-01-01
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+#+THEME: light
+
+* First Slide
+:PROPERTIES:
+:ID: slide1
+:END:
+
+** Main Title
+:PROPERTIES:
+:TYPE: header
+:AREA: 1,1,12,2
+:END:
+Basic Test Slide
+
+** Body Text
+:PROPERTIES:
+:TYPE: body
+:AREA: 1,3,8,4
+:END:
+This is some body text content
+with multiple lines.
+
+** Test Image
+:PROPERTIES:
+:TYPE: figure
+:AREA: 9,3,3,4
+:FIT: contain
+:CAPTION: Test image
+:END:
+[[file:assets/test-images/landscapes/landscape-1.jpg]]

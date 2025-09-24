@@ -1,0 +1,44 @@
+#+TITLE: Rectangle Test
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+
+* Rectangle Demo
+:PROPERTIES:
+:ID: rect_demo
+:END:
+
+** Blue Background
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 1,1,12,8
+:COLOR: #3498db
+:ALPHA: 0.3
+:Z: 10
+:END:
+
+** Red Overlay
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 2,2,4,3
+:COLOR: #e74c3c
+:ALPHA: 0.7
+:Z: 50
+:END:
+
+** Title on Top
+:PROPERTIES:
+:TYPE: header
+:AREA: 3,3,6,2
+:Z: 100
+:END:
+Rectangle Layering Demo
+
+** Green Accent
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 8,5,3,2
+:COLOR: #2ecc71
+:ALPHA: 0.5
+:Z: 20
+:END:

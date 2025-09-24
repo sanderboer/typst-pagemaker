@@ -1,0 +1,57 @@
+#+TITLE: Demo Presentation
+#+AUTHOR: Demo User
+#+DATE: 2025-09-24  
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+#+THEME: light
+
+* Welcome
+:PROPERTIES:
+:ID: welcome
+:END:
+
+** Title
+:PROPERTIES:
+:TYPE: header
+:AREA: 1,1,12,2
+:END:
+Image Fit Demo
+
+** Landscape with contain
+:PROPERTIES:
+:TYPE: figure
+:AREA: 1,3,6,3
+:FIT: contain
+:CAPTION: Landscape with fit: contain
+:END:
+[[file:assets/test-images/landscapes/landscape-1.jpg]]
+
+** Landscape with cover
+:PROPERTIES:
+:TYPE: figure
+:AREA: 7,3,5,3
+:FIT: cover  
+:CAPTION: Landscape with fit: cover
+:END:
+[[file:assets/test-images/landscapes/landscape-1.jpg]]
+
+** Technical PDF
+:PROPERTIES:
+:TYPE: pdf
+:AREA: 1,6,6,2
+:PDF: assets/test-pdfs/test-plan.pdf
+:PAGE: 1
+:SCALE: 1.0
+:END:
+(Vector PDF via muchpdf)
+
+** Notes
+:PROPERTIES:
+:TYPE: body
+:AREA: 7,6,5,2
+:END:
+This demonstrates the new image fit options:
+- contain: fits fully within bounds (default)  
+- cover: fills area completely, may crop
+- stretch: stretches to fill exactly, may distort

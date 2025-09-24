@@ -1,0 +1,74 @@
+#+TITLE: Demo Deck
+#+AUTHOR: Your Name
+#+DATE: 2025-09-24
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+#+THEME: light
+
+* Introduction
+:PROPERTIES:
+:ID: intro
+:PAGE_SIZE: A4
+:ORIENTATION: landscape
+:GRID: 12x8
+:END:
+** Title
+:PROPERTIES:
+:TYPE: header
+:AREA: 1,2,12,2
+:END:
+Unified Architecture Platform
+
+** Subtitle
+:PROPERTIES:
+:TYPE: subheader
+:AREA: 2,4,10,1
+:END:
+Scalable. Observable. Secure.
+
+** Architecture Diagram
+:PROPERTIES:
+:TYPE: figure
+:AREA: 1,1,6,5
+:CAPTION: High-level data flow
+:END:
+[[file:assets/diagram.png]]
+
+** Embedded Spec PDF
+:PROPERTIES:
+:TYPE: pdf
+:AREA: 7,1,6,6
+:PDF: assets/spec.pdf
+:PAGE: 1
+:SCALE: 1.0
+:END:
+(External PDF spec excerpt)
+
+* Architecture Details
+:PROPERTIES:
+:ID: arch-details
+:END:
+** Section Header
+:PROPERTIES:
+:TYPE: header
+:AREA: 1,1,12,2
+:END:
+Core Components
+
+** Text Block
+:PROPERTIES:
+:TYPE: body
+:AREA: 1,3,7,4
+:END:
+The system is composed of modular services communicating over an event bus. Each module is independently deployable and observable.
+
+** PDF Diagram (Page 2)
+:PROPERTIES:
+:TYPE: pdf
+:AREA: 8,3,5,4
+:PDF: assets/spec.pdf
+:PAGE: 2
+:SCALE: 0.9
+:END:
+(Module dependency graph)

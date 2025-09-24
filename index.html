@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Deck</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+html,body {margin:0;height:100%;background:#111;color:#eee;font:14px system-ui;-webkit-font-smoothing:antialiased;}
+#viewer {position:absolute;inset:0;border:0;width:100%;height:100%;}
+.nav {position:fixed;top:0;left:0;right:0;display:flex;gap:.5rem;padding:.4rem .6rem;background:rgba(0,0,0,.4);backdrop-filter:blur(6px);align-items:center;font-size:.85rem;}
+button {background:#222;color:#eee;border:1px solid #444;padding:.3rem .7rem;cursor:pointer;border-radius:4px;}
+button:disabled {opacity:.4;cursor:not-allowed;}
+#curr {min-width:2ch;text-align:right;}
+</style>
+</head>
+<body>
+<iframe id="viewer" src="deck.pdf#page=1"></iframe>
+<div class="nav">
+  <button id="prev" title="Previous (←)">Prev</button>
+  <span id="curr">1</span>/<span id="total" id="total">?</span>
+  <button id="next" title="Next (→)">Next</button>
+</div>
+<script>
+// PAGE_COUNT_PLACEHOLDER
+let total = 2; // generator will replace this line
+let p = 1;
+const frame = document.getElementById('viewer');
+function go(n){
+  p = Math.max(1, total? Math.min(n,total): n);
+  frame.src = 'deck.pdf#page=' + p;
+  document.getElementById('curr').textContent = p;
+  location.hash = 'p='+p;
+}
+function delta(d){ go(p + d); }
+window.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight' || e.key==='PageDown' || e.key===' ') { delta(1); }
+  if(e.key==='ArrowLeft'  || e.key==='PageUp' || e.key==='Backspace') { delta(-1); }
+});
+window.addEventListener('hashchange', ()=>{
+  const m = location.hash.match(/p=(\d+)/); if(m) go(+m[1]);
+});
+if(location.hash){ const m = location.hash.match(/p=(\d+)/); if(m) p=+m[1]; }
+go(p);
+</script>
+</body>
+</html>

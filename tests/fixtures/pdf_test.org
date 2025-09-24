@@ -1,0 +1,26 @@
+#+TITLE: PDF Test
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+
+* PDF Test Slide
+:PROPERTIES:
+:ID: pdf_slide
+:END:
+
+** PDF Element
+:PROPERTIES:
+:TYPE: pdf
+:AREA: 1,1,6,4
+:PDF: assets/test-pdfs/test-plan.pdf
+:PAGE: 1
+:SCALE: 1.5
+:END:
+PDF content here
+
+** Text with PDF
+:PROPERTIES:
+:TYPE: body
+:AREA: 7,1,5,4
+:END:
+This slide contains a PDF element.

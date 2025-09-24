@@ -1,0 +1,39 @@
+#+TITLE: Edge Cases
+#+GRID: 4x4
+
+* Missing Properties
+:PROPERTIES:
+:ID: edge1
+:END:
+
+** No Area Element
+:PROPERTIES:
+:TYPE: body
+:END:
+This element has no AREA property
+
+** Invalid Area Format
+:PROPERTIES:
+:TYPE: body
+:AREA: invalid,area,format
+:END:
+Invalid area format
+
+* Empty Content
+:PROPERTIES:
+:ID: edge2
+:END:
+
+** Empty Body
+:PROPERTIES:
+:TYPE: body
+:AREA: 1,1,2,2
+:END:
+
+** Figure Without Image
+:PROPERTIES:
+:TYPE: figure
+:AREA: 3,1,1,2
+:FIT: cover
+:END:
+No image link here

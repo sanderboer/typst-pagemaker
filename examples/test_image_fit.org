@@ -1,0 +1,90 @@
+#+TITLE: Image Fit Test
+#+AUTHOR: Demo User  
+#+DATE: 2025-09-24
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+#+THEME: light
+#+GRID_DEBUG: true
+
+* Image Fit Comparison
+:PROPERTIES:
+:ID: fit-test
+:END:
+
+** Page Title
+:PROPERTIES:
+:TYPE: header
+:AREA: 1,1,12,1
+:END:
+Image Fit Options: contain vs cover vs stretch
+
+** Contain - Default
+:PROPERTIES:
+:TYPE: figure
+:AREA: 1,2,4,3
+:FIT: contain
+:CAPTION: fit: contain (default)
+:END:
+[[file:assets/test-images/landscapes/landscape-1.jpg]]
+
+** Cover - Fill Area
+:PROPERTIES:
+:TYPE: figure
+:AREA: 5,2,4,3
+:FIT: cover
+:CAPTION: fit: cover (crops to fill)
+:END:
+[[file:assets/test-images/landscapes/landscape-1.jpg]]
+
+** Stretch - Distort
+:PROPERTIES:
+:TYPE: figure
+:AREA: 9,2,4,3
+:FIT: stretch
+:CAPTION: fit: stretch (may distort)
+:END:
+[[file:assets/test-images/landscapes/landscape-1.jpg]]
+
+** Different Image Ratios
+:PROPERTIES:
+:TYPE: subheader
+:AREA: 1,5,12,1
+:END:
+Testing with different aspect ratios
+
+** Square-ish Kitten (contain)
+:PROPERTIES:
+:TYPE: figure
+:AREA: 1,6,3,2
+:FIT: contain
+:CAPTION: kitten - contain
+:END:
+[[file:assets/test-images/kittens/kitten-2.jpg]]
+
+** Square-ish Kitten (cover)  
+:PROPERTIES:
+:TYPE: figure
+:AREA: 4,6,3,2
+:FIT: cover
+:CAPTION: kitten - cover
+:END:
+[[file:assets/test-images/kittens/kitten-2.jpg]]
+
+** Wide Ocean (contain)
+:PROPERTIES:
+:TYPE: figure
+:AREA: 7,6,3,2
+:FIT: contain  
+:CAPTION: ocean - contain
+:END:
+[[file:assets/test-images/ocean/ocean-3.jpg]]
+
+** Wide Ocean (cover)
+:PROPERTIES:
+:TYPE: figure
+:AREA: 10,6,3,2
+:FIT: cover
+:CAPTION: ocean - cover
+:END:
+[[file:assets/test-images/ocean/ocean-3.jpg]]

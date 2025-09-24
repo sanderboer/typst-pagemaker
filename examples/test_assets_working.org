@@ -1,0 +1,128 @@
+#+TITLE: Test Presentation with Assets
+#+AUTHOR: Demo User
+#+DATE: 2025-09-24
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+#+THEME: light
+#+GRID_DEBUG: true
+
+* Welcome Page
+:PROPERTIES:
+:ID: welcome
+:PAGE_SIZE: A4
+:ORIENTATION: landscape
+:GRID: 12x8
+:END:
+
+** Main Title
+:PROPERTIES:
+:TYPE: header
+:AREA: 1,1,12,2
+:END:
+Asset Gallery Test Deck
+
+** Subtitle
+:PROPERTIES:
+:TYPE: subheader
+:AREA: 1,3,12,1
+:END:
+Demonstrating Images, PDFs, and Text Layout
+
+** Hero Image
+:PROPERTIES:
+:TYPE: figure
+:AREA: 1,4,6,4
+:CAPTION: Beautiful landscape scenery
+:END:
+[[file:assets/test-images/landscapes/landscape-1.jpg]]
+
+** Welcome Text
+:PROPERTIES:
+:TYPE: body
+:AREA: 7,4,5,4
+:END:
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.
+
+* Content Gallery
+:PROPERTIES:
+:ID: gallery
+:END:
+
+** Section Header
+:PROPERTIES:
+:TYPE: header
+:AREA: 1,1,12,1
+:END:
+Mixed Content Layout
+
+** Kitten Corner
+:PROPERTIES:
+:TYPE: figure
+:AREA: 1,2,4,3
+:CAPTION: Adorable kitten photo
+:END:
+[[file:assets/test-images/kittens/kitten-2.jpg]]
+
+** Ocean View
+:PROPERTIES:
+:TYPE: figure
+:AREA: 5,2,4,3
+:CAPTION: Serene ocean waves
+:END:
+[[file:assets/test-images/ocean/ocean-3.jpg]]
+
+** Description Text
+:PROPERTIES:
+:TYPE: body
+:AREA: 9,2,3,3
+:END:
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.
+
+** Technical Document
+:PROPERTIES:
+:TYPE: pdf
+:AREA: 1,5,6,3
+:PDF: assets/test-pdfs/test-plan.pdf
+:PAGE: 1
+:SCALE: 1.0
+:END:
+(Technical specification document)
+
+** Detail Text
+:PROPERTIES:
+:TYPE: body
+:AREA: 7,5,5,3
+:END:
+Sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam.
+
+* Technical Deep Dive
+:PROPERTIES:
+:ID: technical
+:END:
+
+** Deep Dive Header
+:PROPERTIES:
+:TYPE: header
+:AREA: 1,1,12,1
+:END:
+Technical Architecture Overview
+
+** Working PDF Example
+:PROPERTIES:
+:TYPE: pdf
+:AREA: 1,2,8,6
+:PDF: assets/test-pdfs/test-plan.pdf
+:PAGE: 1
+:SCALE: 0.8
+:END:
+(Vector PDF embedded via muchpdf)
+
+** Implementation Notes
+:PROPERTIES:
+:TYPE: body
+:AREA: 9,2,3,6
+:END:
+Eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.
+
+Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.

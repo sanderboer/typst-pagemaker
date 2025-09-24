@@ -1,0 +1,130 @@
+#+TITLE: Debug Grid with Rectangle Overlay Test
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+#+GRID_DEBUG: true
+
+* Debug Grid Rectangle Overlay Test
+:PROPERTIES:
+:ID: debug_test
+:END:
+
+** Background Rectangle
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 2,2,8,5
+:COLOR: #FF6B6B
+:ALPHA: 0.3
+:Z: 10
+:END:
+
+** Main Text Block
+:PROPERTIES:
+:TYPE: body
+:AREA: 3,3,6,3
+:Z: 50
+:END:
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt.
+
+** Overlay Rectangle
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 4,4,4,2
+:COLOR: #4ECDC4
+:ALPHA: 0.5
+:Z: 100
+:END:
+
+** Title Header
+:PROPERTIES:
+:TYPE: header
+:AREA: 2,1,8,1
+:Z: 200
+:END:
+Grid Debug & Rectangle Overlay Demo
+
+* Image with Rectangle Overlay Test
+:PROPERTIES:
+:ID: image_test
+:END:
+
+** Background Image
+:PROPERTIES:
+:TYPE: figure
+:AREA: 1,1,12,8
+:FIT: cover
+:Z: 5
+:END:
+[[file:assets/test-images/landscapes/landscape-1.jpg]]
+
+** Semi-transparent Purple Overlay
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 3,2,6,4
+:COLOR: #9B59B6
+:ALPHA: 0.4
+:Z: 50
+:END:
+
+** Image Title
+:PROPERTIES:
+:TYPE: header
+:AREA: 4,3,4,1
+:Z: 100
+:END:
+Landscape Demo
+
+** Description Text
+:PROPERTIES:
+:TYPE: body
+:AREA: 4,4,4,2
+:Z: 100
+:END:
+This demonstrates a full-grid background image with semi-transparent rectangle overlays and text elements positioned on top with proper z-ordering.
+
+** Corner Accent
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 10,6,2,2
+:COLOR: #E74C3C
+:ALPHA: 0.6
+:Z: 75
+:END:
+
+* Lorem Ipsum Example Page
+:PROPERTIES:
+:ID: lorem_example
+:END:
+
+** Full Page Background
+:PROPERTIES:
+:TYPE: figure
+:AREA: 1,1,12,8
+:FIT: cover
+:Z: 1
+:END:
+[[file:assets/test-images/landscapes/landscape-1.jpg]]
+
+** Main Headline
+:PROPERTIES:
+:TYPE: header
+:AREA: 4,1,4,1
+:Z: 100
+:END:
+Lorem Ipsum Example
+
+** Subheader  
+:PROPERTIES:
+:TYPE: subheader
+:AREA: 4,2,4,1
+:Z: 100
+:END:
+what a great test
+
+** Text Block Grid
+:PROPERTIES:
+:TYPE: body
+:AREA: 2,3,8,5
+:Z: 50
+:END:
+This is a simple test with just a few words to see if the text displays properly.

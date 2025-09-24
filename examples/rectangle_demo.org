@@ -1,0 +1,284 @@
+#+TITLE: Rectangle Layering Demo
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 16x10
+#+GRID_DEBUG: false
+
+* Page 1: Background Layers & Text Overlay Demo
+:PROPERTIES:
+:ID: bg_demo
+:END:
+
+** Sky Blue Background
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 1,1,16,10
+:COLOR: #87CEEB
+:ALPHA: 0.4
+:Z: 5
+:END:
+
+** Left Panel Accent
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 1,1,5,10
+:COLOR: #4169E1
+:ALPHA: 0.2
+:Z: 10
+:END:
+
+** Main Title
+:PROPERTIES:
+:TYPE: header
+:AREA: 6,2,8,2
+:Z: 100
+:END:
+Lorem Ipsum Presentation
+
+** Introduction Text
+:PROPERTIES:
+:TYPE: body
+:AREA: 6,4,8,3
+:Z: 100
+:END:
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+** Semi-transparent Overlay
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 8,5,6,4
+:COLOR: #FF6347
+:ALPHA: 0.15
+:Z: 150
+:END:
+
+** Overlay Text
+:PROPERTIES:
+:TYPE: body
+:AREA: 9,6,4,2
+:Z: 200
+:END:
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.
+
+* Page 2: Multiple Layer Composition
+:PROPERTIES:
+:ID: multi_layer
+:END:
+
+** Base Layer - Warm Background
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 1,1,16,10
+:COLOR: #FFF8DC
+:ALPHA: 1.0
+:Z: 1
+:END:
+
+** Left Column Background
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 2,2,6,8
+:COLOR: #E6E6FA
+:ALPHA: 0.8
+:Z: 10
+:END:
+
+** Right Column Background
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 10,2,6,8
+:COLOR: #F0F8FF
+:ALPHA: 0.8
+:Z: 10
+:END:
+
+** Left Column Header
+:PROPERTIES:
+:TYPE: subheader
+:AREA: 2,2,6,1
+:Z: 100
+:END:
+Classical Literature
+
+** Left Column Text
+:PROPERTIES:
+:TYPE: body
+:AREA: 2,3,6,4
+:Z: 100
+:END:
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor. Cras elementum ultrices diam. Maecenas ligula massa, varius a, semper congue, euismod non, mi.
+
+** Right Column Header
+:PROPERTIES:
+:TYPE: subheader
+:AREA: 10,2,6,1
+:Z: 100
+:END:
+Modern Applications
+
+** Right Column Text
+:PROPERTIES:
+:TYPE: body
+:AREA: 10,3,6,4
+:Z: 100
+:END:
+Proin porttitor, orci nec nonummy molestie, enim est eleifend mi, non fermentum diam nisl sit amet erat. Duis semper. Duis arcu massa, scelerisque vitae, consequat in, pretium a, enim.
+
+** Highlight Box Under Text
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 3,7,4,2
+:COLOR: #FFD700
+:ALPHA: 0.3
+:Z: 50
+:END:
+
+** Highlighted Quote
+:PROPERTIES:
+:TYPE: body
+:AREA: 3,7,4,2
+:Z: 100
+:END:
+"Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas."
+
+** Semi-transparent Overlay Bar
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 1,9,16,1
+:COLOR: #32CD32
+:ALPHA: 0.25
+:Z: 150
+:END:
+
+** Footer Text
+:PROPERTIES:
+:TYPE: body
+:AREA: 2,9,14,1
+:Z: 200
+:END:
+Vestibulum tortor quam, feugiat vitae, ultricies eget, tempor sit amet, ante. Donec eu libero sit amet quam egestas semper.
+
+* Page 3: Complex Layering with Overlapping Elements
+:PROPERTIES:
+:ID: complex_demo
+:END:
+
+** Background Gradient Simulation - Layer 1
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 1,1,16,4
+:COLOR: #191970
+:ALPHA: 0.8
+:Z: 5
+:END:
+
+** Background Gradient Simulation - Layer 2
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 1,4,16,3
+:COLOR: #483D8B
+:ALPHA: 0.6
+:Z: 6
+:END:
+
+** Background Gradient Simulation - Layer 3
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 1,7,16,3
+:COLOR: #9370DB
+:ALPHA: 0.4
+:Z: 7
+:END:
+
+** Main Title Card Background
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 4,3,10,4
+:COLOR: #FFFFFF
+:ALPHA: 0.9
+:Z: 50
+:END:
+
+** Main Title
+:PROPERTIES:
+:TYPE: header
+:AREA: 5,4,8,2
+:Z: 100
+:END:
+Advanced Typography
+
+** Subtitle
+:PROPERTIES:
+:TYPE: body
+:AREA: 5,6,8,1
+:Z: 100
+:END:
+Demonstrating layered design principles with lorem ipsum
+
+** Left Accent Box
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 1,8,4,2
+:COLOR: #FF4500
+:ALPHA: 0.7
+:Z: 80
+:END:
+
+** Left Accent Text
+:PROPERTIES:
+:TYPE: body
+:AREA: 1,8,4,2
+:Z: 150
+:END:
+Vivamus magna justo, lacinia eget, consectetur sed, convallis at, tellus.
+
+** Right Info Panel
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 13,8,3,2
+:COLOR: #20B2AA
+:ALPHA: 0.6
+:Z: 80
+:END:
+
+** Right Info Text
+:PROPERTIES:
+:TYPE: body
+:AREA: 13,8,3,2
+:Z: 150
+:END:
+Sed cursus turpis a purus aliquam fermentum.
+
+** Central Overlay
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 7,7,4,2
+:COLOR: #DC143C
+:ALPHA: 0.2
+:Z: 200
+:END:
+
+** Central Overlay Text
+:PROPERTIES:
+:TYPE: subheader
+:AREA: 7,7,4,2
+:Z: 300
+:END:
+Key Insight
+
+** Bottom Banner
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: 1,10,16,1
+:COLOR: #000000
+:ALPHA: 0.8
+:Z: 400
+:END:
+
+** Bottom Banner Text
+:PROPERTIES:
+:TYPE: body
+:AREA: 2,10,14,1
+:Z: 500
+:END:
+Fusce convallis metus id felis luctus adipiscing. Pellentesque egestas, neque sit amet convallis pulvinar.

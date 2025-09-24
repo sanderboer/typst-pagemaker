@@ -6,7 +6,7 @@ A powerful presentation generator that converts Org-mode documents into professi
 
 ### Core Functionality
 - **Org-mode to Typst conversion**: Seamless conversion of structured Org documents
-- **Grid-based positioning**: Precise element placement using customizable grids (e.g., 12x8)
+- **Grid-based positioning**: Precise element placement using customizable grids (e.g., 12x8) with A1-style areas
 - **Multiple element types**: Headers, subheaders, body text, images, PDFs, and colored rectangles
 - **Z-order layering**: Complete control over element stacking and overlay relationships
 - **Custom typography**: Built-in support for modern fonts with configurable themes
@@ -15,7 +15,7 @@ A powerful presentation generator that converts Org-mode documents into professi
 - **Vector PDF embedding**: High-quality PDF inclusion with muchpdf integration
 - **Transparent rectangles**: Colored overlays with alpha transparency for design accents
 - **Image handling**: Flexible image fitting (contain, cover, fill) with captions
-- **Debug grid**: Optional grid lines for precise layout debugging
+- **Debug grid**: Optional grid lines and labels (columns 1..N, rows a..z) for precise layout debugging
 - **Custom fonts**: Integrated support for Manrope and other typography families
 
 ### Supported Elements
@@ -200,7 +200,7 @@ pagemaker validate examples/sample.org
 ```
 Exit code 0 means no errors (warnings may still appear).
 - **TYPE**: Element type (header, subheader, body, figure, pdf, rectangle)
-- **AREA**: Grid position and size (x, y, width, height)
+- **AREA**: Grid position and size (x, y, width, height) or A1-style coordinates (e.g., single cell "B3" or range "A1,C2"). Rows are letters (A=1), columns are numbers.
 - **Z**: Stacking order (higher numbers appear on top)
 - **COLOR**: Hex color for rectangles (#RRGGBB)
 - **ALPHA**: Transparency (0.0 = transparent, 1.0 = opaque)
@@ -240,6 +240,16 @@ Include high-quality PDF pages:
 :Z: 50
 :END:
 ```
+
+## A1 AREA Notation
+
+- Rows are letters A..Z, then AA, AB, etc. (case-insensitive). A maps to row 1.
+- Columns are numbers starting at 1.
+- Single cell: "B3" -> [x=3, y=2, w=1, h=1].
+- Range: "A1,C2" -> inclusive rectangle normalized to top-left/bottom-right yielding [x=1, y=1, w=2, h=3].
+- Reverse ranges like "C2,A1" are normalized the same as "A1,C2".
+- Legacy format "x,y,w,h" remains supported for backward compatibility.
+- Debug grid labels: columns show 1..N at top; rows show a..z at left (rows > 26 currently fall back to numeric display).
 
 ## Development
 

@@ -92,6 +92,45 @@ class OrgPage:
         }
 
 def parse_area(val):
+    val = (val or "").strip()
+    # Support new RowCol notation where rows are letters from top (A=1) and columns are numbers.
+    # Examples:
+    #  - "A1" -> [1,1,1,1]
+    #  - "A1,C2" -> rectangle from A1 to C2 inclusive -> [1,1,2,3]
+    # Backward-compatible with legacy "x,y,w,h" integer format.
+    cell_re = re.compile(r'^\s*([A-Za-z]+)\s*(\d+)\s*$')
+    block_re = re.compile(r'^\s*([A-Za-z]+)\s*(\d+)\s*,\s*([A-Za-z]+)\s*(\d+)\s*$')
+
+    def letters_to_num(s: str):
+        n = 0
+        s = s.strip().upper()
+        if not s:
+            return None
+        for ch in s:
+            if 'A' <= ch <= 'Z':
+                n = n * 26 + (ord(ch) - ord('A') + 1)
+            else:
+                return None
+        return n if n > 0 else None
+
+    mb = block_re.match(val)
+    if mb:
+        r1 = letters_to_num(mb.group(1)); c1 = int(mb.group(2))
+        r2 = letters_to_num(mb.group(3)); c2 = int(mb.group(4))
+        if r1 and r2:
+            x = min(c1, c2); y = min(r1, r2)
+            w = abs(c2 - c1) + 1; h = abs(r2 - r1) + 1
+            return [x, y, w, h]
+        return None
+
+    mc = cell_re.match(val)
+    if mc:
+        r = letters_to_num(mc.group(1)); c = int(mc.group(2))
+        if r:
+            return [c, r, 1, 1]
+        return None
+
+    # Legacy x,y,w,h format
     try:
         parts = [int(x.strip()) for x in val.split(',')]
         if len(parts) == 4:

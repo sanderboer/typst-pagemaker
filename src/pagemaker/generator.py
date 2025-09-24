@@ -37,7 +37,26 @@ def generate_typst(ir):
     out.append("#let ColorRect(color, alpha) = {\n  block(width: 100%, height: 100%, fill: rgb(color).transparentize(100% - alpha * 100%))[]\n}\n")
     out.append("#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  let pdf_data = read(path, encoding: none)\n  let pg = page - 1\n  let muchpdf_image = muchpdf(pdf_data, pages: pg, scale: scale)\n  block(width: 100%, height: 100%, clip: true)[\n    #muchpdf_image\n  ]\n}\n")
     out.append("#let layer(cw, ch, x, y, w, h, body) = place(\n  dx: (x - 1) * cw,\n  dy: (y - 1) * ch,\n  block(\n    width: w * cw,\n    height: h * ch,\n    body\n  )\n)\n")
-    out.append("#let draw_grid(cols, rows, cw, ch) = {\n  for col in range(1, cols + 1) {\n    place(line(start: ((col - 1) * cw, 0pt), end: ((col - 1) * cw, rows * ch), stroke: 0.5pt + rgb(\"#ccc\")))\n  }\n  for row in range(1, rows + 1) {\n    place(line(start: (0pt, (row - 1) * ch), end: (cols * cw, (row - 1) * ch), stroke: 0.5pt + rgb(\"#ccc\")))\n  }\n}\n")
+    out.append("""#let draw_grid(cols, rows, cw, ch) = {
+  // grid lines
+  for col in range(1, cols + 1) {
+    place(line(start: ((col - 1) * cw, 0pt), end: ((col - 1) * cw, rows * ch), stroke: 0.5pt + rgb("#ccc")))
+  }
+  for row in range(1, rows + 1) {
+    place(line(start: (0pt, (row - 1) * ch), end: (cols * cw, (row - 1) * ch), stroke: 0.5pt + rgb("#ccc")))
+  }
+  // column labels on top
+  for col in range(1, cols + 1) {
+    place(dx: (col - 1) * cw + 2pt, dy: 2pt, text(size: 8pt, fill: rgb("#888"))[#col])
+  }
+  // row labels on left (lowercase)
+  let letters = ("a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z")
+  for row in range(1, rows + 1) {
+    let label = if row <= 26 { letters.at(row - 1) } else { str(row) }
+    place(dx: 2pt, dy: (row - 1) * ch + 2pt, text(size: 8pt, fill: rgb("#888"))[#label])
+  }
+}
+""")
     for page_index, page in enumerate(ir['pages']):
         w = page['page_size']['w_mm']; h = page['page_size']['h_mm']
         cols = page['grid']['cols']; rows = page['grid']['rows']
@@ -81,13 +100,16 @@ def generate_typst(ir):
         out.append("\n")
     return '\n'.join(out)
 
+
 def el_text(el):
     for tb in el.get('text_blocks', []):
         if tb['kind'] == 'plain': return tb['content']
     return el.get('title','')
 
+
 def escape_text(s):
     return s.replace('\\','\\\\').replace('"','\\"')
+
 
 def update_html_total(html_path: pathlib.Path, total: int):
     if not html_path.exists():
@@ -103,6 +125,7 @@ def update_html_total(html_path: pathlib.Path, total: int):
             html_path.write_text(new_txt, encoding='utf-8'); return True
     else:
         html_path.write_text(new_txt, encoding='utf-8'); return True
+
 
 def adjust_asset_paths(ir, typst_dir: pathlib.Path):
     try:

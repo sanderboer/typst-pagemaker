@@ -1,21 +1,24 @@
-# A101 PageMaker
+# pagemaker
 
-A powerful presentation generator that converts Org-mode documents into professional Typst presentations with grid-based layouts, custom fonts, and advanced features.
+Important: This project is in no way affiliated with or related to the old Aldus PageMaker program from the 90s.
+
+
+A grid-based layout engine for Typst. Includes an optional Org-mode parser that generates Typst code and a CLI.
 
 ## Features
 
 ### Core Functionality
-- **Org-mode to Typst conversion**: Seamless conversion of structured Org documents
-- **Grid-based positioning**: Precise element placement using customizable grids (e.g., 12x8) with A1-style areas
-- **Multiple element types**: Headers, subheaders, body text, images, PDFs, and colored rectangles
-- **Z-order layering**: Complete control over element stacking and overlay relationships
-- **Custom typography**: Built-in support for modern fonts with configurable themes
+- **Org-mode to Typst conversion (optional)**: Converts Org documents to Typst
+- **Grid-based positioning**: Grid layout (e.g., 12x8) with A1-style areas
+- **Element types**: Header, subheader, body text, image, PDF, rectangle
+- **Z-order**: Element stacking control
+- **Typography**: Fonts and basic theming
 
-### Advanced Features
-- **Vector PDF embedding**: High-quality PDF inclusion with muchpdf integration
-- **Transparent rectangles**: Colored overlays with alpha transparency for design accents
-- **Image handling**: Flexible image fitting (contain, cover, fill) with captions
-- **Debug grid**: Optional grid lines and labels (columns 1..N, rows a..z) for precise layout debugging
+### Features
+- **PDF embedding**: MuchPDF integration with sanitize/SVG/PNG fallback
+- **Rectangles**: Colored overlays with alpha transparency
+- **Images**: Fit modes (contain, cover, fill) and captions
+- **Debug grid**: Optional grid lines and labels (columns 1..N, rows a..z)
 - **Custom fonts**: Integrated support for Manrope and other typography families
 
 ### Supported Elements
@@ -27,6 +30,7 @@ A powerful presentation generator that converts Org-mode documents into professi
 | `body` | Regular text | Font: Manrope Regular |
 | `figure` | Images with optional captions | Supports fit modes, captions |
 | `pdf` | Vector PDF embedding | Page selection, scaling |
+| `svg` | SVG image embedding | Fit: contain; path via `:SVG:` |
 | `rectangle` | Colored overlays | Custom colors, alpha transparency |
 
 ## Quick Start
@@ -34,8 +38,8 @@ A powerful presentation generator that converts Org-mode documents into professi
 ### Installation
 ```bash
 # Clone the repository
-git clone ssh://gitea@git.mauc.nl:50022/Mauc/A101-pagemaker.git
-cd A101-pagemaker
+git clone ssh://gitea@git.mauc.nl:50022/Mauc/pagemaker.git
+cd pagemaker
 
 # Ensure you have Python 3.x and Typst installed
 pip install -r requirements.txt  # (if requirements exist)
@@ -71,6 +75,7 @@ Options:
 - `--no-clean`: Keep the intermediate `.typ` after PDF build
 - `--update-html <path>`: Update existing HTML file's page count placeholder
 - `--once`: Perform exactly one build then exit
+- `--sanitize-pdfs`: Attempt to sanitize PDFs; if Typst compile still fails, auto-fallback to SVG or PNG for the requested page
 
 ```bash
 # Build Typst from Org (org -> typst)
@@ -78,6 +83,9 @@ python -m pagemaker.cli build examples/sample.org -o deck.typ
 
 # Build and produce PDF (cleans .typ by default)
 python -m pagemaker.cli pdf examples/sample.org --pdf-output deck.pdf
+
+# Build with PDF sanitize + fallback (qpdf/mutool/gs optional)
+python -m pagemaker.cli pdf examples/sample.org --sanitize-pdfs --pdf-output deck.pdf
 
 # Emit IR JSON to stdout
 python -m pagemaker.cli ir examples/sample.org > ir.json
@@ -102,6 +110,7 @@ When exporting into an `export/` directory, any relative asset references in the
 ```
 [[file:assets/diagram.png]]
 :PDF: assets/spec.pdf
+:SVG: assets/graphics/logo.svg
 ```
 are automatically rewritten so the generated `deck.typ` can reside in `export/` while still finding the assets in the project root. You can also use absolute paths if preferred.
 
@@ -121,15 +130,15 @@ are automatically rewritten so the generated `deck.typ` can reside in `export/` 
 ** Main Title
 :PROPERTIES:
 :TYPE: header
-:AREA: 2,2,8,2
+:AREA: B2,I3
 :Z: 100
 :END:
-Welcome to A101 PageMaker
+Welcome to pagemaker
 
 ** Background Rectangle
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 1,1,12,8
+:AREA: A1,L8
 :COLOR: #3498db
 :ALPHA: 0.2
 :Z: 10
@@ -138,7 +147,7 @@ Welcome to A101 PageMaker
 ** Demo Image
 :PROPERTIES:
 :TYPE: figure
-:AREA: 8,3,4,4
+:AREA: H3,K6
 :FIT: contain
 :Z: 50
 :END:
@@ -148,7 +157,7 @@ Welcome to A101 PageMaker
 ## Directory Structure
 
 ```
-A101-pagemaker/
+pagemaker/
 ├── src/                    # Source code
 │   ├── pagemaker/         # Package (parser, generator, CLI)
 ├── bin/                   # Build tools and scripts
@@ -200,11 +209,20 @@ pagemaker validate examples/sample.org
 ```
 Exit code 0 means no errors (warnings may still appear).
 - **TYPE**: Element type (header, subheader, body, figure, pdf, rectangle)
-- **AREA**: Grid position and size (x, y, width, height) or A1-style coordinates (e.g., single cell "B3" or range "A1,C2"). Rows are letters (A=1), columns are numbers.
+- **AREA**: A1-style coordinates are preferred (e.g., single cell "B3" or range "A1,C2"). Rows are letters (A=1), columns are numbers. Legacy numeric "x,y,w,h" is still supported.
 - **Z**: Stacking order (higher numbers appear on top)
 - **COLOR**: Hex color for rectangles (#RRGGBB)
 - **ALPHA**: Transparency (0.0 = transparent, 1.0 = opaque)
 - **FIT**: Image fitting (contain, cover, fill)
+
+## Tooling
+
+Optional external tools improve PDF handling when using `--sanitize-pdfs`:
+- `qpdf`: Repairs and normalizes PDF structure (stream recompress, object streams)
+- `mutool` (MuPDF): Cleans PDFs and renders SVG/PNG fallbacks
+- `gs` (Ghostscript): Alternate PDF distillation and PNG fallback rendering
+
+The CLI automatically detects these tools. If unavailable, related stages are skipped.
 
 ## Advanced Usage
 
@@ -220,7 +238,7 @@ Create transparent overlays and design elements:
 ** Background Accent
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 2,2,8,5
+:AREA: B2,I6
 :COLOR: #FF6B6B
 :ALPHA: 0.3
 :Z: 10
@@ -228,7 +246,7 @@ Create transparent overlays and design elements:
 ```
 
 ### Vector PDF Embedding
-Include high-quality PDF pages:
+Include high-quality PDF pages with fallback support:
 ```org
 ** Technical Diagram
 :PROPERTIES:
@@ -236,10 +254,27 @@ Include high-quality PDF pages:
 :PDF: assets/technical-drawing.pdf
 :PAGE: 2
 :SCALE: 1.2
-:AREA: 4,2,6,4
+:AREA: D2,I5
 :Z: 50
 :END:
 ```
+Notes:
+- For problematic PDFs with MuchPDF, run the CLI with `--sanitize-pdfs`.
+- If sanitization still fails, the first requested page is auto-converted to SVG (preferred) or PNG and embedded as an image.
+- Fallback assets are written under `export_dir/assets/pdf-fallbacks/` and linked in the generated Typst.
+
+### SVG Embedding
+Embed SVG graphics directly:
+```org
+** Vector Graphic
+:PROPERTIES:
+:TYPE: svg
+:SVG: assets/test-svgs/test-plan-p11.svg
+:AREA: C2,J6
+:END:
+```
+- Paths are treated like other assets and adjusted relative to the export directory.
+- Fit defaults to contain within the target area.
 
 ## A1 AREA Notation
 
@@ -275,7 +310,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Author
 
-Created as part of the A101 project series.
+Created for building Typst-based slide decks from Org-mode.
 
 ---
 

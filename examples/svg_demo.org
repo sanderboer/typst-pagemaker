@@ -1,0 +1,25 @@
+#+TITLE: SVG Demo
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+
+* SVG Slide
+:PROPERTIES:
+:ID: svg-slide
+:END:
+
+** Title
+:PROPERTIES:
+:TYPE: header
+:AREA: 1,1,12,1
+:END:
+SVG Example (using :TYPE: svg)
+
+** Vector Graphic
+:PROPERTIES:
+:TYPE: svg
+:AREA: 3,2,7,5
+:SVG: assets/test-svgs/test-plan-p11.svg
+:SCALE: 1.0
+:END:
+This is an SVG image placed within the content area.

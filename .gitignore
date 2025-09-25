@@ -3,6 +3,7 @@
 *.pdf
 *.typ
 *.json
+examples/out/
 
 # Allow asset PDFs
 !assets/**/*.pdf

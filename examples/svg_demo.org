@@ -11,14 +11,14 @@
 ** Title
 :PROPERTIES:
 :TYPE: header
-:AREA: 1,1,12,1
+ :AREA: A1,A12
 :END:
 SVG Example (using :TYPE: svg)
 
 ** Vector Graphic
 :PROPERTIES:
 :TYPE: svg
-:AREA: 3,2,7,5
+ :AREA: B3,F9
 :SVG: assets/test-svgs/test-plan-p11.svg
 :SCALE: 1.0
 :END:

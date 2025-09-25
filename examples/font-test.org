@@ -13,42 +13,31 @@
 :ORIENTATION: landscape
 :GRID: 12x8
 :END:
-** Title
+** Title (Manrope Bold)
 :PROPERTIES:
 :TYPE: header
-:AREA: 1,2,12,2
+ :AREA: B1,C12
 :END:
-Unified Architecture Platform
+Custom Fonts: Manrope Family
 
-** Subtitle  
+** Subtitle (Manrope SemiBold)  
 :PROPERTIES:
 :TYPE: subheader
-:AREA: 2,4,10,1
+ :AREA: D2,D11
 :END:
-Scalable. Observable. Secure.
+Using fonts from assets/fonts and assets/fonts/static
 
-** Architecture Diagram
+** Body Text (Manrope Regular)
+:PROPERTIES:
+:TYPE: body
+ :AREA: E1,F12
+:END:
+The Manrope font family is bundled under assets/fonts. The generator sets font: "Manrope" for header, subheader, and body text. Ensure typst compile uses --font-path assets/fonts and --font-path assets/fonts/static (the CLI does).
+
+** Sample Figure (captioned)
 :PROPERTIES:
 :TYPE: figure
-:AREA: 1,6,6,2
+ :AREA: G1,H6
 :CAPTION: High-level data flow
 :END:
 [[file:assets/diagram.png]]
-
-* Architecture Details
-:PROPERTIES:
-:ID: arch-details
-:END:
-** Section Header
-:PROPERTIES:
-:TYPE: header
-:AREA: 1,1,12,2
-:END:
-Core Components
-
-** Text Block
-:PROPERTIES:
-:TYPE: body
-:AREA: 1,3,12,4
-:END:
-The system is composed of modular services communicating over an event bus. Each module is independently deployable and observable. This demonstrates our beautiful Manrope typography in action with proper font rendering through the custom font path system.

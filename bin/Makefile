@@ -20,7 +20,7 @@ $(TYP): $(ORG)
 	PYTHONPATH=../src $(PY) -m pagemaker.cli build $(ORG) -o $(TYP) --ir $(IR) --export-dir . --update-html $(HTML)
  
 $(PDF): $(ORG)
-	PYTHONPATH=../src $(PY) -m pagemaker.cli pdf $(ORG) --export-dir . --pdf-output $(PDF)
+	PYTHONPATH=../src $(PY) -m pagemaker.cli pdf $(ORG) --export-dir . --pdf-output $(PDF) --sanitize-pdfs
 
 
 assets:

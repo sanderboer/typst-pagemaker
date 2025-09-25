@@ -12,7 +12,7 @@
 ** Sky Blue Background
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 1,1,16,10
+ :AREA: A1,J16
 :COLOR: #87CEEB
 :ALPHA: 0.4
 :Z: 5
@@ -21,7 +21,7 @@
 ** Left Panel Accent
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 1,1,5,10
+ :AREA: A1,J5
 :COLOR: #4169E1
 :ALPHA: 0.2
 :Z: 10
@@ -30,7 +30,7 @@
 ** Main Title
 :PROPERTIES:
 :TYPE: header
-:AREA: 6,2,8,2
+ :AREA: B6,C13
 :Z: 100
 :END:
 Lorem Ipsum Presentation
@@ -38,7 +38,7 @@ Lorem Ipsum Presentation
 ** Introduction Text
 :PROPERTIES:
 :TYPE: body
-:AREA: 6,4,8,3
+ :AREA: D6,F13
 :Z: 100
 :END:
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
@@ -46,7 +46,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 ** Semi-transparent Overlay
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 8,5,6,4
+ :AREA: E8,H13
 :COLOR: #FF6347
 :ALPHA: 0.15
 :Z: 150
@@ -55,7 +55,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 ** Overlay Text
 :PROPERTIES:
 :TYPE: body
-:AREA: 9,6,4,2
+ :AREA: F9,G12
 :Z: 200
 :END:
 Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.
@@ -68,7 +68,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 ** Base Layer - Warm Background
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 1,1,16,10
+ :AREA: A1,J16
 :COLOR: #FFF8DC
 :ALPHA: 1.0
 :Z: 1
@@ -77,7 +77,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 ** Left Column Background
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 2,2,6,8
+ :AREA: B2,I7
 :COLOR: #E6E6FA
 :ALPHA: 0.8
 :Z: 10
@@ -86,7 +86,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 ** Right Column Background
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 10,2,6,8
+ :AREA: B10,I15
 :COLOR: #F0F8FF
 :ALPHA: 0.8
 :Z: 10
@@ -95,7 +95,7 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 ** Left Column Header
 :PROPERTIES:
 :TYPE: subheader
-:AREA: 2,2,6,1
+ :AREA: B2,B7
 :Z: 100
 :END:
 Classical Literature
@@ -103,7 +103,7 @@ Classical Literature
 ** Left Column Text
 :PROPERTIES:
 :TYPE: body
-:AREA: 2,3,6,4
+ :AREA: C2,F7
 :Z: 100
 :END:
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor. Cras elementum ultrices diam. Maecenas ligula massa, varius a, semper congue, euismod non, mi.
@@ -111,7 +111,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendi
 ** Right Column Header
 :PROPERTIES:
 :TYPE: subheader
-:AREA: 10,2,6,1
+ :AREA: B10,B15
 :Z: 100
 :END:
 Modern Applications
@@ -119,7 +119,7 @@ Modern Applications
 ** Right Column Text
 :PROPERTIES:
 :TYPE: body
-:AREA: 10,3,6,4
+ :AREA: C10,F15
 :Z: 100
 :END:
 Proin porttitor, orci nec nonummy molestie, enim est eleifend mi, non fermentum diam nisl sit amet erat. Duis semper. Duis arcu massa, scelerisque vitae, consequat in, pretium a, enim.
@@ -127,7 +127,7 @@ Proin porttitor, orci nec nonummy molestie, enim est eleifend mi, non fermentum 
 ** Highlight Box Under Text
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 3,7,4,2
+ :AREA: G3,H6
 :COLOR: #FFD700
 :ALPHA: 0.3
 :Z: 50
@@ -136,7 +136,7 @@ Proin porttitor, orci nec nonummy molestie, enim est eleifend mi, non fermentum 
 ** Highlighted Quote
 :PROPERTIES:
 :TYPE: body
-:AREA: 3,7,4,2
+ :AREA: G3,H6
 :Z: 100
 :END:
 "Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas."
@@ -144,7 +144,7 @@ Proin porttitor, orci nec nonummy molestie, enim est eleifend mi, non fermentum 
 ** Semi-transparent Overlay Bar
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 1,9,16,1
+ :AREA: I1,I16
 :COLOR: #32CD32
 :ALPHA: 0.25
 :Z: 150
@@ -153,7 +153,7 @@ Proin porttitor, orci nec nonummy molestie, enim est eleifend mi, non fermentum 
 ** Footer Text
 :PROPERTIES:
 :TYPE: body
-:AREA: 2,9,14,1
+ :AREA: I2,I15
 :Z: 200
 :END:
 Vestibulum tortor quam, feugiat vitae, ultricies eget, tempor sit amet, ante. Donec eu libero sit amet quam egestas semper.
@@ -166,7 +166,7 @@ Vestibulum tortor quam, feugiat vitae, ultricies eget, tempor sit amet, ante. Do
 ** Background Gradient Simulation - Layer 1
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 1,1,16,4
+ :AREA: A1,D16
 :COLOR: #191970
 :ALPHA: 0.8
 :Z: 5
@@ -175,7 +175,7 @@ Vestibulum tortor quam, feugiat vitae, ultricies eget, tempor sit amet, ante. Do
 ** Background Gradient Simulation - Layer 2
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 1,4,16,3
+ :AREA: D1,F16
 :COLOR: #483D8B
 :ALPHA: 0.6
 :Z: 6
@@ -184,7 +184,7 @@ Vestibulum tortor quam, feugiat vitae, ultricies eget, tempor sit amet, ante. Do
 ** Background Gradient Simulation - Layer 3
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 1,7,16,3
+ :AREA: G1,I16
 :COLOR: #9370DB
 :ALPHA: 0.4
 :Z: 7
@@ -193,7 +193,7 @@ Vestibulum tortor quam, feugiat vitae, ultricies eget, tempor sit amet, ante. Do
 ** Main Title Card Background
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 4,3,10,4
+ :AREA: C4,F13
 :COLOR: #FFFFFF
 :ALPHA: 0.9
 :Z: 50
@@ -202,7 +202,7 @@ Vestibulum tortor quam, feugiat vitae, ultricies eget, tempor sit amet, ante. Do
 ** Main Title
 :PROPERTIES:
 :TYPE: header
-:AREA: 5,4,8,2
+ :AREA: D5,E12
 :Z: 100
 :END:
 Advanced Typography
@@ -210,7 +210,7 @@ Advanced Typography
 ** Subtitle
 :PROPERTIES:
 :TYPE: body
-:AREA: 5,6,8,1
+ :AREA: F5,F12
 :Z: 100
 :END:
 Demonstrating layered design principles with lorem ipsum
@@ -218,7 +218,7 @@ Demonstrating layered design principles with lorem ipsum
 ** Left Accent Box
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 1,8,4,2
+ :AREA: H1,I4
 :COLOR: #FF4500
 :ALPHA: 0.7
 :Z: 80
@@ -227,7 +227,7 @@ Demonstrating layered design principles with lorem ipsum
 ** Left Accent Text
 :PROPERTIES:
 :TYPE: body
-:AREA: 1,8,4,2
+ :AREA: H1,I4
 :Z: 150
 :END:
 Vivamus magna justo, lacinia eget, consectetur sed, convallis at, tellus.
@@ -235,7 +235,7 @@ Vivamus magna justo, lacinia eget, consectetur sed, convallis at, tellus.
 ** Right Info Panel
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 13,8,3,2
+ :AREA: H13,I15
 :COLOR: #20B2AA
 :ALPHA: 0.6
 :Z: 80
@@ -244,7 +244,7 @@ Vivamus magna justo, lacinia eget, consectetur sed, convallis at, tellus.
 ** Right Info Text
 :PROPERTIES:
 :TYPE: body
-:AREA: 13,8,3,2
+ :AREA: H13,I15
 :Z: 150
 :END:
 Sed cursus turpis a purus aliquam fermentum.
@@ -252,7 +252,7 @@ Sed cursus turpis a purus aliquam fermentum.
 ** Central Overlay
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 7,7,4,2
+ :AREA: G7,H10
 :COLOR: #DC143C
 :ALPHA: 0.2
 :Z: 200
@@ -261,7 +261,7 @@ Sed cursus turpis a purus aliquam fermentum.
 ** Central Overlay Text
 :PROPERTIES:
 :TYPE: subheader
-:AREA: 7,7,4,2
+ :AREA: G7,H10
 :Z: 300
 :END:
 Key Insight
@@ -269,7 +269,7 @@ Key Insight
 ** Bottom Banner
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: 1,10,16,1
+ :AREA: J1,J16
 :COLOR: #000000
 :ALPHA: 0.8
 :Z: 400
@@ -278,7 +278,7 @@ Key Insight
 ** Bottom Banner Text
 :PROPERTIES:
 :TYPE: body
-:AREA: 2,10,14,1
+ :AREA: J2,J15
 :Z: 500
 :END:
 Fusce convallis metus id felis luctus adipiscing. Pellentesque egestas, neque sit amet convallis pulvinar.

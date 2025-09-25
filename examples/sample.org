@@ -4,7 +4,31 @@
 #+PAGESIZE: A4
 #+ORIENTATION: landscape
 #+GRID: 12x8
+#+GRID_DEBUG: true
 #+THEME: light
+#+___MARGINS: 10,10,10,10
+#+DEFAULT_MASTER: Base
+
+* Base Master Definition (not rendered)
+:PROPERTIES:
+:ID: master-base
+:MASTER_DEF: Base
+:END:
+** Vertical Bar
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: A1,H5
+:COLOR: #000000
+:ALPHA: 0.08
+:Z: -1
+:END:
+
+** Footer
+:PROPERTIES:
+:TYPE: body
+:AREA: H11,H12
+:END:
+Page #page_no / #page_total — #date_yy_mm_dd
 
 * Introduction
 :PROPERTIES:
@@ -16,59 +40,44 @@
 ** Title
 :PROPERTIES:
 :TYPE: header
-:AREA: 1,2,12,2
+:AREA: A1,A5
+:PADDING: 10,10
+:JUSTIFY: false
 :END:
 Unified Architecture Platform
 
 ** Subtitle
 :PROPERTIES:
 :TYPE: subheader
-:AREA: 2,4,10,1
+:AREA: b1,b5
+:PADDING: 10,10
+:JUSTIFY: false
 :END:
 Scalable. Observable. Secure.
 
-** Architecture Diagram
-:PROPERTIES:
-:TYPE: figure
-:AREA: 1,1,6,5
-:CAPTION: High-level data flow
-:END:
-[[file:assets/diagram.png]]
 
-** Embedded Spec PDF
+** Body
 :PROPERTIES:
-:TYPE: pdf
-:AREA: 7,1,6,6
-:PDF: assets/test-pdfs/test-plan.pdf
+:TYPE: body
+:AREA: c1,G5
+:PADDING: 10,10
+:JUSTIFY:
+:END:
+
+Assumenda temporibus sed necessitatibus est nisi. Pariatur omnis consequatur totam iure. Sed aliquam nam non id architecto totam qui ut. Nisi quia quia doloremque totam nesciunt itaque. Molestiae voluptatum suscipit dolorem vitae nam.
+Nobis debitis impedit et itaque. Soluta sed provident qui corrupti voluptas. Assumenda adipisci animi et. Voluptatem eos in ut. Minima voluptas libero illum perspiciatis eum aliquid id quia. Perferendis facere excepturi non officiis beatae voluptas sint.
+Qui cumque aut id. Est ducimus cumque rerum qui repellendus. Soluta vitae id sint. Facere a vero dolores asperiores. Ut nam amet rerum in est consectetur sit.
+Possimus minima repellat dolores officiis deserunt sit at quia. Quia vero esse maxime quam id sunt. Consequatur sint quaerat explicabo.
+Eum et nisi aut. Dicta quibusdam minus est distinctio iure molestiae doloribus voluptatum. Excepturi eveniet tempore facilis reprehenderit dolores quaerat quia.
+
+
+** Embedded Spec PDF (working)
+:PROPERTIES:
+:TYPE: svg
+:AREA: A6,H12
+:SVG: assets/test-svgs/test-exploded-view-p11.svg
 :PAGE: 1
-:SCALE: 1.0
+:SCALE: 2.0
 :END:
 (External PDF spec excerpt)
 
-* Architecture Details
-:PROPERTIES:
-:ID: arch-details
-:END:
-** Section Header
-:PROPERTIES:
-:TYPE: header
-:AREA: 1,1,12,2
-:END:
-Core Components
-
-** Text Block
-:PROPERTIES:
-:TYPE: body
-:AREA: 1,3,7,4
-:END:
-The system is composed of modular services communicating over an event bus. Each module is independently deployable and observable.
-
-** PDF Diagram (Page 2)
-:PROPERTIES:
-:TYPE: pdf
-:AREA: 8,3,5,4
-:PDF: assets/test-pdfs/test-plan.pdf
-:PAGE: 1
-:SCALE: 0.9
-:END:
-(Module dependency graph)

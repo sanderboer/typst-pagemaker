@@ -1,0 +1,82 @@
+#+TITLE: Master Pages Demo
+#+AUTHOR: Presenter
+#+DATE: 2025-09-25
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+#+DEFAULT_MASTER: Base
+
+* Base Master Definition (not rendered)
+:PROPERTIES:
+:ID: master-base
+:MASTER_DEF: Base
+:END:
+
+** Footer Bar
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: H1,H12
+:COLOR: #000000
+:ALPHA: 0.08
+:Z: 10
+:END:
+
+** Footer Text
+:PROPERTIES:
+:TYPE: body
+:AREA: H11,H12
+:Z: 20
+:END:
+Company Confidential — 2025
+
+** Header Bar
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: A1,A12
+:COLOR: #000000
+:ALPHA: 0.08
+:Z: 10
+:END:
+
+** Header Text
+:PROPERTIES:
+:TYPE: subheader
+:AREA: A2,A11
+:Z: 20
+:END:
+Master Page Header
+
+* Slide One (uses default master "Base")
+:PROPERTIES:
+:ID: s1
+:END:
+
+** Title
+:PROPERTIES:
+:TYPE: header
+:AREA: B2,C11
+:Z: 100
+:END:
+Welcome with Master
+
+** Body
+:PROPERTIES:
+:TYPE: body
+:AREA: D2,G11
+:Z: 100
+:END:
+This slide inherits header/footer elements from the Base master page.
+
+* Slide Two (explicit master)
+:PROPERTIES:
+:ID: s2
+:MASTER: Base
+:END:
+
+** Title
+:PROPERTIES:
+:TYPE: header
+:AREA: B2,C11
+:Z: 100
+:END:
+Another slide with Base master

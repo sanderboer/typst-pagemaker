@@ -10,7 +10,7 @@ A grid-based layout engine for Typst. Includes an optional Org-mode parser that 
 ### Core Functionality
 - **Org-mode to Typst conversion (optional)**: Converts Org documents to Typst
 - **Grid-based positioning**: Grid layout (e.g., 12x8) with A1-style areas
-- **Element types**: Header, subheader, body text, image, PDF, rectangle
+- **Element types**: Header, subheader, body text, image, PDF, rectangle, TOC
 - **Z-order**: Element stacking control
 - **Typography**: Fonts and basic theming
 
@@ -20,6 +20,8 @@ A grid-based layout engine for Typst. Includes an optional Org-mode parser that 
 - **Images**: Fit modes (contain, cover, fill) and captions
 - **Debug grid**: Optional grid lines and labels (columns 1..N, rows a..z)
 - **Custom fonts**: Integrated support for Manrope and other typography families
+- **Text justification**: `:JUSTIFY:` for header/subheader/body (wraps Typst `par(justify: true)`)
+- **Padding**: `:PADDING:` on text, images, SVG, and PDF (CSS-like TRBL shorthand in mm)
 
 ### Supported Elements
 
@@ -32,6 +34,7 @@ A grid-based layout engine for Typst. Includes an optional Org-mode parser that 
 | `pdf` | Vector PDF embedding | Page selection, scaling |
 | `svg` | SVG image embedding | Fit: contain; path via `:SVG:` |
 | `rectangle` | Colored overlays | Custom colors, alpha transparency |
+| `toc` | Table of contents | Auto-lists slide titles; supports :AREA: and :PADDING: |
 
 ## Quick Start
 
@@ -115,6 +118,25 @@ When exporting into an `export/` directory, any relative asset references in the
 are automatically rewritten so the generated `deck.typ` can reside in `export/` while still finding the assets in the project root. You can also use absolute paths if preferred.
 
 ### Example Org File
+
+Dynamic helpers available in text:
+- `#page_no` / `#page_total` for page counters (no parentheses; Typst context-based).
+- Dates: `#date_iso` (YYYY-MM-DD), `#date_yy_mm_dd` (YY.MM.DD), `#date_dd_mm_yy` (DD.MM.YY)
+- To lock dates for reproducible builds, set `#+DATE_OVERRIDE: YYYY-MM-DD` (or `#+DATE:`) in the Org meta header.
+
+TOC element:
+- Add a `toc` element to list slide titles automatically.
+```org
+** Table of Contents
+:PROPERTIES:
+:TYPE: toc
+:AREA: A1,L8
+:PADDING: 4,6
+:END:
+```
+
+
+Text: use `:JUSTIFY:` to enable full justification and `:PADDING:` to inset content in millimeters.
 ```org
 #+TITLE: My Presentation
 #+PAGESIZE: A4
@@ -131,6 +153,8 @@ are automatically rewritten so the generated `deck.typ` can reside in `export/` 
 :PROPERTIES:
 :TYPE: header
 :AREA: B2,I3
+:PADDING: 6,8
+:JUSTIFY:
 :Z: 100
 :END:
 Welcome to pagemaker
@@ -148,6 +172,7 @@ Welcome to pagemaker
 :PROPERTIES:
 :TYPE: figure
 :AREA: H3,K6
+:PADDING: 2,3,2,3
 :FIT: contain
 :Z: 50
 :END:
@@ -181,6 +206,7 @@ pagemaker/
 - **PAGESIZE**: A4, A3, A2, A1, A5
 - **ORIENTATION**: landscape, portrait
 - **GRID**: Custom grid dimensions (e.g., 12x8, 16x9)
+- **MARGINS**: Absolute mm in CSS TRBL order (top,right,bottom,left)
 - **GRID_DEBUG**: Show/hide debug grid lines
 
 ### Element Properties
@@ -214,6 +240,8 @@ Exit code 0 means no errors (warnings may still appear).
 - **COLOR**: Hex color for rectangles (#RRGGBB)
 - **ALPHA**: Transparency (0.0 = transparent, 1.0 = opaque)
 - **FIT**: Image fitting (contain, cover, fill)
+- **PADDING**: Optional mm padding around content. CSS-like shorthand: `PADDING: t` | `t,r` | `t,r,b` | `t,r,b,l`. Applies to text (header/subheader/body), figures, SVG, and PDF.
+- **JUSTIFY**: Optional boolean for text elements. `:JUSTIFY:` (bare) or `:JUSTIFY: true` enables full justification; `false` disables. Maps to Typst `par(justify: true)` wrapping.
 
 ## Tooling
 
@@ -275,6 +303,80 @@ Embed SVG graphics directly:
 ```
 - Paths are treated like other assets and adjusted relative to the export directory.
 - Fit defaults to contain within the target area.
+
+### Margins
+Define outer margins in millimeters that expand the total grid while keeping your content coordinates stable. Format: `top,right,bottom,left` (CSS TRBL order).
+```org
+#+GRID: 12x8
+#+MARGINS: 10,15,10,15
+
+* Slide
+:PROPERTIES:
+:ID: s1
+:END:
+
+** Full-bleed background (uses margin tracks)
+:PROPERTIES:
+:TYPE: rectangle
+:COORDS: total
+:AREA: 1,1,14,10
+:COLOR: #3498db
+:ALPHA: 0.1
+:END:
+
+** Content inside margins
+:PROPERTIES:
+:TYPE: body
+:AREA: A1,L8
+:END:
+The content grid remains 12x8, but the total grid has one margin track on each side. Content coordinates map to total with a +1,+1 offset when margins are present.
+```
+Notes:
+- `MARGINS` values are absolute sizes in mm.
+- `COORDS`: `total` (default) addresses the total grid (including margin tracks); use `content` to address only the content grid.
+- With `#+GRID_DEBUG: true`, the overlay shows the total grid (including margin tracks). Labels cover all tracks: first column is `1`, first row is `A`.
+
+### Master Pages
+Define reusable element sets as master pages that are not directly rendered. Apply them per slide with `:MASTER:` or globally with `#+DEFAULT_MASTER:`.
+```org
+#+DEFAULT_MASTER: Base
+
+* Base Master (not rendered)
+:PROPERTIES:
+:MASTER_DEF: Base
+:END:
+
+** Header Bar
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: A1,A12
+:COLOR: #000000
+:ALPHA: 0.08
+:END:
+
+** Footer Text
+:PROPERTIES:
+:TYPE: body
+:AREA: H11,H12
+:END:
+Page #page_no / #page_total — #date_dd_mm_yy
+
+* Slide One (inherits Base)
+:PROPERTIES:
+:ID: s1
+:END:
+
+** Title
+:PROPERTIES:
+:TYPE: header
+:AREA: B2,C11
+:END:
+Welcome with Master
+```
+Notes:
+- Pages that define `:MASTER_DEF:` are used as master definitions and are skipped at render time.
+- Slides can reference a master via per-page `:MASTER:` or inherit from `#+DEFAULT_MASTER:`.
+- Master elements are combined with slide elements and z-ordered together.
 
 ## A1 AREA Notation
 

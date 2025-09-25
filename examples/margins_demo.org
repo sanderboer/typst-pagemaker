@@ -1,0 +1,36 @@
+#+TITLE: Margins Demo
+#+AUTHOR: Presenter
+#+DATE: 2025-09-25
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+#+MARGINS: 1,1,1,1
+
+* Slide with Document Margins
+:PROPERTIES:
+:ID: m1
+:END:
+
+** Header inside margins
+:PROPERTIES:
+:TYPE: header
+ :AREA: A1,A12
+:END:
+Content area respects 1-row/1-col margins on all sides.
+
+** Body spanning central area
+:PROPERTIES:
+:TYPE: body
+:AREA: B2,H7
+:END:
+The body area starts at B2 because margins add an extra row/column around the grid. Coordinates are still given in the content grid (A.., 1..).
+
+** Content area background rectangle
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: A1,H12
+:COLOR: #3498db
+:ALPHA: 0.1
+:Z: 1
+:END:
+This rectangle fills the content area within the margins.

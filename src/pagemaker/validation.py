@@ -67,7 +67,7 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                     issues.append(ValidationIssue(path=epath, message="Element missing type"))
                 else:
                     et = el['type']
-                    if et not in ("header","subheader","body","figure","pdf","rectangle"):
+                    if et not in ("header","subheader","body","figure","pdf","rectangle","svg","toc"):
                         issues.append(ValidationIssue(path=epath, message=f"Unknown element type '{et}'", severity='warn'))
                 # Figure asset
                 if el.get('type') == 'figure':
@@ -89,6 +89,16 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                         if psrc and not os.path.isabs(psrc) and not os.path.exists(psrc):
                             sev = 'error' if strict_assets else 'warn'
                             issues.append(ValidationIssue(path=f"{epath}/pdf/src", message="PDF asset not found", severity=sev))
+                # SVG asset
+                if el.get('type') == 'svg':
+                    svg = el.get('svg')
+                    if not svg or not svg.get('src'):
+                        issues.append(ValidationIssue(path=f"{epath}/svg", message="SVG element missing src"))
+                    else:
+                        ssrc = svg.get('src')
+                        if ssrc and not os.path.isabs(ssrc) and not os.path.exists(ssrc):
+                            sev = 'error' if strict_assets else 'warn'
+                            issues.append(ValidationIssue(path=f"{epath}/svg/src", message="SVG asset not found", severity=sev))
                 # Rectangle alpha
                 if el.get('type') == 'rectangle':
                     rect = el.get('rectangle') or {}
@@ -96,13 +106,21 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                     if isinstance(alpha, (int,float)):
                         if alpha < 0.0 or alpha > 1.0:
                             issues.append(ValidationIssue(path=f"{epath}/rectangle/alpha", message="Alpha out of range 0.0-1.0"))
-                # Area bounds
+                # Area bounds (respect COORDS: content|total)
                 area = el.get('area')
                 if isinstance(area, dict) and isinstance(cols, int) and isinstance(rows, int):
                     x = area.get('x'); y = area.get('y'); w = area.get('w'); h = area.get('h')
                     if all(isinstance(v, int) for v in (x, y, w, h)):
                         if x < 1 or y < 1 or w < 1 or h < 1:
                             issues.append(ValidationIssue(path=f"{epath}/area", message="Area has non-positive values"))
-                        elif x + w - 1 > cols or y + h - 1 > rows:
-                            issues.append(ValidationIssue(path=f"{epath}/area", message="Area exceeds grid bounds"))
+                        else:
+                            coords_mode = (el.get('coords') or 'content').strip().lower()
+                            if coords_mode == 'total':
+                                gt = page.get('grid_total') or {}
+                                tcols = gt.get('cols', cols); trows = gt.get('rows', rows)
+                                if x + w - 1 > tcols or y + h - 1 > trows:
+                                    issues.append(ValidationIssue(path=f"{epath}/area", message="Area exceeds total-grid bounds"))
+                            else:
+                                if x + w - 1 > cols or y + h - 1 > rows:
+                                    issues.append(ValidationIssue(path=f"{epath}/area", message="Area exceeds grid bounds"))
     return ValidationResult(issues)

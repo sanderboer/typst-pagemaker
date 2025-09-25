@@ -11,7 +11,49 @@ PAGE_SIZES_MM = {
     'A4': (210, 297), 'A3': (297, 420), 'A2': (420, 594), 'A1': (594, 841), 'A5': (148, 210),
 }
 
-DEFAULTS = { 'PAGESIZE': 'A4', 'ORIENTATION': 'landscape', 'GRID': '12x8', 'THEME': 'light', 'GRID_DEBUG': 'false' }
+# New default: no margins declared unless provided in meta/page
+DEFAULTS = { 'PAGESIZE': 'A4', 'ORIENTATION': 'landscape', 'GRID': '12x8', 'THEME': 'light', 'GRID_DEBUG': 'false', 'MARGINS': '', 'DEFAULT_MASTER': '' }
+
+
+def parse_padding(val: Optional[str]) -> Optional[Dict[str, float]]:
+    """Parse CSS-like padding shorthand into a dict {top,right,bottom,left} in mm.
+    Accepts comma and/or whitespace separated numbers (no unit suffix expected).
+    Returns None if invalid.
+    """
+    if val is None:
+        return None
+    s = val.strip()
+    if s == "":
+        return None
+    # Split on commas or whitespace
+    parts = [p for p in re.split(r'[\s,]+', s) if p != ""]
+    nums: List[float] = []
+    for p in parts:
+        try:
+            nums.append(float(p))
+        except Exception:
+            return None
+    if len(nums) == 1:
+        t = r = b = l = nums[0]
+    elif len(nums) == 2:
+        t = b = nums[0]; r = l = nums[1]
+    elif len(nums) == 3:
+        t = nums[0]; r = l = nums[1]; b = nums[2]
+    elif len(nums) >= 4:
+        t, r, b, l = nums[0], nums[1], nums[2], nums[3]
+    else:
+        return None
+    return {'top': float(t), 'right': float(r), 'bottom': float(b), 'left': float(l)}
+
+
+def parse_bool(val: Optional[str]) -> Optional[bool]:
+    if val is None:
+        return None
+    s = str(val).strip().lower()
+    if s in ("1", "true", "yes", "y", "on"): return True
+    if s in ("0", "false", "no", "n", "off"): return False
+    return None
+
 
 class OrgElement:
     def __init__(self, id_, type_, title, area=None, props=None, content_lines=None):
@@ -27,6 +69,7 @@ class OrgElement:
             area_obj = { 'x': self.area[0], 'y': self.area[1], 'w': self.area[2], 'h': self.area[3] }
         figure = None
         pdf = None
+        svg = None
         rectangle = None
         if self.type == 'figure':
             img = None
@@ -41,26 +84,51 @@ class OrgElement:
                 'pages': [int(self.props.get('PAGE', '1'))],
                 'scale': float(self.props.get('SCALE', '1.0'))
             }
+        if self.type == 'svg':
+            svg = {
+                'src': self.props.get('SVG'),
+                'scale': float(self.props.get('SCALE', '1.0'))
+            }
         if self.type == 'rectangle':
             rectangle = {
                 'color': self.props.get('COLOR', '#3498db'),
                 'alpha': float(self.props.get('ALPHA', '1.0'))
             }
         text_blocks = []
+        style = None
+        padding_mm = None
+        justify = None
         if self.type in ('header', 'subheader', 'body'):
             content = '\n'.join(self.content_lines).strip()
             if content:
                 text_blocks.append({'kind':'plain','content':content})
+            style = self.props.get('STYLE')
+            padding_mm = parse_padding(self.props.get('PADDING'))
+            if 'JUSTIFY' in self.props:
+                jval = self.props.get('JUSTIFY')
+                jparsed = parse_bool(jval)
+                justify = True if jparsed is None else jparsed
+            else:
+                justify = None
+        # Allow padding for figures/svg/pdf/toc too
+        if self.type in ('figure','svg','pdf','toc') and padding_mm is None:
+            padding_mm = parse_padding(self.props.get('PADDING'))
         return {
             'id': self.id,
             'type': self.type,
             'title': self.title,
             'area': area_obj,
+            # coords removed; AREA always in total grid
+            'coords': '',
             'z': int(self.props.get('Z', '10')),
             'figure': figure,
             'pdf': pdf,
+            'svg': svg,
             'rectangle': rectangle,
-            'text_blocks': text_blocks
+            'text_blocks': text_blocks,
+            'style': style,
+            'justify': justify,
+            'padding_mm': padding_mm
         }
 
 class OrgPage:
@@ -69,6 +137,7 @@ class OrgPage:
         self.title = title
         self.props = props
         self.elements = []
+        self.master = None
     def to_ir(self, global_defaults):
         ps = self.props.get('PAGE_SIZE', global_defaults['PAGESIZE'])
         orientation = self.props.get('ORIENTATION', global_defaults['ORIENTATION'])
@@ -82,12 +151,30 @@ class OrgPage:
             cols, rows = [int(x) for x in grid.lower().split('x')]
         except Exception:
             cols, rows = 12, 8
+        # New semantics: MARGINS are absolute sizes in mm in CSS order TRBL (top,right,bottom,left)
+        margins_val = self.props.get('MARGINS', global_defaults.get('MARGINS',''))
+        margins_declared = isinstance(margins_val, str) and margins_val.strip() != ''
+        top_mm = right_mm = bottom_mm = left_mm = 0.0
+        if margins_declared:
+            try:
+                t, r, b, l = [float(x.strip()) for x in margins_val.split(',')]
+                top_mm, right_mm, bottom_mm, left_mm = t, r, b, l
+            except Exception:
+                # If parsing fails, treat as not declared
+                margins_declared = False
+        grid_total_cols = cols + (2 if margins_declared else 0)
+        grid_total_rows = rows + (2 if margins_declared else 0)
         return {
             'id': self.id,
             'title': self.title,
             'page_size': {'w_mm': w_mm, 'h_mm': h_mm},
             'orientation': orientation,
             'grid': {'cols': cols, 'rows': rows},
+            'grid_total': {'cols': grid_total_cols, 'rows': grid_total_rows},
+            'margins_mm': {'top': top_mm, 'right': right_mm, 'bottom': bottom_mm, 'left': left_mm} if margins_declared else None,
+            'margins_declared': margins_declared,
+            'master': self.props.get('MASTER', global_defaults.get('DEFAULT_MASTER','')).strip(),
+            'master_def': self.props.get('MASTER_DEF','').strip(),
             'elements': [e.to_ir() for e in self.elements]
         }
 
@@ -192,7 +279,7 @@ def parse_org(path):
             if current_element:
                 current_element.props.update(prop_buf)
                 etype = prop_buf.get('TYPE','').lower()
-                if etype in ('header','subheader','body','figure','pdf','rectangle'):
+                if etype in ('header','subheader','body','figure','pdf','rectangle','svg','toc'):
                     current_element.type = etype
                 else:
                     if len(content_buf)==1 and LINK_IMG_RE.match(content_buf[0].strip()):

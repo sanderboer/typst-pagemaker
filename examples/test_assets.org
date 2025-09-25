@@ -1,4 +1,4 @@
-#+TITLE: Test Presentation with Assets
+#+TITLE: Assets Demo (Comprehensive)
 #+AUTHOR: Demo User
 #+DATE: 2025-09-24
 #+PAGESIZE: A4

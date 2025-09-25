@@ -15,48 +15,60 @@
 ** Page Title
 :PROPERTIES:
 :TYPE: header
-:AREA: 1,1,12,1
+ :AREA: A1,A12
 :END:
-Image Fit Options: contain vs cover vs stretch
+Image Fit Options: contain vs cover vs fill vs stretch
 
 ** Contain - Default
 :PROPERTIES:
 :TYPE: figure
-:AREA: 1,2,4,3
+ :AREA: B1,D3
 :FIT: contain
 :CAPTION: fit: contain (default)
+:Z: 20
 :END:
 [[file:assets/test-images/landscapes/landscape-1.jpg]]
 
-** Cover - Fill Area
+** Cover - Fill Area (crops)
 :PROPERTIES:
 :TYPE: figure
-:AREA: 5,2,4,3
+ :AREA: B4,D6
 :FIT: cover
 :CAPTION: fit: cover (crops to fill)
+:Z: 20
 :END:
 [[file:assets/test-images/landscapes/landscape-1.jpg]]
 
-** Stretch - Distort
+** Fill - Stretch proportionally to fill
 :PROPERTIES:
 :TYPE: figure
-:AREA: 9,2,4,3
+ :AREA: B7,D9
+:FIT: fill
+:CAPTION: fit: fill (may crop or scale)
+:Z: 20
+:END:
+[[file:assets/test-images/landscapes/landscape-1.jpg]]
+
+** Stretch - Distort (no caption)
+:PROPERTIES:
+:TYPE: figure
+ :AREA: B10,D12
 :FIT: stretch
-:CAPTION: fit: stretch (may distort)
+:Z: 20
 :END:
 [[file:assets/test-images/landscapes/landscape-1.jpg]]
 
 ** Different Image Ratios
 :PROPERTIES:
 :TYPE: subheader
-:AREA: 1,5,12,1
+ :AREA: E1,E12
 :END:
 Testing with different aspect ratios
 
 ** Square-ish Kitten (contain)
 :PROPERTIES:
 :TYPE: figure
-:AREA: 1,6,3,2
+ :AREA: F1,G3
 :FIT: contain
 :CAPTION: kitten - contain
 :END:
@@ -65,7 +77,7 @@ Testing with different aspect ratios
 ** Square-ish Kitten (cover)  
 :PROPERTIES:
 :TYPE: figure
-:AREA: 4,6,3,2
+ :AREA: F4,G6
 :FIT: cover
 :CAPTION: kitten - cover
 :END:
@@ -74,7 +86,7 @@ Testing with different aspect ratios
 ** Wide Ocean (contain)
 :PROPERTIES:
 :TYPE: figure
-:AREA: 7,6,3,2
+ :AREA: F7,G9
 :FIT: contain  
 :CAPTION: ocean - contain
 :END:
@@ -83,7 +95,7 @@ Testing with different aspect ratios
 ** Wide Ocean (cover)
 :PROPERTIES:
 :TYPE: figure
-:AREA: 10,6,3,2
+ :AREA: F10,G12
 :FIT: cover
 :CAPTION: ocean - cover
 :END:

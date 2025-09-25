@@ -1,4 +1,4 @@
-import datetime, pathlib, os, re, sys, subprocess, json
+import datetime, pathlib, os, re, sys
 from .parser import DEFAULTS
 
 TYPOGRAPHY = {
@@ -16,6 +16,246 @@ TYPST_HEADER = """// Auto-generated Typst file
 
 #set text(fill: rgb("#1b1f23"))
 """
+
+def _parse_style_decl(s: str) -> dict:
+    """Parse a style declaration string like 'font: Manrope, weight: bold, size: 24pt, color: #333'.
+    Returns dict with optional keys: font, weight, size, color (strings as provided, trimmed).
+    Accepts separators comma/semicolon, and key separators ':' or '='. Keys are case-insensitive.
+    Aliases: font-family->font, font-weight->weight, font-size->size, fill->color.
+    Safely ignores commas/semicolons inside parentheses or quotes (e.g., rgb(50%,50%,50%)).
+
+    Also accepts paragraph options (applied via Typst par()):
+    - leading, spacing, justify, linebreaks, first-line-indent (first_line_indent), hanging-indent (hanging_indent)
+    """
+    if not isinstance(s, str):
+        return {}
+
+    # Split on top-level commas/semicolons only (not inside () or quotes)
+    parts = []
+    buf = []
+    depth = 0
+    in_quote = None
+    prev = ''
+    for ch in s:
+        if in_quote:
+            buf.append(ch)
+            if ch == in_quote and prev != '\\':
+                in_quote = None
+        else:
+            if ch in ('"', "'"):
+                in_quote = ch
+                buf.append(ch)
+            elif ch == '(':
+                depth += 1
+                buf.append(ch)
+            elif ch == ')':
+                if depth > 0:
+                    depth -= 1
+                buf.append(ch)
+            elif ch in (',', ';') and depth == 0:
+                parts.append(''.join(buf))
+                buf = []
+            else:
+                buf.append(ch)
+        prev = ch
+    if buf:
+        parts.append(''.join(buf))
+
+    out = {}
+    for part in parts:
+        if not part:
+            continue
+        if ':' in part:
+            k, v = part.split(':', 1)
+        elif '=' in part:
+            k, v = part.split('=', 1)
+        else:
+            continue
+        k = k.strip().lower()
+        v = v.strip()
+        if not k:
+            continue
+        if k in ('font-family', 'font'):
+            out['font'] = v
+        elif k in ('font-weight', 'weight'):
+            out['weight'] = v
+        elif k in ('font-size', 'size'):
+            out['size'] = v
+        elif k in ('fill', 'color', 'colour'):
+            out['color'] = v
+        elif k in ('leading',):
+            out['leading'] = v
+        elif k in ('spacing',):
+            out['spacing'] = v
+        elif k in ('justify',):
+            out['justify'] = v
+        elif k in ('linebreaks',):
+            out['linebreaks'] = v
+        elif k in ('first-line-indent', 'first_line_indent'):
+            out['first-line-indent'] = v
+        elif k in ('hanging-indent', 'hanging_indent'):
+            out['hanging-indent'] = v
+    return out
+
+
+def _build_styles(meta: dict) -> dict:
+    """Build style map from meta keys. Keys look like 'STYLE_NAME'. Case-insensitive.
+    Defaults:
+      - header: Manrope bold 24pt
+      - subheader: Manrope semibold 18pt
+      - body: Manrope (no size/weight by default)
+    User can override by defining #+STYLE_HEADER:, #+STYLE_SUBHEADER:, #+STYLE_BODY: etc.
+    Additional styles can be declared with any other suffix, e.g. #+STYLE_HERO: ...
+    """
+    styles = {
+        'header': {'font': 'Manrope', 'weight': 'bold', 'size': '24pt'},
+        'subheader': {'font': 'Manrope', 'weight': 'semibold', 'size': '18pt'},
+        'body': {'font': 'Manrope'},
+    }
+    for k, v in (meta or {}).items():
+        if not isinstance(k, str) or not k.upper().startswith('STYLE_'):
+            continue
+        # Skip plain STYLE without suffix
+        if k.strip().upper() == 'STYLE':
+            continue
+        name = k.split('_', 1)[1].strip().lower()
+        if not name:
+            continue
+        decl = _parse_style_decl(v)
+        if name in styles:
+            styles[name] = {**styles[name], **decl}
+        else:
+            styles[name] = decl
+    return styles
+
+
+def _style_args(style: dict) -> str:
+    """Render Typst #text argument list from a style dict.
+    Order: font, weight, size, fill. Omit missing.
+    Quotes font always. For weight, quote if non-numeric; keep numeric bare.
+    For color, if starts with '#', render as fill: rgb("#xxxxxx"). If starts with rgb( or hsl( etc., pass through.
+    """
+    if not isinstance(style, dict):
+        style = {}
+    parts = []
+    f = style.get('font')
+    if isinstance(f, str) and f:
+        parts.append(f'font: "{f}"')
+    w = style.get('weight')
+    if isinstance(w, str) and w:
+        if re.fullmatch(r'[0-9]+', w.strip()):
+            parts.append(f'weight: {w.strip()}')
+        else:
+            parts.append(f'weight: "{w.strip()}"')
+    s = style.get('size')
+    if isinstance(s, str) and s:
+        parts.append(f'size: {s.strip()}')
+    c = style.get('color')
+    if isinstance(c, str) and c:
+        cv = c.strip()
+        if cv.startswith('#'):
+            parts.append(f'fill: rgb("{cv}")')
+        elif re.match(r'^[a-zA-Z]+\(', cv):
+            parts.append(f'fill: {cv}')
+        else:
+            # Assume hex-like or named color
+            parts.append(f'fill: rgb("{cv}")')
+    return ', '.join(parts)
+
+
+def _split_paragraphs(text: str) -> list:
+    """Split raw text into paragraphs.
+    Separators: blank lines, or lines exactly '---' / ':::'.
+    Trims surrounding whitespace per paragraph and drops empty ones.
+    """
+    if not isinstance(text, str) or text == "":
+        return []
+    lines = text.splitlines()
+    paras = []
+    buf = []
+    def flush():
+        nonlocal buf
+        s = "\n".join(buf).strip()
+        if s != "":
+            paras.append(s)
+        buf = []
+    for ln in lines:
+        strip = ln.strip()
+        if strip == "" or strip in ("---", ":::"):
+            flush()
+            continue
+        buf.append(ln)
+    flush()
+    return paras
+
+
+def _bool_token(val: str) -> str:
+    s = str(val).strip().lower()
+    if s in ("1", "true", "yes", "y", "on"): return "true"
+    if s in ("0", "false", "no", "n", "off"): return "false"
+    return s  # pass-through (user may supply a Typst expression)
+
+
+def _par_args(style: dict, justify_override: object) -> str:
+    """Build Typst par(...) argument list from style and element override.
+    Includes: leading, spacing, first-line-indent, hanging-indent, linebreaks, justify.
+    Element-level justify overrides style value when provided.
+    """
+    if not isinstance(style, dict):
+        style = {}
+    parts = []
+    # leading, spacing: lengths
+    for key in ("leading", "spacing"):
+        v = style.get(key)
+        if isinstance(v, str) and v.strip():
+            parts.append(f"{key}: {v.strip()}")
+    # first-line-indent, hanging-indent
+    v = style.get("first-line-indent")
+    if isinstance(v, str) and v.strip():
+        parts.append(f"first-line-indent: {v.strip()}")
+    v = style.get("hanging-indent")
+    if isinstance(v, str) and v.strip():
+        parts.append(f"hanging-indent: {v.strip()}")
+    # linebreaks: raw token (e.g., auto/loose/strict). User is responsible for correctness
+    v = style.get("linebreaks")
+    if isinstance(v, str) and v.strip():
+        parts.append(f"linebreaks: {v.strip()}")
+    # justify: override from element wins; else from style
+    if isinstance(justify_override, bool):
+        parts.append(f"justify: {'true' if justify_override else 'false'}")
+    else:
+        vj = style.get("justify")
+        if isinstance(vj, str) and vj.strip():
+            parts.append(f"justify: {_bool_token(vj)}")
+    return ', '.join(parts)
+
+
+def _render_text_element(el: dict, styles: dict) -> str:
+    """Render a header/subheader/body element to a Typst fragment string.
+    Handles styles, paragraph splitting, par(...) args, and justify override.
+    Paragraphs are joined with newlines; no stray '+' between paragraphs.
+    """
+    raw = el_text(el)
+    paras = _split_paragraphs(raw)
+    style_name = (el.get('style') or el.get('type') or 'body')
+    style = styles.get(str(style_name).strip().lower(), styles.get(el.get('type'), styles['body']))
+    text_args = _style_args(style)
+    par_args = _par_args(style, el.get('justify'))
+    if len(paras) <= 1 and not par_args:
+        txt = escape_text(raw)
+        return f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
+    if not paras:
+        paras = [""]
+    pieces = []
+    for p in paras:
+        txt = escape_text(p)
+        text_call = f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
+        if par_args:
+            pieces.append(f"#par({par_args})[{text_call}]")
+        else:
+            pieces.append(f"#par()[{text_call}]")
+    return "\n".join(pieces)
+
 
 def generate_typst(ir):
     theme_name = ir['meta'].get('THEME','light')
@@ -151,6 +391,9 @@ def generate_typst(ir):
 }
 """)
 
+    # Build styles from document meta
+    styles = _build_styles(ir.get('meta') or {})
+
     # Build map of master definitions: name -> list of elements
     masters = {}
     for p in ir.get('pages', []):
@@ -216,24 +459,8 @@ def generate_typst(ir):
                     file=sys.stderr,
                 )
             content_fragments = []
-            if el['type'] == 'header':
-                txt = escape_text(el_text(el))
-                if el.get('justify'):
-                    content_fragments.append(f"#par(justify: true)[#text(font: \"Manrope\", weight: \"bold\", size: 24pt)[{txt}]]")
-                else:
-                    content_fragments.append(f"#text(font: \"Manrope\", weight: \"bold\", size: 24pt)[{txt}]")
-            elif el['type'] == 'subheader':
-                txt = escape_text(el_text(el))
-                if el.get('justify'):
-                    content_fragments.append(f"#par(justify: true)[#text(font: \"Manrope\", weight: \"semibold\", size: 18pt)[{txt}]]")
-                else:
-                    content_fragments.append(f"#text(font: \"Manrope\", weight: \"semibold\", size: 18pt)[{txt}]")
-            elif el['type'] == 'body':
-                txt = escape_text(el_text(el))
-                if el.get('justify'):
-                    content_fragments.append(f"#par(justify: true)[#text(font: \"Manrope\")[{txt}]]")
-                else:
-                    content_fragments.append(f"#text(font: \"Manrope\")[{txt}]")
+            if el['type'] in ('header','subheader','body'):
+                content_fragments.append(_render_text_element(el, styles))
             elif el['type'] == 'rectangle' and el.get('rectangle'):
                 rect = el['rectangle']; color = rect['color']; alpha = rect.get('alpha', 1.0)
                 content_fragments.append(f"ColorRect(\"{color}\", {alpha})")

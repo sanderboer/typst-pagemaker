@@ -23,6 +23,7 @@ A grid-based layout engine for Typst. Includes an optional Org-mode parser that 
 - **Text justification**: `:JUSTIFY:` for header/subheader/body (wraps Typst `par(justify: true)`)
 - **Padding**: `:PADDING:` on text, images, SVG, and PDF (CSS-like TRBL shorthand in mm)
 - **Alignment & flow**: `:ALIGN:` (left|center|right) for text/figure/svg/pdf/toc; `:VALIGN:` (top|middle|bottom) for text (note: `middle` maps to Typst `horizon`); `:FLOW:` (normal|bottom-up|center-out) — when `:VALIGN:` is not set for text, `:FLOW:` can imply vertical alignment (bottom-up -> bottom, center-out -> horizon).
+- **Custom styles**: Per-document text styles via Org meta `#+STYLE_*` and per-element `:STYLE:` name. See Custom Styles section.
 
 ### Supported Elements
 
@@ -257,6 +258,71 @@ Optional external tools improve PDF handling when using `--sanitize-pdfs`:
 The CLI automatically detects these tools. If unavailable, related stages are skipped.
 
 ## Advanced Usage
+
+### Custom Styles
+- Declare styles in document meta using `#+STYLE_<NAME>:` where `<NAME>` is case-insensitive. Built-ins: `HEADER`, `SUBHEADER`, `BODY`.
+- Supported keys (case-insensitive) with aliases:
+  - font | font-family
+  - weight | font-weight (numeric or names like bold, semibold)
+  - size | font-size (Typst units like `pt`, `em`)
+  - color | colour | fill (supports `#hex`, `rgb(...)`, `hsl(...)`, or named)
+- Use a style on an element by setting `:STYLE:` to the style name (e.g., `hero`). If omitted, the element’s type is used as the style key (`header`, `subheader`, `body`).
+- Commas inside parentheses are handled correctly (e.g., `rgb(50%,50%,50%)`).
+
+Example:
+```org
+#+STYLE_HEADER: font: Shree714, weight: 900, size: 30pt, color: #ff00aa
+#+STYLE_BODY: font: Manrope, color: rgb(50%,50%,50%)
+#+STYLE_HERO: font: Manrope, weight: bold, size: 36pt, color: #123456
+
+* Title
+:PROPERTIES:
+:TYPE: header
+:AREA: 1,1,6,1
+:END:
+My Header
+
+** Big Title
+:PROPERTIES:
+:TYPE: body
+:STYLE: hero
+:AREA: 1,2,12,2
+:END:
+Big Title
+```
+See `examples/custom_styles_demo.org` for a complete, runnable example.
+
+#### Paragraph Options
+- Style declarations may also include paragraph settings applied via Typst `par(...)`:
+  - `leading`: Line leading (Typst length, e.g., `1.4em`, `14pt`).
+  - `spacing`: Space between paragraphs (length).
+  - `first-line-indent` (or `first_line_indent`): Indent the first line (length).
+  - `hanging-indent` (or `hanging_indent`): Hanging indent for subsequent lines (length).
+  - `linebreaks`: Typst line-breaking mode token (e.g., `auto`, `loose`, `strict`).
+  - `justify`: Boolean or token; when set, maps to `justify: true|false`.
+- Element-level `:JUSTIFY:` always overrides the style’s `justify` value.
+
+Paragraphs are split by:
+- Blank lines
+- Lines that are exactly `---` or `:::`
+
+If a text block splits into multiple paragraphs, each paragraph is wrapped with `par(...)`. Paragraphs are concatenated without extra blank lines; the visible gap is controlled by the style’s `spacing` value. If `spacing` is omitted, the next paragraph appears as a line break with minimal separation. When there is a single paragraph and no paragraph options or justification are set, the text is emitted without a `par(...)` wrapper for backward compatibility.
+
+Example (Org):
+```org
+#+STYLE_BODY: font: Manrope, leading: 1.4em, spacing: 1em, first-line-indent: 2em, hanging-indent: 1em, linebreaks: loose, justify: false
+
+** Styled Body
+:PROPERTIES:
+:TYPE: body
+:AREA: A1,L8
+:JUSTIFY: true   # element-level override
+:END:
+First paragraph line one.
+
+---
+Second paragraph, now with the style’s paragraph options and justify enabled.
+```
 
 ### Custom Fonts
 The system uses `--font-path` to include custom fonts:

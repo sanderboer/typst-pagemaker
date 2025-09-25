@@ -52,22 +52,23 @@ debug-overlay:
 
 test:
 	@echo "Running all tests..."
-	python -m unittest discover tests -v
-
-test-unit:
+	python -m unittest discover -s ../tests -t .. -v
+ 
+ test-unit:
 	@echo "Running unit tests..."
-	python -m unittest discover tests/unit -v
-
-test-integration: 
+	python -m unittest discover -s ../tests/unit -t .. -v
+ 
+ test-integration: 
 	@echo "Running integration tests..."
-	python -m unittest discover tests/integration -v
-
-test-verbose:
+	python -m unittest discover -s ../tests/integration -t .. -v
+ 
+ test-verbose:
 	@echo "Running tests with maximum verbosity..."
-	python -m unittest discover tests -v -b
-
-test-coverage:
+	python -m unittest discover -s ../tests -t .. -v -b
+ 
+ test-coverage:
 	@echo "Running tests with coverage..."
-	python -m coverage run -m unittest discover tests
+	python -m coverage run -m unittest discover -s ../tests -t ..
 	python -m coverage report
 	python -m coverage html
+

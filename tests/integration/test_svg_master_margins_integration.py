@@ -49,17 +49,16 @@ class TestSVGMasterMarginsIntegration(unittest.TestCase):
 
     def test_margins_offset_layer_coordinates(self):
         org = (
-            """#+TITLE: Margins Test\n#+GRID: 3x3\n#+MARGINS: 1,1,0,0\n\n* Slide\n:PROPERTIES:\n:ID: s1\n:END:\n\n** Body\n:PROPERTIES:\n:TYPE: body\n:AREA: A1,A1\n:END:\nHi\n"""
+            """#+TITLE: Margins Test\n#+GRID: 3x3\n#+MARGINS: 5,0,0,5\n\n* Slide\n:PROPERTIES:\n:ID: s1\n:END:\n\n** Body\n:PROPERTIES:\n:TYPE: body\n:AREA: A1,A1\n:END:\nHi\n"""
         )
         with tempfile.TemporaryDirectory() as td:
             org_path = pathlib.Path(td) / 'g.org'
             org_path.write_text(org, encoding='utf-8')
             ir = pm.parse_org(str(org_path))
             t = pm.generate_typst(ir)
-            # Expect left/top margins to shift placement by +1,+1 so layer uses (2,2)
-            # Find the layer line following the element comment
-            m = re.search(r"^#layer\(cw,ch,2,2,1,1, ", t, flags=re.M)
-            self.assertIsNotNone(m, f"Expected layer offset not found. Typst was:\n{t}")
+            # With margins declared, AREA uses total grid: A1 -> (1,1)
+            m = re.search(r"^#layer_grid\(gp,1,1,1,1, ", t, flags=re.M)
+            self.assertIsNotNone(m, f"Expected total-grid addressing not found. Typst was:\n{t}")
 
 
 if __name__ == '__main__':

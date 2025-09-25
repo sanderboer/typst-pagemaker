@@ -4,7 +4,8 @@
 #+PAGESIZE: A4
 #+ORIENTATION: landscape
 #+GRID: 12x8
-#+MARGINS: 1,1,1,1
+#+GRID_DEBUG: true
+#+MARGINS: 10,10,10,10
 
 * Slide with Document Margins
 :PROPERTIES:
@@ -14,16 +15,16 @@
 ** Header inside margins
 :PROPERTIES:
 :TYPE: header
- :AREA: A1,A12
+:AREA: A1,A12
 :END:
-Content area respects 1-row/1-col margins on all sides.
+Content area uses the content grid; margins are absolute mm (#+MARGINS: top,right,bottom,left).
 
 ** Body spanning central area
 :PROPERTIES:
 :TYPE: body
 :AREA: B2,H7
 :END:
-The body area starts at B2 because margins add an extra row/column around the grid. Coordinates are still given in the content grid (A.., 1..).
+The body area starts at B2 because margins add an extra row/column around the grid. Debug labels show the total grid (including margins); first column is 1, first row is A.
 
 ** Content area background rectangle
 :PROPERTIES:
@@ -34,3 +35,14 @@ The body area starts at B2 because margins add an extra row/column around the gr
 :Z: 1
 :END:
 This rectangle fills the content area within the margins.
+
+** Full-bleed background using total coords
+:PROPERTIES:
+:TYPE: rectangle
+:COORDS: total
+:AREA: A1,J14
+:COLOR: #000000
+:ALPHA: 0.05
+:Z: 0
+:END:
+This rectangle spans the full total grid, including the margin tracks (useful for full-bleed backgrounds).

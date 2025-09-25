@@ -22,6 +22,7 @@ A grid-based layout engine for Typst. Includes an optional Org-mode parser that 
 - **Custom fonts**: Integrated support for Manrope and other typography families
 - **Text justification**: `:JUSTIFY:` for header/subheader/body (wraps Typst `par(justify: true)`)
 - **Padding**: `:PADDING:` on text, images, SVG, and PDF (CSS-like TRBL shorthand in mm)
+- **Alignment & flow**: `:ALIGN:` (left|center|right) for text/figure/svg/pdf/toc; `:VALIGN:` (top|middle|bottom) for text (note: `middle` maps to Typst `horizon`); `:FLOW:` (normal|bottom-up|center-out) — when `:VALIGN:` is not set for text, `:FLOW:` can imply vertical alignment (bottom-up -> bottom, center-out -> horizon).
 
 ### Supported Elements
 
@@ -34,7 +35,7 @@ A grid-based layout engine for Typst. Includes an optional Org-mode parser that 
 | `pdf` | Vector PDF embedding | Page selection, scaling |
 | `svg` | SVG image embedding | Fit: contain; path via `:SVG:` |
 | `rectangle` | Colored overlays | Custom colors, alpha transparency |
-| `toc` | Table of contents | Auto-lists slide titles; supports :AREA: and :PADDING: |
+| `toc` | Table of contents | Auto-lists slide titles (• 1. Title); supports :AREA:, :PADDING:, :ALIGN: |
 
 ## Quick Start
 
@@ -242,6 +243,9 @@ Exit code 0 means no errors (warnings may still appear).
 - **FIT**: Image fitting (contain, cover, fill)
 - **PADDING**: Optional mm padding around content. CSS-like shorthand: `PADDING: t` | `t,r` | `t,r,b` | `t,r,b,l`. Applies to text (header/subheader/body), figures, SVG, and PDF.
 - **JUSTIFY**: Optional boolean for text elements. `:JUSTIFY:` (bare) or `:JUSTIFY: true` enables full justification; `false` disables. Maps to Typst `par(justify: true)` wrapping.
+- **ALIGN**: Horizontal alignment within the element frame. Values: `left`, `center`, `right`. Applies to text (`header`, `subheader`, `body`) and media (`figure`, `svg`, `pdf`, `toc`).
+- **VALIGN**: Vertical alignment within the element frame. Values: `top`, `middle`, `bottom`. Applies to text elements. Note: `middle` maps to Typst `horizon` (Typst’s vertical-center token).
+- **FLOW**: Layout hint for text elements. Values: `normal`, `bottom-up`, `center-out`. Emitted as a comment for visibility, and when `:VALIGN:` is not set it can imply vertical alignment: `bottom-up` -> `bottom`, `center-out` -> `horizon`. Otherwise, explicit `:VALIGN:` wins.
 
 ## Tooling
 

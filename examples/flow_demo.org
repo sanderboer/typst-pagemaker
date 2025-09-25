@@ -1,0 +1,40 @@
+#+TITLE: Flow/Align Demo
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+#+GRID_DEBUG: false
+
+* Flow Implied Alignments
+:PROPERTIES:
+:ID: flow-align
+:END:
+
+** Bottom-up without VALIGN (implies bottom)
+:PROPERTIES:
+:TYPE: body
+:AREA: C3,F6
+:PADDING: 4,4
+:ALIGN: center
+:FLOW: bottom-up
+:END:
+This text should sit at the bottom of its frame.
+
+** Center-out without VALIGN (implies vertical center)
+:PROPERTIES:
+:TYPE: body
+:AREA: G3,J6
+:PADDING: 4,4
+:ALIGN: center
+:FLOW: center-out
+:END:
+This text should be vertically centered in its frame.
+
+** Explicit VALIGN wins over FLOW
+:PROPERTIES:
+:TYPE: body
+:AREA: C7,F8
+:PADDING: 4,4
+:FLOW: bottom-up
+:VALIGN: top
+:END:
+Despite FLOW bottom-up, explicit VALIGN top takes precedence.

@@ -20,15 +20,30 @@
 :AREA: A1,H5
 :COLOR: #000000
 :ALPHA: 0.08
-:Z: -1
+:Z: -1000
 :END:
+
+** Header
+:PROPERTIES:
+:TYPE: body
+:AREA: A11,A12
+:PADDING: 5,5,0,0
+:VALIGN: top
+:ALIGN: right
+:Z: 1
+:END:
+ #date_yy_mm_dd
+
 
 ** Footer
 :PROPERTIES:
 :TYPE: body
 :AREA: H11,H12
+:PADDING: 0,5,5,0
+:VALIGN: bottom
+:ALIGN: right
 :END:
-Page #page_no / #page_total — #date_yy_mm_dd
+Page #page_no / #page_total
 
 * Introduction
 :PROPERTIES:
@@ -59,15 +74,18 @@ Scalable. Observable. Secure.
 ** Body
 :PROPERTIES:
 :TYPE: body
-:AREA: c1,G5
+:AREA: c1,H5
 :PADDING: 10,10
-:JUSTIFY:
+:JUSTIFY: false
+:ALIGN: right
+:VALIGN: bottom
+:FLOW: normal
 :END:
 
 Assumenda temporibus sed necessitatibus est nisi. Pariatur omnis consequatur totam iure. Sed aliquam nam non id architecto totam qui ut. Nisi quia quia doloremque totam nesciunt itaque. Molestiae voluptatum suscipit dolorem vitae nam.
 Nobis debitis impedit et itaque. Soluta sed provident qui corrupti voluptas. Assumenda adipisci animi et. Voluptatem eos in ut. Minima voluptas libero illum perspiciatis eum aliquid id quia. Perferendis facere excepturi non officiis beatae voluptas sint.
 Qui cumque aut id. Est ducimus cumque rerum qui repellendus. Soluta vitae id sint. Facere a vero dolores asperiores. Ut nam amet rerum in est consectetur sit.
-Possimus minima repellat dolores officiis deserunt sit at quia. Quia vero esse maxime quam id sunt. Consequatur sint quaerat explicabo.
+Possimus middnima repellat dolores officiis deserunt sit at quia. Quia vero esse maxime quam id sunt. Consequatur sint quaerat explicabo.
 Eum et nisi aut. Dicta quibusdam minus est distinctio iure molestiae doloribus voluptatum. Excepturi eveniet tempore facilis reprehenderit dolores quaerat quia.
 
 
@@ -80,4 +98,10 @@ Eum et nisi aut. Dicta quibusdam minus est distinctio iure molestiae doloribus v
 :SCALE: 2.0
 :END:
 (External PDF spec excerpt)
+
+#+BEGIN_COMMENT
+See also: examples/flow_demo.org for FLOW-implied vertical alignment examples
+- bottom-up -> bottom when VALIGN not set
+- center-out -> horizon when VALIGN not set
+#+END_COMMENT
 

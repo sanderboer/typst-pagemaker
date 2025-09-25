@@ -39,14 +39,14 @@ class TestSVGAndMargins(unittest.TestCase):
         self.assertIn('SVG asset not found', msgs)
 
     def test_margins_expand_grid_total(self):
-        org = ("""#+GRID: 12x8\n#+MARGINS: 1,2,3,4\n\n* P\n:PROPERTIES:\n:ID: p\n:END:\n\n** B\n:PROPERTIES:\n:TYPE: body\n:AREA: A1,A1\n:END:\n""")
+        org = ("""#+GRID: 12x8\n#+MARGINS: 5,5,5,5\n\n* P\n:PROPERTIES:\n:ID: p\n:END:\n\n** B\n:PROPERTIES:\n:TYPE: body\n:AREA: A1,A1\n:END:\n""")
         with tempfile.TemporaryDirectory() as td:
             org_path = pathlib.Path(td)/'m.org'
             org_path.write_text(org, encoding='utf-8')
             ir = pm.parse_org(str(org_path))
             page = ir['pages'][0]
-            self.assertEqual(page['grid_total']['cols'], 12 + 2 + 4)
-            self.assertEqual(page['grid_total']['rows'], 8 + 1 + 3)
+            self.assertEqual(page['grid_total']['cols'], 12 + 2)
+            self.assertEqual(page['grid_total']['rows'], 8 + 2)
 
 if __name__ == '__main__':
     unittest.main()

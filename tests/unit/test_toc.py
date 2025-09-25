@@ -52,9 +52,9 @@ Content
             ]
         }
         typst = pm.generate_typst(ir)
-        # Expect bullet marker and both page titles in the TOC text
-        self.assertIn('• P1', typst)
-        self.assertIn('• P2', typst)
+        # Expect bullet marker, slide numbers, and both page titles in the TOC text
+        self.assertIn('• 1. P1', typst)
+        self.assertIn('• 2. P2', typst)
         # Ensure the element is placed via layer_grid
         self.assertIn('#layer_grid(gp,1,1,2,2, ', typst)
 

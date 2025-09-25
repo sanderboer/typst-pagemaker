@@ -55,6 +55,31 @@ def parse_bool(val: Optional[str]) -> Optional[bool]:
     return None
 
 
+def parse_align(val: Optional[str]) -> Optional[str]:
+    if val is None:
+        return None
+    s = str(val).strip().lower()
+    if s in ("left", "center", "right"):
+        return s
+    return None
+
+def parse_valign(val: Optional[str]) -> Optional[str]:
+    if val is None:
+        return None
+    s = str(val).strip().lower()
+    if s in ("top", "middle", "bottom"):
+        return s
+    return None
+
+def parse_flow(val: Optional[str]) -> Optional[str]:
+    if val is None:
+        return None
+    s = str(val).strip().lower()
+    # Accept a small set of strings for now
+    if s in ("normal", "bottom-up", "center-out"):
+        return s
+    return None
+
 class OrgElement:
     def __init__(self, id_, type_, title, area=None, props=None, content_lines=None):
         self.id = id_
@@ -98,6 +123,9 @@ class OrgElement:
         style = None
         padding_mm = None
         justify = None
+        align = None
+        valign = None
+        flow = None
         if self.type in ('header', 'subheader', 'body'):
             content = '\n'.join(self.content_lines).strip()
             if content:
@@ -110,9 +138,15 @@ class OrgElement:
                 justify = True if jparsed is None else jparsed
             else:
                 justify = None
-        # Allow padding for figures/svg/pdf/toc too
-        if self.type in ('figure','svg','pdf','toc') and padding_mm is None:
-            padding_mm = parse_padding(self.props.get('PADDING'))
+            align = parse_align(self.props.get('ALIGN'))
+            valign = parse_valign(self.props.get('VALIGN'))
+            flow = parse_flow(self.props.get('FLOW'))
+        # Allow padding and alignment for figures/svg/pdf/toc too (alignment currently only used for text/toc)
+        if self.type in ('figure','svg','pdf','toc'):
+            if padding_mm is None:
+                padding_mm = parse_padding(self.props.get('PADDING'))
+            if align is None:
+                align = parse_align(self.props.get('ALIGN'))
         return {
             'id': self.id,
             'type': self.type,
@@ -128,6 +162,9 @@ class OrgElement:
             'text_blocks': text_blocks,
             'style': style,
             'justify': justify,
+            'align': align,
+            'valign': valign,
+            'flow': flow,
             'padding_mm': padding_mm
         }
 

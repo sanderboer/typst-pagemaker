@@ -16,7 +16,7 @@
 ** Title (Manrope Bold)
 :PROPERTIES:
 :TYPE: header
- :AREA: B1,C12
+:AREA: B1,C12
 :END:
 Custom Fonts: Manrope Family
 

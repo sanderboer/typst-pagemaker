@@ -1,0 +1,71 @@
+#+TITLE: Custom Styles Demo
+#+AUTHOR: Example
+#+THEME: light
+#+GRID_DEBUG: false
+
+# Document-level style declarations
+#+STYLE_HEADER: font: Playfair Display, weight: 100, size: 20mm, color: #ffffff, spacing: 10mm
+#+STYLE_BODY_WHITE: font: Fauna One, size: 5mm, color: #fff, leading: 4mm, spacing: 2em
+#+STYLE_BODY: font: Fauna One, size: 5mm, color: #000, leading: 4mm, spacing:2em
+#+STYLE_TEST: font: Fauna One, size: 30pt, weight:bold, color: rgb(98%,50%,50%)
+#+STYLE_HERO: font: Manrope, weight: bold, size: 36pt, color: #123456
+
+* Page 1
+:PROPERTIES:
+:MASTER: 
+:GRID: 12x8
+:SIZE: A4
+:END:
+
+** image
+:PROPERTIES:
+:TYPE: figure
+:FIT: cover
+:AREA: A1,H12
+:padding: 0
+:END:
+[[file:assets/test-images/forest.jpg]]
+
+** Header example
+:PROPERTIES:
+:TYPE: header
+:AREA: B3,C7
+:VALIGN: top
+:padding: 0
+:END:
+THE GNAT
+:::
+& THE BULL
+
+** body text
+:PROPERTIES:
+:AREA: D3,G9
+:TYPE: body
+:STYLE: body_white
+:JUSTIFY: true
+:PADDING: 0, 15,0,0
+:END:
+
+A Gnat alighted on one of the horns of a Bull, and remained sitting there for a considerable time. When it had rested sufficiently and was about to fly away, it said to the Bull, “Do you mind if I go now?” The Bull merely raised his eyes and remarked, without interest, “It’s all one to me; I didn’t notice when you came, and I shan’t know when you go away.”
+
+
+We may often be of more consequence in our own eyes than in the eyes of our neighbours.
+
+* page 2
+
+** poem
+:PROPERTIES:
+:AREA: B3,G9
+:TYPE: body
+:STYLE: body
+:JUSTIFY: true
+:PADDING: 0,15,0,0
+:END:
+
+A Gnat alighted on one of the horns of a Bull, and remained sitting there for a considerable time. When it had rested sufficiently and was about to fly away, it said to the Bull, “Do you mind if I go now?” The Bull merely raised his eyes and remarked, without interest, “It’s all one to me; I didn’t notice when you came, and I shan’t know when you go away."
+:::
+We may often be of more consequence in our own eyes than in the eyes of our neighbours.
+:::
+A Gnat alighted on one of the horns of a Bull, and remained sitting there for a considerable time. When it had rested sufficiently and was about to fly away, it said to the Bull, “Do you mind if I go now?” The Bull merely raised his eyes and remarked, without interest, “It’s all one to me; I didn’t notice when you came, and I shan’t know when you go away.”
+:::
+We may often be of more consequence in our own eyes than in the eyes of our neighbours.

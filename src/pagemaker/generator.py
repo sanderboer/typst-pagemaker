@@ -219,21 +219,21 @@ def generate_typst(ir):
             if el['type'] == 'header':
                 txt = escape_text(el_text(el))
                 if el.get('justify'):
-                    content_fragments.append(f"[#par(justify: true)[#text(font: \"Manrope\", weight: \"bold\", size: 24pt)[{txt}]]]")
+                    content_fragments.append(f"#par(justify: true)[#text(font: \"Manrope\", weight: \"bold\", size: 24pt)[{txt}]]")
                 else:
-                    content_fragments.append(f"[#text(font: \"Manrope\", weight: \"bold\", size: 24pt)[{txt}]]")
+                    content_fragments.append(f"#text(font: \"Manrope\", weight: \"bold\", size: 24pt)[{txt}]")
             elif el['type'] == 'subheader':
                 txt = escape_text(el_text(el))
                 if el.get('justify'):
-                    content_fragments.append(f"[#par(justify: true)[#text(font: \"Manrope\", weight: \"semibold\", size: 18pt)[{txt}]]]")
+                    content_fragments.append(f"#par(justify: true)[#text(font: \"Manrope\", weight: \"semibold\", size: 18pt)[{txt}]]")
                 else:
-                    content_fragments.append(f"[#text(font: \"Manrope\", weight: \"semibold\", size: 18pt)[{txt}]]")
+                    content_fragments.append(f"#text(font: \"Manrope\", weight: \"semibold\", size: 18pt)[{txt}]")
             elif el['type'] == 'body':
                 txt = escape_text(el_text(el))
                 if el.get('justify'):
-                    content_fragments.append(f"[#par(justify: true)[#text(font: \"Manrope\")[{txt}]]]")
+                    content_fragments.append(f"#par(justify: true)[#text(font: \"Manrope\")[{txt}]]")
                 else:
-                    content_fragments.append(f"[#text(font: \"Manrope\")[{txt}]]")
+                    content_fragments.append(f"#text(font: \"Manrope\")[{txt}]")
             elif el['type'] == 'rectangle' and el.get('rectangle'):
                 rect = el['rectangle']; color = rect['color']; alpha = rect.get('alpha', 1.0)
                 content_fragments.append(f"ColorRect(\"{color}\", {alpha})")
@@ -256,23 +256,58 @@ def generate_typst(ir):
                 else:
                     content_fragments.append(f"PdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale})")
             elif el['type'] == 'toc':
-                # Minimal TOC: bullet list of page titles
+                # TOC with slide numbers
                 bullets = []
-                for rp in render_pages:
+                for idx, rp in enumerate(render_pages, start=1):
                     title = escape_text(rp.get('title', ''))
-                    bullets.append(f"• {title}")
+                    bullets.append(f"• {idx}. {title}")
                 toc_text = "\\n".join(bullets)
                 content_fragments.append(f"[#text(font: \"Manrope\")[{toc_text}]]")
             frag = ' + '.join(content_fragments) if content_fragments else '""'
+            # Apply ALIGN/VALIGN wrappers if present
+            wrapped = frag
+            align_terms = []
+            h = (el.get('align') or '').strip().lower() if isinstance(el.get('align'), str) else None
+            v = (el.get('valign') or '').strip().lower() if isinstance(el.get('valign'), str) else None
+            flow = (el.get('flow') or '').strip().lower() if isinstance(el.get('flow'), str) else None
+            if h in ('left','center','right'):
+                align_terms.append(h)
+            if v in ('top','middle','bottom'):
+                # Map 'middle' to Typst's vertical center token 'horizon'
+                align_terms.append('horizon' if v == 'middle' else v)
+            else:
+                # No explicit vertical alignment; use FLOW if provided
+                if flow == 'bottom-up':
+                    align_terms.append('bottom')
+                elif flow == 'center-out':
+                    align_terms.append('horizon')
+            if align_terms:
+                inner = wrapped
+                # If inner is not a content block, inject as code inside markup block
+                s = str(inner).strip()
+                if not (s.startswith('[') or s.startswith('#')):
+                    inner = f"#{inner}"
+                wrapped = f"align({ ' + '.join(align_terms) })[{inner}]"
             out.append(f"// Element {el['id']} ({el['type']})\n")
+            # Emit flow hint comment when provided
+            if flow:
+                out.append(f"// FLOW: {flow}\n")
             # Place elements with padding when specified (text, figure, svg, pdf, toc)
             pad = el.get('padding_mm') if isinstance(el, dict) else None
             if el.get('type') in ('header','subheader','body','figure','svg','pdf','toc') and isinstance(pad, dict):
                 t = float(pad.get('top', 0.0)); r = float(pad.get('right', 0.0)); b = float(pad.get('bottom', 0.0)); l = float(pad.get('left', 0.0))
-                out.append(f"#layer_grid_padded(gp,{x_total},{y_total},{wc},{hc}, {t}mm, {r}mm, {b}mm, {l}mm, {frag})\n")
+                arg = wrapped
+                sarg = str(arg).lstrip()
+                if sarg.startswith('#'):
+                    arg = f"[{arg}]"
+                out.append(f"#layer_grid_padded(gp,{x_total},{y_total},{wc},{hc}, {t}mm, {r}mm, {b}mm, {l}mm, {arg})\n")
             else:
                 # Always place via total grid helper
-                out.append(f"#layer_grid(gp,{x_total},{y_total},{wc},{hc}, {frag})\n")
+                arg = wrapped
+                sarg = str(arg).lstrip()
+                if sarg.startswith('#'):
+                    arg = f"[{arg}]"
+                out.append(f"#layer_grid(gp,{x_total},{y_total},{wc},{hc}, {arg})\n")
         if ir['meta'].get('GRID_DEBUG', 'false').lower() == 'true':
             if margins_declared:
                 out.append(f"#draw_total_grid(gp)\n")

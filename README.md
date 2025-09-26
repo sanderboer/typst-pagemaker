@@ -61,6 +61,32 @@ pagemaker --help
 typst --version  # Ensure Typst is also installed
 ```
 
+### Requirements
+
+**Essential Dependencies:**
+- **Typst** - The core typesetting engine. Install from [typst.app](https://typst.app/docs/tutorial/installation/)
+- **MuPDF tools (mutool)** - Essential for PDF processing, SVG/PNG fallback generation, and `--sanitize-pdfs` functionality
+
+**Optional Dependencies:**
+- **qpdf** - Enhanced PDF repair and normalization  
+- **Ghostscript (gs)** - Alternative PDF processing and PNG rendering
+
+Install platform-specific dependencies:
+```bash
+# macOS (via Homebrew)
+brew install typst mupdf qpdf ghostscript
+
+# Ubuntu/Debian
+sudo apt update && sudo apt install typst-cli mupdf-tools qpdf ghostscript
+
+# Arch Linux
+sudo pacman -S typst mupdf-tools qpdf ghostscript
+
+# Windows (via winget or chocolatey)
+winget install --id Typst.Typst
+# For MuPDF, download from: https://mupdf.com/releases/index.html
+```
+
 ### Development Installation
 ```bash
 # Clone the repository for development
@@ -319,12 +345,15 @@ Exit code 0 means no errors (warnings may still appear).
 
 ## Tooling
 
-Optional external tools improve PDF handling when using `--sanitize-pdfs`:
+**Essential external tools:**
+- `typst`: Required for all document compilation
+- `mutool` (MuPDF): Essential for PDF processing, SVG/PNG fallback generation, and full `--sanitize-pdfs` functionality
+
+**Optional external tools** that enhance PDF handling with `--sanitize-pdfs`:
 - `qpdf`: Repairs and normalizes PDF structure (stream recompress, object streams)
-- `mutool` (MuPDF): Cleans PDFs and renders SVG/PNG fallbacks
 - `gs` (Ghostscript): Alternate PDF distillation and PNG fallback rendering
 
-The CLI automatically detects these tools. If unavailable, related stages are skipped.
+The CLI automatically detects these tools. If unavailable, related stages are skipped, but missing essential tools will limit core functionality.
 
 ## Advanced Usage
 

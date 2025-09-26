@@ -17,7 +17,7 @@ import unittest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-ASSETS_DIR = PROJECT_ROOT / "assets" / "test-pdfs"
+ASSETS_DIR = PROJECT_ROOT / "examples" / "assets" / "test-pdfs"
 
 
 class TestMuchPDFOnAssets(unittest.TestCase):

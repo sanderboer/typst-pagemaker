@@ -13,7 +13,7 @@ class TestSVGAndMargins(unittest.TestCase):
             'pages': [{
                 'grid': {'cols': 12, 'rows': 8},
                 'elements': [
-                    {'type': 'svg', 'area': {'x':1,'y':1,'w':2,'h':2}, 'z': 10, 'svg': {'src': 'assets/test-svgs/test-plan-p11.svg'}},
+                    {'type': 'svg', 'area': {'x':1,'y':1,'w':2,'h':2}, 'z': 10, 'svg': {'src': 'examples/assets/test-svgs/test-plan-p11.svg'}},
                 ],
             }]
         }

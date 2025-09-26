@@ -3,21 +3,42 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pagemaker"
-version = "0.1.0"
-description = "Org-mode to Typst slide/page generator"
+name = "typst-pagemaker"
+version = "0.1.2"
+description = "Structured document-to-page layout system for Typst with explicit positioning and professional typography"
 authors = [ { name="Project" } ]
 readme = "README.md"
 requires-python = ">=3.9"
-license = { file = "LICENSE" }
+license = "MIT"
+dependencies = []
+keywords = ["typst", "orgmode", "layout", "grid", "slides", "pdf"]
 classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Topic :: Text Processing :: Markup",
+  "Topic :: Office/Business :: Office Suites",
+  "Topic :: Multimedia :: Graphics :: Presentation",
   "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Operating System :: OS Independent"
 ]
+
+[project.urls]
+Homepage = "https://github.com/sanderboer/typst-pagemaker"
+Repository = "https://github.com/sanderboer/typst-pagemaker"
+Issues = "https://github.com/sanderboer/typst-pagemaker/issues"
 
 [project.scripts]
 pagemaker = "pagemaker.cli:main"
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+pagemaker = ["fonts/**/*"]

@@ -1,0 +1,306 @@
+#+TITLE: Font Specimen Showcase
+#+PAGESIZE: A4
+#+ORIENTATION: portrait  
+#+GRID: 12x16
+#+MARGINS: 15,15,15,15
+#+CUSTOM_STYLE: #page(margin: 15mm); #set text(font: "Inter", size: 10pt)
+
+* Available Font Families
+
+This specimen showcases all available fonts in your pagemaker installation.
+
+** Crimson_Pro
+:PROPERTIES:
+:TYPE: header
+:AREA: A1,L1
+:END:
+
+#set text(font: "Crimson_Pro", weight: "bold", size: 14pt)
+Crimson_Pro — 2 files (487.8KB)
+
+*** Sample Text
+:PROPERTIES:
+:TYPE: body
+:AREA: A2,L4
+:PADDING: 0,0,8,0
+:END:
+
+#set text(font: "Crimson_Pro", size: 11pt)
+
+The quick brown fox jumps over the lazy dog
+
+#set text(size: 9pt, style: "italic")
+TYPOGRAPHY & Design Elements 1234567890
+
+#set text(size: 10pt, style: "normal")
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+** EB_Garamond
+:PROPERTIES:
+:TYPE: header
+:AREA: A6,L6
+:END:
+
+#set text(font: "EB_Garamond", weight: "bold", size: 14pt)
+EB_Garamond — 1 files (286.4KB)
+
+*** Sample Text
+:PROPERTIES:
+:TYPE: body
+:AREA: A7,L9
+:PADDING: 0,0,8,0
+:END:
+
+#set text(font: "EB_Garamond", size: 11pt)
+
+The quick brown fox jumps over the lazy dog
+
+#set text(size: 9pt, style: "italic")
+TYPOGRAPHY & Design Elements 1234567890
+
+#set text(size: 10pt, style: "normal")
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+** Fauna_One
+:PROPERTIES:
+:TYPE: header
+:AREA: A11,L11
+:END:
+
+#set text(font: "Fauna_One", weight: "bold", size: 14pt)
+Fauna_One — 1 files (53.8KB)
+
+*** Sample Text
+:PROPERTIES:
+:TYPE: body
+:AREA: A12,L14
+:PADDING: 0,0,8,0
+:END:
+
+#set text(font: "Fauna_One", size: 11pt)
+
+The quick brown fox jumps over the lazy dog
+
+#set text(size: 9pt, style: "italic")
+TYPOGRAPHY & Design Elements 1234567890
+
+#set text(size: 10pt, style: "normal")
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+
+\pagebreak
+
+** Inter
+:PROPERTIES:
+:TYPE: header
+:AREA: A1,L1
+:END:
+
+#set text(font: "Inter", weight: "bold", size: 14pt)
+Inter — 1 files (286.3KB)
+
+*** Sample Text
+:PROPERTIES:
+:TYPE: body
+:AREA: A2,L4
+:PADDING: 0,0,8,0
+:END:
+
+#set text(font: "Inter", size: 11pt)
+
+The quick brown fox jumps over the lazy dog
+
+#set text(size: 9pt, style: "italic")
+TYPOGRAPHY & Design Elements 1234567890
+
+#set text(size: 10pt, style: "normal")
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+** JetBrains_Mono
+:PROPERTIES:
+:TYPE: header
+:AREA: A6,L6
+:END:
+
+#set text(font: "JetBrains_Mono", weight: "bold", size: 14pt)
+JetBrains_Mono — 1 files (296.0KB)
+
+*** Sample Text
+:PROPERTIES:
+:TYPE: body
+:AREA: A7,L9
+:PADDING: 0,0,8,0
+:END:
+
+#set text(font: "JetBrains_Mono", size: 11pt)
+
+The quick brown fox jumps over the lazy dog
+
+#set text(size: 9pt, style: "italic")
+TYPOGRAPHY & Design Elements 1234567890
+
+#set text(size: 10pt, style: "normal")
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+** Lora
+:PROPERTIES:
+:TYPE: header
+:AREA: A11,L11
+:END:
+
+#set text(font: "Lora", weight: "bold", size: 14pt)
+Lora — 1 files (286.3KB)
+
+*** Sample Text
+:PROPERTIES:
+:TYPE: body
+:AREA: A12,L14
+:PADDING: 0,0,8,0
+:END:
+
+#set text(font: "Lora", size: 11pt)
+
+The quick brown fox jumps over the lazy dog
+
+#set text(size: 9pt, style: "italic")
+TYPOGRAPHY & Design Elements 1234567890
+
+#set text(size: 10pt, style: "normal")
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+
+\pagebreak
+
+** Manrope
+:PROPERTIES:
+:TYPE: header
+:AREA: A1,L1
+:END:
+
+#set text(font: "Manrope", weight: "bold", size: 14pt)
+Manrope — 1 files (163.2KB)
+
+*** Sample Text
+:PROPERTIES:
+:TYPE: body
+:AREA: A2,L4
+:PADDING: 0,0,8,0
+:END:
+
+#set text(font: "Manrope", size: 11pt)
+
+The quick brown fox jumps over the lazy dog
+
+#set text(size: 9pt, style: "italic")
+TYPOGRAPHY & Design Elements 1234567890
+
+#set text(size: 10pt, style: "normal")
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+** Noto_Serif
+:PROPERTIES:
+:TYPE: header
+:AREA: A6,L6
+:END:
+
+#set text(font: "Noto_Serif", weight: "bold", size: 14pt)
+Noto_Serif — 1 files (286.4KB)
+
+*** Sample Text
+:PROPERTIES:
+:TYPE: body
+:AREA: A7,L9
+:PADDING: 0,0,8,0
+:END:
+
+#set text(font: "Noto_Serif", size: 11pt)
+
+The quick brown fox jumps over the lazy dog
+
+#set text(size: 9pt, style: "italic")
+TYPOGRAPHY & Design Elements 1234567890
+
+#set text(size: 10pt, style: "normal")
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+** Playfair_Display
+:PROPERTIES:
+:TYPE: header
+:AREA: A11,L11
+:END:
+
+#set text(font: "Playfair_Display", weight: "bold", size: 14pt)
+Playfair_Display — 2 files (568.6KB)
+
+*** Sample Text
+:PROPERTIES:
+:TYPE: body
+:AREA: A12,L14
+:PADDING: 0,0,8,0
+:END:
+
+#set text(font: "Playfair_Display", size: 11pt)
+
+The quick brown fox jumps over the lazy dog
+
+#set text(size: 9pt, style: "italic")
+TYPOGRAPHY & Design Elements 1234567890
+
+#set text(size: 10pt, style: "normal")
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+
+\pagebreak
+
+** Poppins
+:PROPERTIES:
+:TYPE: header
+:AREA: A1,L1
+:END:
+
+#set text(font: "Poppins", weight: "bold", size: 14pt)
+Poppins — 1 files (286.3KB)
+
+*** Sample Text
+:PROPERTIES:
+:TYPE: body
+:AREA: A2,L4
+:PADDING: 0,0,8,0
+:END:
+
+#set text(font: "Poppins", size: 11pt)
+
+The quick brown fox jumps over the lazy dog
+
+#set text(size: 9pt, style: "italic")
+TYPOGRAPHY & Design Elements 1234567890
+
+#set text(size: 10pt, style: "normal")
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+
+** Roboto
+:PROPERTIES:
+:TYPE: header
+:AREA: A6,L6
+:END:
+
+#set text(font: "Roboto", weight: "bold", size: 14pt)
+Roboto — 1 files (286.4KB)
+
+*** Sample Text
+:PROPERTIES:
+:TYPE: body
+:AREA: A7,L9
+:PADDING: 0,0,8,0
+:END:
+
+#set text(font: "Roboto", size: 11pt)
+
+The quick brown fox jumps over the lazy dog
+
+#set text(size: 9pt, style: "italic")
+TYPOGRAPHY & Design Elements 1234567890
+
+#set text(size: 10pt, style: "normal")
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+

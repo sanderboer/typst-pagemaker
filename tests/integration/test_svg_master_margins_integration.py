@@ -19,7 +19,7 @@ import pagemaker as pm
 class TestSVGMasterMarginsIntegration(unittest.TestCase):
     def test_svg_element_generates_image(self):
         org = (
-            """#+TITLE: SVG Test\n\n* Slide\n:PROPERTIES:\n:ID: s1\n:END:\n\n** Vector\n:PROPERTIES:\n:TYPE: svg\n:AREA: 1,1,3,2\n:SVG: assets/test-svgs/test-plan-p11.svg\n:END:\n"""
+            """#+TITLE: SVG Test\n\n* Slide\n:PROPERTIES:\n:ID: s1\n:END:\n\n** Vector\n:PROPERTIES:\n:TYPE: svg\n:AREA: 1,1,3,2\n:SVG: examples/assets/test-svgs/test-plan-p11.svg\n:END:\n"""
         )
         with tempfile.TemporaryDirectory() as td:
             org_path = pathlib.Path(td) / 'svg.org'
@@ -27,7 +27,7 @@ class TestSVGMasterMarginsIntegration(unittest.TestCase):
             ir = pm.parse_org(str(org_path))
             t = pm.generate_typst(ir)
             self.assertIn('image("', t)
-            self.assertIn('assets/test-svgs/test-plan-p11.svg', t)
+            self.assertIn('examples/assets/test-svgs/test-plan-p11.svg', t)
             self.assertIn('fit: "contain"', t)
 
     def test_master_pages_elements_included_and_master_page_not_rendered(self):

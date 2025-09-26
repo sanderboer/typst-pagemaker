@@ -1,4 +1,4 @@
-import datetime, pathlib, os, re, sys
+import datetime, pathlib, os, re, sys, warnings
 from .parser import DEFAULTS
 
 TYPOGRAPHY = {
@@ -10,6 +10,18 @@ TYPOGRAPHY = {
         'size_body': '1.0em'
     }
 }
+
+# Validation constants for known Typst values
+VALID_LINEBREAKS = {'auto', 'loose', 'strict'}
+VALID_WEIGHTS = {'thin', 'extralight', 'light', 'regular', 'medium', 'semibold', 'bold', 'extrabold', 'black'}
+VALID_NUMERIC_WEIGHTS = {str(i) for i in range(100, 1001, 100)}  # 100, 200, ..., 900
+
+# Style property mappings for efficient lookup
+FONT_ALIASES = {'font-family', 'font'}
+WEIGHT_ALIASES = {'font-weight', 'weight'} 
+SIZE_ALIASES = {'font-size', 'size'}
+COLOR_ALIASES = {'fill', 'color', 'colour'}
+PARAGRAPH_PARAMS = {'leading', 'spacing', 'justify', 'linebreaks', 'first-line-indent', 'first_line_indent', 'hanging-indent', 'hanging_indent'}
 
 TYPST_HEADER = """// Auto-generated Typst file
 // Generated: {timestamp}
@@ -75,26 +87,35 @@ def _parse_style_decl(s: str) -> dict:
         v = v.strip()
         if not k:
             continue
-        if k in ('font-family', 'font'):
+        
+        # Use efficient set lookups instead of tuple checks
+        if k in FONT_ALIASES:
             out['font'] = v
-        elif k in ('font-weight', 'weight'):
+        elif k in WEIGHT_ALIASES:
+            # Validate weight values
+            if v.lower() not in VALID_WEIGHTS and v not in VALID_NUMERIC_WEIGHTS:
+                warnings.warn(f"Unknown font weight '{v}'. Valid values: {', '.join(sorted(VALID_WEIGHTS | VALID_NUMERIC_WEIGHTS))}", UserWarning)
             out['weight'] = v
-        elif k in ('font-size', 'size'):
+        elif k in SIZE_ALIASES:
             out['size'] = v
-        elif k in ('fill', 'color', 'colour'):
+        elif k in COLOR_ALIASES:
             out['color'] = v
-        elif k in ('leading',):
-            out['leading'] = v
-        elif k in ('spacing',):
-            out['spacing'] = v
-        elif k in ('justify',):
-            out['justify'] = v
-        elif k in ('linebreaks',):
+        elif k == 'linebreaks':
+            # Validate linebreaks values
+            if v.lower() not in VALID_LINEBREAKS:
+                warnings.warn(f"Unknown linebreaks value '{v}'. Valid values: {', '.join(sorted(VALID_LINEBREAKS))}", UserWarning)
             out['linebreaks'] = v
-        elif k in ('first-line-indent', 'first_line_indent'):
-            out['first-line-indent'] = v
-        elif k in ('hanging-indent', 'hanging_indent'):
-            out['hanging-indent'] = v
+        elif k in PARAGRAPH_PARAMS:
+            # Handle parameter name normalization
+            if k in ('first_line_indent', 'first-line-indent'):
+                out['first-line-indent'] = v
+            elif k in ('hanging_indent', 'hanging-indent'):
+                out['hanging-indent'] = v
+            else:
+                out[k] = v
+        else:
+            # Warn about unrecognized properties
+            warnings.warn(f"Unrecognized style property '{k}' in declaration: {s}", UserWarning)
     return out
 
 
@@ -260,6 +281,18 @@ def _render_text_element(el: dict, styles: dict) -> str:
 def generate_typst(ir):
     theme_name = ir['meta'].get('THEME','light')
     theme = TYPOGRAPHY.get(theme_name, TYPOGRAPHY['light'])
+    
+    # Build styles from document meta
+    styles = _build_styles(ir.get('meta') or {})
+    
+    # Discover and validate fonts
+    available_fonts = _discover_available_fonts()
+    font_warnings = _validate_font_availability(styles, available_fonts)
+    
+    # Emit font warnings if any
+    for warning in font_warnings:
+        warnings.warn(warning, UserWarning)
+    
     out = []
     out.append(TYPST_HEADER.format(timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat()))
     out.append("#import \"@preview/muchpdf:0.1.1\": muchpdf\n")
@@ -390,9 +423,6 @@ def generate_typst(ir):
   }
 }
 """)
-
-    # Build styles from document meta
-    styles = _build_styles(ir.get('meta') or {})
 
     # Build map of master definitions: name -> list of elements
     masters = {}
@@ -557,6 +587,106 @@ def escape_text(s):
     return s.replace('\\','\\\\').replace('"','\\"')
 
 
+def _discover_available_fonts() -> dict:
+    """Discover available fonts from project and bundled sources.
+    Returns dict mapping font family names to their available font files.
+    """
+    font_families = {}
+    
+    # Import the font discovery functions from cli module
+    try:
+        from .cli import _get_font_paths, _discover_fonts_in_path
+        
+        # Get all font paths in order of preference
+        font_paths = _get_font_paths()
+        
+        for font_path_str in font_paths:
+            font_path = pathlib.Path(font_path_str)
+            font_info = _discover_fonts_in_path(font_path)
+            
+            # Merge discovered fonts into our master list
+            if font_info.get('families'):
+                for family_name, family_data in font_info['families'].items():
+                    if family_name not in font_families:
+                        font_families[family_name] = []
+                    
+                    # Add all font files for this family
+                    for font_file in family_data.get('files', []):
+                        font_families[family_name].append({
+                            'name': font_file['name'],
+                            'path': font_file['path'],
+                            'size': font_file['size']
+                        })
+    
+    except ImportError:
+        # Fallback: basic font discovery without CLI functions
+        try:
+            # Check assets/fonts directory (project-level custom fonts)
+            assets_fonts = pathlib.Path('assets/fonts')
+            if assets_fonts.exists():
+                font_extensions = {'.ttf', '.otf', '.woff', '.woff2'}
+                for font_file in assets_fonts.rglob('*'):
+                    if font_file.is_file() and font_file.suffix.lower() in font_extensions:
+                        # Extract family name from directory structure
+                        relative_path = font_file.relative_to(assets_fonts)
+                        family_name = relative_path.parts[0] if len(relative_path.parts) > 1 else 'Unknown'
+                        
+                        if family_name not in font_families:
+                            font_families[family_name] = []
+                        
+                        font_families[family_name].append({
+                            'name': font_file.name,
+                            'path': str(font_file),
+                            'size': font_file.stat().st_size
+                        })
+            
+            # Also check examples/assets/fonts directory (example fonts)
+            examples_assets_fonts = pathlib.Path('examples/assets/fonts')
+            if examples_assets_fonts.exists():
+                font_extensions = {'.ttf', '.otf', '.woff', '.woff2'}
+                for font_file in examples_assets_fonts.rglob('*'):
+                    if font_file.is_file() and font_file.suffix.lower() in font_extensions:
+                        # Extract family name from directory structure
+                        relative_path = font_file.relative_to(examples_assets_fonts)
+                        family_name = relative_path.parts[0] if len(relative_path.parts) > 1 else 'Unknown'
+                        
+                        if family_name not in font_families:
+                            font_families[family_name] = []
+                        
+                        font_families[family_name].append({
+                            'name': font_file.name,
+                            'path': str(font_file),
+                            'size': font_file.stat().st_size
+                        })
+        except Exception:
+            pass
+    
+    return font_families
+
+
+def _validate_font_availability(styles: dict, available_fonts: dict) -> list:
+    """Validate that fonts referenced in styles are available.
+    Returns list of warnings for missing fonts.
+    """
+    warnings_list = []
+    used_fonts = set()
+    
+    # Collect all fonts used in styles
+    for style_name, style_data in styles.items():
+        font = style_data.get('font')
+        if font:
+            used_fonts.add(font)
+    
+    # Check if used fonts are available
+    for font in used_fonts:
+        if font not in available_fonts:
+            warnings_list.append(f"Font '{font}' used in styles but not found in available font paths")
+        elif not available_fonts[font]:
+            warnings_list.append(f"Font family '{font}' found but contains no font files")
+    
+    return warnings_list
+
+
 def update_html_total(html_path: pathlib.Path, total: int):
     if not html_path.exists():
         return False
@@ -597,12 +727,21 @@ def adjust_asset_paths(ir, typst_dir: pathlib.Path):
                 c = cand.resolve()
             except Exception:
                 continue
-            if c.exists() or True:
-                # Even if not existing, rewrite relative to export dir deterministically
+            if c.exists():
+                # Found existing file, rewrite relative to export dir
                 try:
                     return os.path.relpath(c, typst_dir)
                 except Exception:
                     continue
+        
+        # If no file found but src is relative, try best-effort path adjustment
+        # relative to project root (common case for assets)
+        if not os.path.isabs(src):
+            try:
+                project_asset_path = (project_root / src).resolve()
+                return os.path.relpath(project_asset_path, typst_dir)
+            except Exception:
+                pass
         return src
     for page in ir.get('pages', []):
         for el in page.get('elements', []):

@@ -2,8 +2,19 @@
 
 Important: This project is in no way affiliated with or related to the old Aldus PageMaker program from the 90s.
 
+A structured document-to-page layout system for Typst that gives you complete control over element positioning while leveraging Typst's powerful typesetting engine and variable weight font support.
 
-A grid-based layout engine for Typst. Includes an optional Org-mode parser that generates Typst code and a CLI.
+## Design Philosophy
+
+Unlike traditional document systems that rely on automatic text flow and built-in spacing, pagemaker takes a fundamentally different approach:
+
+- **Every page is explicitly described** - no automatic page breaks or content flow
+- **Every element is explicitly positioned** - precise grid-based placement using A1-style coordinates
+- **Gutter-free grid system** - clean grid divisions with no built-in spacing between cells
+- **Element-level padding** - fine-grained spacing control through per-element padding properties
+- **Professional typography** - leverages Typst's advanced typesetting with three bundled professional fonts (Inter, Crimson Pro, JetBrains Mono)
+
+This approach is ideal for creating presentations, posters, reports, and any document where you need pixel-perfect control over layout and positioning.
 
 ## Features
 
@@ -29,9 +40,9 @@ A grid-based layout engine for Typst. Includes an optional Org-mode parser that 
 
 | Element Type | Description | Properties |
 |-------------|-------------|------------|
-| `header` | Main headings | Font: Manrope Bold, 24pt |
-| `subheader` | Section headings | Font: Manrope SemiBold, 18pt |  
-| `body` | Regular text | Font: Manrope Regular |
+| `header` | Main headings | Font: Inter Bold, 24pt |
+| `subheader` | Section headings | Font: Inter SemiBold, 18pt |  
+| `body` | Regular text | Font: Inter Regular |
 | `figure` | Images with optional captions | Supports fit modes, captions |
 | `pdf` | Vector PDF embedding | Page selection, scaling |
 | `svg` | SVG image embedding | Fit: contain; path via `:SVG:` |
@@ -42,19 +53,22 @@ A grid-based layout engine for Typst. Includes an optional Org-mode parser that 
 
 ### Installation
 ```bash
-# Clone the repository
-git clone ssh://gitea@git.mauc.nl:50022/Mauc/pagemaker.git
-cd pagemaker
+# Install from PyPI
+pip install typst-pagemaker
 
-# Ensure you have Python 3.x and Typst installed
-pip install -r requirements.txt  # (if requirements exist)
-typst --version
+# Verify installation
+pagemaker --help
+typst --version  # Ensure Typst is also installed
 ```
 
-### Installation (Editable)
+### Development Installation
 ```bash
+# Clone the repository for development
+git clone https://github.com/sanderboer/typst-pagemaker.git
+cd typst-pagemaker
+
+# Install in editable mode
 pip install -e .
-# Now 'pagemaker' entry point is available
 pagemaker --help
 ```
 
@@ -84,19 +98,19 @@ Options:
 
 ```bash
 # Build Typst from Org (org -> typst)
-python -m pagemaker.cli build examples/sample.org -o deck.typ
+pagemaker build examples/sample.org -o deck.typ
 
 # Build and produce PDF (cleans .typ by default)
-python -m pagemaker.cli pdf examples/sample.org --pdf-output deck.pdf
+pagemaker pdf examples/sample.org --pdf-output deck.pdf
 
 # Build with PDF sanitize + fallback (qpdf/mutool/gs optional)
-python -m pagemaker.cli pdf examples/sample.org --sanitize-pdfs --pdf-output deck.pdf
+pagemaker pdf examples/sample.org --sanitize-pdfs --pdf-output deck.pdf
 
 # Emit IR JSON to stdout
-python -m pagemaker.cli ir examples/sample.org > ir.json
+pagemaker ir examples/sample.org > ir.json
 
 # Validate IR (non-zero exit on error)
-python -m pagemaker.cli validate examples/sample.org
+pagemaker validate examples/sample.org
 ```
 
 
@@ -380,9 +394,209 @@ Second paragraph, now with the style’s paragraph options and justify enabled.
 ```
 
 ### Custom Fonts
-The system uses `--font-path` to include custom fonts:
+The package includes professional bundled fonts as a reliable default, with support for rich project-specific font libraries.
+
+**Font Resolution Order:**
+1. **Project fonts**: `assets/fonts/` (custom library checked first)  
+2. **Bundled fonts**: Package-included minimal defaults (Inter, Crimson Pro, JetBrains Mono)
+3. **System fonts**: Typst automatically discovers installed system fonts (final fallback)
+
+**Bundled Fonts (Always Available):**
+- **Inter**: Modern sans-serif optimized for screens and interfaces
+- **Crimson Pro**: Professional serif for body text and academic documents  
+- **JetBrains Mono**: Code-friendly monospace with excellent readability
+
+**Project Font Library:**
 ```bash
-typst compile --font-path assets/fonts --font-path assets/fonts/static input.typ output.pdf
+# Add custom fonts to your project
+mkdir -p assets/fonts/FontFamily
+cp path/to/FontFamily-*.ttf assets/fonts/FontFamily/
+
+# Fonts are automatically discovered and available in your documents
+```
+
+**Font Management CLI:**
+```bash
+# List all available fonts
+pagemaker fonts list-all
+
+# Show bundled fonts only
+pagemaker fonts list-bundled --details
+
+# Show project fonts only  
+pagemaker fonts list-project --details
+
+# Validate specific font availability
+pagemaker fonts validate "Inter"
+pagemaker fonts validate "Your Custom Font"
+```
+
+**Using Custom Fonts:**
+```org
+# Reference any available font in your documents
+#+CUSTOM_STYLE: #set text(font: "Your Custom Font", size: 12pt)
+
+* Heading with Custom Typography
+#set text(font: "Playfair Display", weight: "bold", size: 18pt)
+
+This heading uses a custom display font for elegant typography.
+
+#set text(font: "Inter")
+This paragraph switches back to the reliable bundled Inter font.
+```
+
+**Font Discovery:**
+The system automatically includes all font paths in the correct precedence order. Project fonts in `assets/fonts/` take priority over bundled fonts, ensuring reliable defaults with easy customization.
+
+## Font Management System
+
+The pagemaker CLI includes a comprehensive font management system to help discover, install, analyze, and preview fonts in your projects.
+
+### Font Discovery and Listing
+
+List all fonts available to your project:
+```bash
+# Show all available fonts (project + bundled + system)
+pagemaker fonts list-all
+
+# Show only bundled fonts with details
+pagemaker fonts list-bundled --details
+
+# Show only project fonts with details  
+pagemaker fonts list-project --details
+
+# Validate specific font availability
+pagemaker fonts validate "Inter"
+pagemaker fonts validate "Playfair Display"
+```
+
+### Google Fonts Integration
+
+Search and install fonts directly from Google Fonts:
+```bash
+# Search for fonts by name
+pagemaker fonts search "Playfair"
+pagemaker fonts search "mono" --limit 10
+
+# Install fonts to your project
+pagemaker fonts install "Playfair Display"
+pagemaker fonts install "JetBrains Mono" --variants regular,700,italic
+
+# Clear font installation cache
+pagemaker fonts cache-clear
+```
+
+**Installation Details:**
+- Fonts are downloaded from Google Fonts API with offline fallback for popular fonts
+- Installed to `assets/fonts/FontFamily/` directory structure
+- Supports variant selection (regular, 700, italic, etc.)
+- Automatically creates proper directory structure
+
+### Font Usage Analysis
+
+Analyze your documents to find font references and check availability:
+```bash
+# Analyze font usage in a document
+pagemaker fonts analyze examples/sample.org
+
+# Analyze with installation suggestions for missing fonts
+pagemaker fonts analyze examples/font_management_demo.org
+```
+
+**Analysis Features:**
+- Detects fonts referenced in `#+CUSTOM_STYLE` and `#set text(font: "Name")` patterns
+- Cross-references with available font inventory from all sources
+- Provides installation suggestions for missing fonts
+- Shows font availability status (✓ Available, ✗ Missing)
+
+### Font Specimen Generation
+
+Generate font showcase documents to preview and compare fonts:
+```bash
+# Generate comprehensive font specimen
+pagemaker fonts specimen my-fonts.org
+
+# Generate simple comparison format
+pagemaker fonts specimen fonts-comparison.org --format comparison
+
+# Generate simple list format  
+pagemaker fonts specimen fonts-list.org --format simple
+
+# Auto-build PDF after generating specimen
+pagemaker fonts specimen my-fonts.org --build-pdf
+```
+
+**Specimen Formats:**
+- **showcase** (default): Detailed specimens with multiple text samples and sizes
+- **comparison**: Side-by-side comparison with consistent sample text
+- **simple**: Minimal list format with basic font information
+
+### Build-Time Font Validation
+
+Integrate font validation into your build process:
+```bash
+# Build with font validation (warnings only)
+pagemaker build examples/sample.org --validate-fonts
+
+# Build with strict font validation (fails on missing fonts)  
+pagemaker pdf examples/sample.org --strict-fonts --pdf-output output.pdf
+
+# Watch mode with font validation
+pagemaker watch examples/sample.org --validate-fonts --pdf
+```
+
+**Validation Features:**
+- Scans document for font references during build
+- Reports missing fonts with helpful error messages
+- Suggests installation commands for missing Google Fonts
+- `--validate-fonts`: Shows warnings but continues build
+- `--strict-fonts`: Fails build on missing fonts (useful for CI/CD)
+
+### Performance Optimization
+
+The font system includes caching for improved performance:
+- **Font discovery caching**: Results cached for 5 minutes to speed up repeated operations
+- **Google Fonts API caching**: Downloaded font lists cached locally
+- **Cache invalidation**: Automatically detects font directory changes
+- **Graceful fallback**: Continues operation if caching fails
+
+### Font Management Examples
+
+**Complete workflow for adding a new font:**
+```bash
+# 1. Search for desired font
+pagemaker fonts search "Crimson"
+
+# 2. Install the font
+pagemaker fonts install "Crimson Pro"
+
+# 3. Verify installation
+pagemaker fonts validate "Crimson Pro"
+
+# 4. Generate specimen to preview
+pagemaker fonts specimen fonts-preview.org --format showcase
+
+# 5. Use in your document
+echo '#+CUSTOM_STYLE: #set text(font: "Crimson Pro", size: 12pt)' >> my-doc.org
+
+# 6. Build with font validation
+pagemaker pdf my-doc.org --validate-fonts --pdf-output my-doc.pdf
+```
+
+**Analyzing and fixing font issues:**
+```bash
+# Analyze document for font problems
+pagemaker fonts analyze problematic-doc.org
+
+# Output might show:
+# ✗ Missing: "Custom Font" - try: pagemaker fonts install "Custom Font"
+# ✓ Available: "Inter"
+
+# Install missing fonts as suggested
+pagemaker fonts install "Custom Font"
+
+# Rebuild with validation
+pagemaker pdf problematic-doc.org --strict-fonts --pdf-output fixed-doc.pdf
 ```
 
 ### Colored Rectangles
@@ -525,7 +739,7 @@ python -m unittest discover tests -v
 - The suite includes an optional PDF compile test that runs `pagemaker pdf` end-to-end and compiles via Typst. It automatically skips if `typst` or the `@preview/muchpdf` package are unavailable on your system.
 
 ### Contributing
-1. Fork the repository
+1. Fork the repository at https://github.com/sanderboer/typst-pagemaker
 2. Create a feature branch
 3. Make your changes
 4. Add tests for new functionality
@@ -533,7 +747,7 @@ python -m unittest discover tests -v
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](https://github.com/sanderboer/typst-pagemaker/blob/main/LICENSE) file for details.
 
 ## Author
 

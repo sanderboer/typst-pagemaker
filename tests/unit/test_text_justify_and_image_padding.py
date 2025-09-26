@@ -48,8 +48,8 @@ class TestTextJustifyAndImagePadding(unittest.TestCase):
                 'page_size': {'w_mm': 210.0, 'h_mm': 297.0},
                 'grid': {'cols': 12, 'rows': 8},
                 'elements': [
-                    {'id': 'f', 'type': 'figure', 'area': {'x':1,'y':1,'w':3,'h':2}, 'z': 10, 'figure': {'src': 'assets/test-images/kittens/kitten-1.jpg', 'caption': None, 'fit': 'contain'}, 'padding_mm': pad},
-                    {'id': 's', 'type': 'svg', 'area': {'x':4,'y':1,'w':3,'h':2}, 'z': 10, 'svg': {'src': 'assets/test-svgs/test-plan-p11.svg', 'scale': 1.0}, 'padding_mm': pad},
+                    {'id': 'f', 'type': 'figure', 'area': {'x':1,'y':1,'w':3,'h':2}, 'z': 10, 'figure': {'src': 'examples/assets/test-images/kittens/kitten-1.jpg', 'caption': None, 'fit': 'contain'}, 'padding_mm': pad},
+                    {'id': 's', 'type': 'svg', 'area': {'x':4,'y':1,'w':3,'h':2}, 'z': 10, 'svg': {'src': 'examples/assets/test-svgs/test-plan-p11.svg', 'scale': 1.0}, 'padding_mm': pad},
                     {'id': 'p', 'type': 'pdf', 'area': {'x':7,'y':1,'w':3,'h':2}, 'z': 10, 'pdf': {'src': 'test-pdfs/test-plan.pdf', 'pages': [1], 'scale': 1.0}, 'padding_mm': pad},
                 ]
             }]

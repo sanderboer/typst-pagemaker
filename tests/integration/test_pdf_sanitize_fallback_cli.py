@@ -21,7 +21,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_PATH = PROJECT_ROOT / 'src'
-ASSETS_DIR = PROJECT_ROOT / 'assets' / 'test-pdfs'
+ASSETS_DIR = PROJECT_ROOT / 'examples' / 'assets' / 'test-pdfs'
 
 
 def _have_tool(name: str) -> bool:
@@ -38,7 +38,7 @@ class TestPDFSanitizeFallbackCLI(unittest.TestCase):
         self.assertTrue(problem_pdf.exists(), f"Missing test asset: {problem_pdf}")
 
         # Minimal org that embeds the problematic PDF on page 1
-        org_content = """#+TITLE: Fallback Test\n\n* Slide\n:PROPERTIES:\n:ID: slide\n:END:\n\n** PDF\n:PROPERTIES:\n:TYPE: pdf\n:AREA: 1,1,6,4\n:PDF: assets/test-pdfs/test-exploded-view.pdf\n:PAGE: 1\n:SCALE: 1.0\n:END:\n"""
+        org_content = """#+TITLE: Fallback Test\n\n* Slide\n:PROPERTIES:\n:ID: slide\n:END:\n\n** PDF\n:PROPERTIES:\n:TYPE: pdf\n:AREA: 1,1,6,4\n:PDF: examples/assets/test-pdfs/test-exploded-view.pdf\n:PAGE: 1\n:SCALE: 1.0\n:END:\n"""
 
         with tempfile.TemporaryDirectory() as td:
             td_path = Path(td)

@@ -24,6 +24,7 @@ built_any=0
 ok_count=0
 fail_count=0
 
+pushd $EXAMPLES_DIR
 # Find all .org files recursively in examples/ (stable sort)
 # Use NUL delimiter to handle spaces/newlines in filenames
 while IFS= read -r -d '' org; do
@@ -45,6 +46,8 @@ while IFS= read -r -d '' org; do
   fi
 
 done < <(find "${EXAMPLES_DIR}" -type f -name '*.org' -print0 | sort -z)
+
+popd
 
 if [ "$built_any" -eq 0 ]; then
   echo "No .org files found under ${EXAMPLES_DIR}" >&2

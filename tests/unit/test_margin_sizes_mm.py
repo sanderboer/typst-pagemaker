@@ -8,7 +8,7 @@ import pagemaker as pm
 class TestMarginSizesMM(unittest.TestCase):
     def test_mm_margins_typst_generation(self):
         # With absolute mm margins declared via MARGINS, cw/ch are computed from content area
-        org = ("""#+TITLE: MM Margins\n#+GRID: 4x4\n#+MARGINS: 10,15,20,25\n\n* P\n:PROPERTIES:\n:ID: p\n:PAGE_SIZE: A4\n:ORIENTATION: landscape\n:END:\n\n** B\n:PROPERTIES:\n:TYPE: body\n:COORDS: content\n:AREA: A1,A1\n:END:\nHello\n""")
+        org = ("""#+TITLE: MM Margins\n#+GRID: 4x4\n#+MARGINS: 10,15,20,25\n\n* P\n:PROPERTIES:\n:ID: p\n:PAGE_SIZE: A4\n:ORIENTATION: landscape\n:END:\n\n** B\n:PROPERTIES:\n:TYPE: body\n:AREA: A1,A1\n:END:\nHello\n""")
         with tempfile.TemporaryDirectory() as td:
             org_path = pathlib.Path(td) / 'm.org'
             org_path.write_text(org, encoding='utf-8')

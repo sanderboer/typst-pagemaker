@@ -305,6 +305,9 @@ pagemaker/
 - **GRID**: Custom grid dimensions (e.g., 12x8, 16x9)
 - **MARGINS**: Absolute mm in CSS TRBL order (top,right,bottom,left)
 - **GRID_DEBUG**: Show/hide debug grid lines
+Notes:
+- Typst page size is set once at the document level from the first rendered page’s `PAGESIZE` and `ORIENTATION`. Per-page overrides are ignored during Typst generation; the validator warns if pages disagree.
+- `:AREA:` always addresses the total grid (including margin tracks); there is no `:COORDS:` directive.
 
 ### Element Properties
 
@@ -686,7 +689,6 @@ Define outer margins in millimeters that expand the total grid while keeping you
 ** Full-bleed background (uses margin tracks)
 :PROPERTIES:
 :TYPE: rectangle
-:COORDS: total
 :AREA: 1,1,14,10
 :COLOR: #3498db
 :ALPHA: 0.1
@@ -701,7 +703,7 @@ The content grid remains 12x8, but the total grid has one margin track on each s
 ```
 Notes:
 - `MARGINS` values are absolute sizes in mm.
-- `COORDS`: `total` (default) addresses the total grid (including margin tracks); use `content` to address only the content grid.
+- `:AREA:` always addresses the total grid (including margin tracks). The content grid remains your declared `GRID` inside the margins; when margins are present, content coordinates map to total with a +1,+1 offset.
 - With `#+GRID_DEBUG: true`, the overlay shows the total grid (including margin tracks). Labels cover all tracks: first column is `1`, first row is `A`.
 
 ### Master Pages

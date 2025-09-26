@@ -27,6 +27,7 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
     pages = ir.get("pages")
     seen_page_ids = set()
     seen_element_ids = set()
+    render_pages: List[Dict[str, Any]] = []
     if pages is None:
         issues.append(ValidationIssue(path="/pages", message="Missing pages array"))
     elif not isinstance(pages, list) or len(pages) == 0:
@@ -46,6 +47,13 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                     issues.append(ValidationIssue(path=f"{ppath}/id", message=f"Duplicate page id '{pid}'"))
                 else:
                     seen_page_ids.add(pid)
+            # Track render pages (exclude master definitions)
+            if not str(page.get('master_def', '') or '').strip():
+                render_pages.append(page)
+            # Warn when per-page overrides are present but ignored
+            ignored = page.get('ignored_overrides')
+            if isinstance(ignored, list) and ignored:
+                issues.append(ValidationIssue(path=f"{ppath}/ignored_overrides", message=f"Per-page overrides ignored: {', '.join(ignored)}", severity='warn'))
             els = page.get("elements", [])
             if not isinstance(els, list):
                 issues.append(ValidationIssue(path=f"{ppath}/elements", message="Elements not a list"))
@@ -107,7 +115,8 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                     if isinstance(alpha, (int,float)):
                         if alpha < 0.0 or alpha > 1.0:
                             issues.append(ValidationIssue(path=f"{epath}/rectangle/alpha", message="Alpha out of range 0.0-1.0"))
-                # Area bounds (respect COORDS: content|total)
+                # Area bounds: AREA is interpreted in the total grid.
+                # When margins are declared, validate against grid_total; otherwise, use content grid.
                 area = el.get('area')
                 if isinstance(area, dict) and isinstance(cols, int) and isinstance(rows, int):
                     x = area.get('x')
@@ -118,9 +127,8 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                         if x < 1 or y < 1 or w < 1 or h < 1:
                             issues.append(ValidationIssue(path=f"{epath}/area", message="Area has non-positive values"))
                         else:
-                            coords_raw = el.get('coords')
-                            coords_mode = coords_raw.strip().lower() if isinstance(coords_raw, str) else 'content'
-                            if coords_mode == 'total':
+                            margins_declared = bool(page.get('margins_declared'))
+                            if margins_declared:
                                 gt = page.get('grid_total') or {}
                                 tcols_val = gt.get('cols')
                                 trows_val = gt.get('rows')
@@ -131,4 +139,33 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                             else:
                                 if x + w - 1 > cols or y + h - 1 > rows:
                                     issues.append(ValidationIssue(path=f"{epath}/area", message="Area exceeds grid bounds"))
+        # Enforce uniform page size across render pages (Typst limitation)
+        first_render = None
+        first_idx = -1
+        for i, rp in enumerate(render_pages):
+            ps = (rp.get('page_size') or {})
+            w = ps.get('w_mm')
+            h = ps.get('h_mm')
+            if isinstance(w, (int, float)) and isinstance(h, (int, float)):
+                first_render = (w, h)
+                first_idx = i
+                break
+        if first_render is not None:
+            fw, fh = first_render
+            for j, rp in enumerate(render_pages):
+                ps = (rp.get('page_size') or {})
+                w = ps.get('w_mm')
+                h = ps.get('h_mm')
+                if not (isinstance(w, (int, float)) and isinstance(h, (int, float))):
+                    continue
+                if (w, h) != (fw, fh):
+                    # Map back to absolute page index for precise path when possible
+                    try:
+                        abs_idx = pages.index(rp)
+                    except Exception:
+                        abs_idx = j
+                    issues.append(ValidationIssue(
+                        path=f"/pages/{abs_idx}/page_size",
+                        message=f"Uniform page size required: page differs from first render page ({fw}x{fh}mm)",
+                    ))
     return ValidationResult(issues)

@@ -1,7 +1,9 @@
 #+TITLE: Custom Styles Demo
 #+AUTHOR: Example
-#+THEME: light
 #+GRID_DEBUG: false
+
+#+PAGESIZE: A3
+#+ORIENTATION: landscape
 
 # Document-level style declarations
 #+STYLE_HEADER: font: Playfair Display, weight: 100, size: 20mm, color: #ffffff, spacing: 10mm
@@ -15,7 +17,6 @@
 :PROPERTIES:
 :MASTER: 
 :GRID: 12x8
-:SIZE: A4
 :END:
 
 ** image

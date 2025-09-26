@@ -370,6 +370,22 @@ def generate_typst(ir):
     out.append("#let Header(txt) = text(weight: 700, size: 24pt)[txt]\n")
     out.append("#let Subheader(txt) = text(weight: 600, size: 24pt)[txt]\n")
     out.append("#let Body(txt) = text(size: 24pt)[txt]\n")
+    # Set a uniform page size for the entire document (Typst cannot vary per page)
+    first_render_page = None
+    try:
+        for p in ir.get('pages', []):
+            if not (p.get('master_def') or '').strip():
+                first_render_page = p
+                break
+    except Exception:
+        first_render_page = None
+    if first_render_page is not None:
+        pw = first_render_page.get('page_size', {}).get('w_mm', 210)
+        ph = first_render_page.get('page_size', {}).get('h_mm', 297)
+    else:
+        pw, ph = 210, 297
+    out.append(f"#set page(width: {pw}mm, height: {ph}mm, margin: 0mm)\n")
+
     # Dynamic date and page helpers
     # Prefer reproducible date from meta: DATE_OVERRIDE or DATE (YYYY-MM-DD). Fallback to today.
     d = None
@@ -517,7 +533,7 @@ def generate_typst(ir):
         bottom_mm = float((margins_mm or {}).get('bottom', 0.0))
         left_mm = float((margins_mm or {}).get('left', 0.0))
         out.append(f"// Page {page_index+1}: {page['title']}\n")
-        out.append(f"#set page(width: {w}mm, height: {h}mm, margin: 0mm)\n")
+        # Per-page page size not supported in Typst; set once at document top.
         if margins_declared:
             # Compute content cell sizes using page minus absolute margins
             out.append(f"#let cw = ({w}mm - ({left_mm}mm + {right_mm}mm)) / {cols}\n")

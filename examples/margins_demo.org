@@ -39,7 +39,6 @@ This rectangle fills the content area within the margins.
 ** Full-bleed background using total coords
 :PROPERTIES:
 :TYPE: rectangle
-:COORDS: total
 :AREA: A1,J14
 :COLOR: #000000
 :ALPHA: 0.05

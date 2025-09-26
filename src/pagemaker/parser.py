@@ -181,12 +181,14 @@ class OrgPage:
         self.elements = []
         self.master = None
     def to_ir(self, global_defaults):
-        ps = self.props.get('PAGE_SIZE', global_defaults['PAGESIZE'])
-        orientation = self.props.get('ORIENTATION', global_defaults['ORIENTATION'])
+        # Page size and orientation are document-level settings.
+        # Ignore per-page overrides to ensure uniform output (Typst limitation).
+        ps = global_defaults['PAGESIZE']
+        orientation = global_defaults['ORIENTATION']
         w_mm, h_mm = PAGE_SIZES_MM.get(ps, PAGE_SIZES_MM['A4'])
-        if orientation.lower() == 'landscape' and w_mm < h_mm:
+        if isinstance(orientation, str) and orientation.lower() == 'landscape' and w_mm < h_mm:
             w_mm, h_mm = h_mm, w_mm
-        if orientation.lower() == 'portrait' and w_mm > h_mm:
+        if isinstance(orientation, str) and orientation.lower() == 'portrait' and w_mm > h_mm:
             w_mm, h_mm = h_mm, w_mm
         grid = self.props.get('GRID', global_defaults['GRID'])
         try:
@@ -217,6 +219,8 @@ class OrgPage:
             'margins_declared': margins_declared,
             'master': self.props.get('MASTER', global_defaults.get('DEFAULT_MASTER','')).strip(),
             'master_def': self.props.get('MASTER_DEF','').strip(),
+            # Record any per-page overrides that are ignored for validation/warnings
+            'ignored_overrides': [k for k in ('PAGE_SIZE', 'PAGESIZE', 'ORIENTATION') if k in self.props],
             'elements': [e.to_ir() for e in self.elements]
         }
 

@@ -202,6 +202,61 @@ pagemaker/
 └── docs/              # Documentation
 ```
 
+## Quick Reference
+
+### Common Element Properties
+| Property | Values | Description |
+|----------|--------|-------------|
+| `:TYPE:` | `header`, `subheader`, `body`, `figure`, `pdf`, `svg`, `rectangle`, `toc` | Element type |
+| `:AREA:` | `A1`, `B3,F5` | Grid position (A1 notation) |
+| `:Z:` | `10`, `100` | Stacking order (higher on top) |
+| `:PADDING:` | `4`, `2,4`, `2,4,6,8` | Margin in mm (CSS TRBL) |
+| `:ALIGN:` | `left`, `center`, `right` | Horizontal alignment |
+| `:VALIGN:` | `top`, `middle`, `bottom` | Vertical alignment (text only) |
+| `:JUSTIFY:` | (bare) or `true`/`false` | Full text justification |
+
+### Page Setup Headers
+| Header | Example | Description |
+|--------|---------|-------------|
+| `#+PAGESIZE:` | `A4`, `A3`, `A1` | Page size |
+| `#+ORIENTATION:` | `landscape`, `portrait` | Page orientation |
+| `#+GRID:` | `12x8`, `16x9` | Grid dimensions |
+| `#+MARGINS:` | `10,15,10,15` | Margins in mm (TRBL) |
+| `#+GRID_DEBUG:` | `true`, `false` | Show debug grid |
+
+### Element Types Quick Syntax
+```org
+** Header Text
+:PROPERTIES:
+:TYPE: header
+:AREA: A1,F2
+:END:
+
+** Image
+:PROPERTIES:
+:TYPE: figure
+:AREA: G1,L4
+:FIT: contain
+:END:
+[[file:path/to/image.jpg]]
+
+** PDF Page
+:PROPERTIES:
+:TYPE: pdf
+:PDF: path/to/doc.pdf
+:PAGE: 2
+:AREA: A5,F8
+:END:
+
+** Colored Rectangle
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: B2,K7
+:COLOR: #3498db
+:ALPHA: 0.3
+:END:
+```
+
 ## Configuration
 
 ### Page Setup

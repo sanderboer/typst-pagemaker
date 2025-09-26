@@ -59,3 +59,6 @@ Thumbs.db
 test_output/
 *.out
 *.txt
+
+# Ignore nested Emacs package subrepo
+pagemaker-el/

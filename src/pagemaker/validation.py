@@ -118,11 +118,14 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                         if x < 1 or y < 1 or w < 1 or h < 1:
                             issues.append(ValidationIssue(path=f"{epath}/area", message="Area has non-positive values"))
                         else:
-                            coords_mode = (el.get('coords') or 'content').strip().lower()
+                            coords_raw = el.get('coords')
+                            coords_mode = coords_raw.strip().lower() if isinstance(coords_raw, str) else 'content'
                             if coords_mode == 'total':
                                 gt = page.get('grid_total') or {}
-                                tcols = gt.get('cols', cols)
-                                trows = gt.get('rows', rows)
+                                tcols_val = gt.get('cols')
+                                trows_val = gt.get('rows')
+                                tcols = tcols_val if isinstance(tcols_val, int) else cols
+                                trows = trows_val if isinstance(trows_val, int) else rows
                                 if x + w - 1 > tcols or y + h - 1 > trows:
                                     issues.append(ValidationIssue(path=f"{epath}/area", message="Area exceeds total-grid bounds"))
                             else:

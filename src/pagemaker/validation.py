@@ -51,7 +51,8 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                 issues.append(ValidationIssue(path=f"{ppath}/elements", message="Elements not a list"))
                 continue
             grid = page.get('grid') or {}
-            cols = grid.get('cols'); rows = grid.get('rows')
+            cols = grid.get('cols')
+            rows = grid.get('rows')
             for eidx, el in enumerate(els):
                 epath = f"{ppath}/elements/{eidx}"
                 if not isinstance(el, dict):
@@ -109,7 +110,10 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                 # Area bounds (respect COORDS: content|total)
                 area = el.get('area')
                 if isinstance(area, dict) and isinstance(cols, int) and isinstance(rows, int):
-                    x = area.get('x'); y = area.get('y'); w = area.get('w'); h = area.get('h')
+                    x = area.get('x')
+                    y = area.get('y')
+                    w = area.get('w')
+                    h = area.get('h')
                     if all(isinstance(v, int) for v in (x, y, w, h)):
                         if x < 1 or y < 1 or w < 1 or h < 1:
                             issues.append(ValidationIssue(path=f"{epath}/area", message="Area has non-positive values"))
@@ -117,7 +121,8 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                             coords_mode = (el.get('coords') or 'content').strip().lower()
                             if coords_mode == 'total':
                                 gt = page.get('grid_total') or {}
-                                tcols = gt.get('cols', cols); trows = gt.get('rows', rows)
+                                tcols = gt.get('cols', cols)
+                                trows = gt.get('rows', rows)
                                 if x + w - 1 > tcols or y + h - 1 > trows:
                                     issues.append(ValidationIssue(path=f"{epath}/area", message="Area exceeds total-grid bounds"))
                             else:

@@ -1,5 +1,9 @@
-import datetime, pathlib, os, re, sys, warnings
-from .parser import DEFAULTS
+import datetime
+import pathlib
+import os
+import re
+import sys
+import warnings
 
 TYPOGRAPHY = {
     'light': {
@@ -127,12 +131,22 @@ def _build_styles(meta: dict) -> dict:
       - body: Manrope (no size/weight by default)
     User can override by defining #+STYLE_HEADER:, #+STYLE_SUBHEADER:, #+STYLE_BODY: etc.
     Additional styles can be declared with any other suffix, e.g. #+STYLE_HERO: ...
+    
+    A global #+FONT: directive will override the default font for all styles unless explicitly overridden.
     """
     styles = {
         'header': {'font': 'Manrope', 'weight': 'bold', 'size': '24pt'},
         'subheader': {'font': 'Manrope', 'weight': 'semibold', 'size': '18pt'},
         'body': {'font': 'Manrope'},
     }
+    
+    # Check for global FONT directive and apply it to all default styles
+    if meta and 'FONT' in meta:
+        global_font = meta['FONT'].strip()
+        if global_font:
+            for style_name in styles:
+                styles[style_name]['font'] = global_font
+    
     for k, v in (meta or {}).items():
         if not isinstance(k, str) or not k.upper().startswith('STYLE_'):
             continue
@@ -212,8 +226,10 @@ def _split_paragraphs(text: str) -> list:
 
 def _bool_token(val: str) -> str:
     s = str(val).strip().lower()
-    if s in ("1", "true", "yes", "y", "on"): return "true"
-    if s in ("0", "false", "no", "n", "off"): return "false"
+    if s in ("1", "true", "yes", "y", "on"):
+        return "true"
+    if s in ("0", "false", "no", "n", "off"):
+        return "false"
     return s  # pass-through (user may supply a Typst expression)
 
 
@@ -255,8 +271,56 @@ def _render_text_element(el: dict, styles: dict) -> str:
     """Render a header/subheader/body element to a Typst fragment string.
     Handles styles, paragraph splitting, par(...) args, and justify override.
     Paragraphs are joined with newlines; no stray '+' between paragraphs.
+    Now also handles mixed content with Typst directives and code blocks.
     """
     raw = el_text(el)
+    
+    # Check if content contains Typst directives or code blocks
+    fragments = _process_mixed_content(raw)
+    has_mixed_content = any(f['type'] in ('typst', 'codeblock') for f in fragments)
+    
+    if has_mixed_content:
+        # Handle mixed content with text, Typst directives, and code blocks
+        result_parts = []
+        for fragment in fragments:
+            if fragment['type'] == 'typst':
+                # Insert Typst directives directly
+                result_parts.append(fragment['content'])
+            elif fragment['type'] == 'codeblock':
+                # Convert code blocks to Typst raw syntax with syntax highlighting
+                code_content = fragment['content']
+                lang = fragment['lang']
+                
+                # Escape the code content for Typst strings
+                escaped_code = code_content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+                
+                # Use Typst's raw function with language and block parameters
+                if lang and lang != 'text':
+                    result_parts.append(f'#raw("{escaped_code}", lang: "{lang}", block: true)')
+                else:
+                    result_parts.append(f'#raw("{escaped_code}", block: true)')
+            elif fragment['type'] == 'text' and fragment['content'].strip():
+                # Process text content normally
+                text_content = fragment['content']
+                paras = _split_paragraphs(text_content)
+                if paras:
+                    style_name = (el.get('style') or el.get('type') or 'body')
+                    style = styles.get(str(style_name).strip().lower(), styles.get(el.get('type'), styles['body']))
+                    text_args = _style_args(style)
+                    par_args = _par_args(style, el.get('justify'))
+                    
+                    text_pieces = []
+                    for p in paras:
+                        txt = escape_text(p)
+                        text_call = f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
+                        if par_args:
+                            text_pieces.append(f"#par({par_args})[{text_call}]")
+                        else:
+                            text_pieces.append(f"#par()[{text_call}]")
+                    result_parts.append("\n".join(text_pieces))
+        return "\n".join(result_parts)
+    
+    # Original logic for pure text content
     paras = _split_paragraphs(raw)
     style_name = (el.get('style') or el.get('type') or 'body')
     style = styles.get(str(style_name).strip().lower(), styles.get(el.get('type'), styles['body']))
@@ -296,7 +360,7 @@ def generate_typst(ir):
     out = []
     out.append(TYPST_HEADER.format(timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat()))
     out.append("#import \"@preview/muchpdf:0.1.1\": muchpdf\n")
-    out.append(f"#let theme = (")
+    out.append("#let theme = (")
     out.append(f"  font_header: \"{theme['font_header']}\",")
     out.append(f"  font_body: \"{theme['font_body']}\",")
     out.append(f"  size_header: {theme['size_header']},")
@@ -319,7 +383,10 @@ def generate_typst(ir):
         d = None
     if d is None:
         d = datetime.date.today()
-    yy = d.strftime('%y'); mm = d.strftime('%m'); dd = d.strftime('%d'); y4 = d.strftime('%Y')
+    yy = d.strftime('%y')
+    mm = d.strftime('%m')
+    dd = d.strftime('%d')
+    y4 = d.strftime('%Y')
     iso = f"{y4}-{mm}-{dd}"
     out.append(f"#let date_iso = \"{iso}\"\n")
     out.append(f"#let date_yy_mm_dd = \"{yy}.{mm}.{dd}\"\n")
@@ -435,8 +502,10 @@ def generate_typst(ir):
     render_pages = [p for p in ir.get('pages', []) if not (p.get('master_def') or '').strip()]
 
     for page_index, page in enumerate(render_pages):
-        w = page['page_size']['w_mm']; h = page['page_size']['h_mm']
-        cols = page['grid']['cols']; rows = page['grid']['rows']
+        w = page['page_size']['w_mm']
+        h = page['page_size']['h_mm']
+        cols = page['grid']['cols']
+        rows = page['grid']['rows']
         margins_mm = page.get('margins_mm')
         margins_declared = bool(page.get('margins_declared')) and isinstance(margins_mm, dict)
         # Determine total grid for debug drawing when no margins declared
@@ -492,22 +561,31 @@ def generate_typst(ir):
             if el['type'] in ('header','subheader','body'):
                 content_fragments.append(_render_text_element(el, styles))
             elif el['type'] == 'rectangle' and el.get('rectangle'):
-                rect = el['rectangle']; color = rect['color']; alpha = rect.get('alpha', 1.0)
+                rect = el['rectangle']
+                color = rect['color']
+                alpha = rect.get('alpha', 1.0)
                 content_fragments.append(f"ColorRect(\"{color}\", {alpha})")
             elif el['type'] == 'figure' and el.get('figure'):
-                src = el['figure']['src']; cap = el['figure'].get('caption'); fit = el['figure'].get('fit', 'contain')
+                src = el['figure']['src']
+                cap = el['figure'].get('caption')
+                fit = el['figure'].get('fit', 'contain')
                 fit_map = {'fill':'cover', 'contain':'contain', 'cover':'cover', 'stretch':'stretch'}
                 fit_val = fit_map.get(str(fit).lower(), str(fit))
                 if cap:
-                    cap_e = escape_text(cap); content_fragments.append(f"Fig(image(\"{src}\", width: 100%, height: 100%, fit: \"{fit_val}\"), caption: \"{cap_e}\")")
+                    cap_e = escape_text(cap)
+                    content_fragments.append(f"Fig(image(\"{src}\", width: 100%, height: 100%, fit: \"{fit_val}\"), caption: \"{cap_e}\")")
                 else:
                     content_fragments.append(f"Fig(image(\"{src}\", width: 100%, height: 100%, fit: \"{fit_val}\"))")
             elif el['type'] == 'svg' and el.get('svg'):
-                svg = el['svg']; ssrc = svg.get('src');
+                svg = el['svg']
+                ssrc = svg.get('src')
                 # Render SVG via image fit contain into the frame
                 content_fragments.append(f"Fig(image(\"{ssrc}\", width: 100%, height: 100%, fit: \"contain\"))")
             elif el['type'] == 'pdf' and el.get('pdf'):
-                pdf = el['pdf']; psrc = pdf['src']; ppage = pdf['pages'][0]; scale = pdf.get('scale',1.0)
+                pdf = el['pdf']
+                psrc = pdf['src']
+                ppage = pdf['pages'][0]
+                scale = pdf.get('scale',1.0)
                 if pathlib.Path(psrc).suffix.lower() != '.pdf':
                     content_fragments.append(f"Fig(image(\"{psrc}\", width: 100%, height: 100%, fit: \"contain\"))")
                 else:
@@ -552,12 +630,15 @@ def generate_typst(ir):
             # Place elements with padding when specified (text, figure, svg, pdf, toc)
             pad = el.get('padding_mm') if isinstance(el, dict) else None
             if el.get('type') in ('header','subheader','body','figure','svg','pdf','toc') and isinstance(pad, dict):
-                t = float(pad.get('top', 0.0)); r = float(pad.get('right', 0.0)); b = float(pad.get('bottom', 0.0)); l = float(pad.get('left', 0.0))
+                t = float(pad.get('top', 0.0))
+                r = float(pad.get('right', 0.0))
+                b = float(pad.get('bottom', 0.0))
+                left = float(pad.get('left', 0.0))
                 arg = wrapped
                 sarg = str(arg).lstrip()
                 if sarg.startswith('#'):
                     arg = f"[{arg}]"
-                out.append(f"#layer_grid_padded(gp,{x_total},{y_total},{wc},{hc}, {t}mm, {r}mm, {b}mm, {l}mm, {arg})\n")
+                out.append(f"#layer_grid_padded(gp,{x_total},{y_total},{wc},{hc}, {t}mm, {r}mm, {b}mm, {left}mm, {arg})\n")
             else:
                 # Always place via total grid helper
                 arg = wrapped
@@ -567,7 +648,7 @@ def generate_typst(ir):
                 out.append(f"#layer_grid(gp,{x_total},{y_total},{wc},{hc}, {arg})\n")
         if ir['meta'].get('GRID_DEBUG', 'false').lower() == 'true':
             if margins_declared:
-                out.append(f"#draw_total_grid(gp)\n")
+                out.append("#draw_total_grid(gp)\n")
             else:
                 out.append(f"#draw_grid({cols}, {rows}, cw, ch)\n")
         out.append("// END PAGE CONTENT\n")
@@ -579,12 +660,98 @@ def generate_typst(ir):
 
 def el_text(el):
     for tb in el.get('text_blocks', []):
-        if tb['kind'] == 'plain': return tb['content']
+        if tb['kind'] == 'plain':
+            return tb['content']
     return el.get('title','')
 
 
 def escape_text(s):
-    return s.replace('\\','\\\\').replace('"','\\"')
+    """Escape text for Typst and convert org-mode markup to Typst formatting."""
+    import re
+    
+    # First escape backslashes and quotes
+    s = s.replace('\\','\\\\').replace('"','\\"')
+    
+    # Convert org-mode bold markup (*text*) to Typst bold weight
+    # Use explicit weight: "bold" to ensure it renders as bold
+    s = re.sub(r'\*([^*\n]+)\*', r'#text(weight: "bold")[\1]', s)
+    
+    # Convert org-mode italic markup (/text/) to Typst italic style
+    # Use explicit style: "italic" to ensure it renders as italic
+    s = re.sub(r'/([^/\n]+)/', r'#text(style: "italic")[\1]', s)
+    
+    return s
+
+
+def _is_typst_directive(line):
+    """Check if a line is a Typst directive that should not be escaped."""
+    stripped = line.strip()
+    return (stripped.startswith('#set ') or 
+            stripped.startswith('#show ') or 
+            stripped.startswith('#let ') or
+            stripped.startswith('#import '))
+
+
+def _process_mixed_content(content):
+    """Process content that may contain both regular text, Typst directives, and code blocks.
+    Returns a list of fragments where each fragment is either:
+    - {'type': 'text', 'content': str} - regular text that needs escaping
+    - {'type': 'typst', 'content': str} - raw Typst code to insert directly
+    - {'type': 'codeblock', 'content': str, 'lang': str} - code block for syntax highlighting
+    """
+    if not content.strip():
+        return [{'type': 'text', 'content': content}]
+    
+    lines = content.split('\n')
+    fragments = []
+    current_text_lines = []
+    
+    def flush_text_lines():
+        if current_text_lines:
+            fragments.append({'type': 'text', 'content': '\n'.join(current_text_lines)})
+            current_text_lines.clear()
+    
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        
+        # Check for Typst directives
+        if _is_typst_directive(line):
+            flush_text_lines()
+            fragments.append({'type': 'typst', 'content': line.strip()})
+            i += 1
+            continue
+            
+        # Check for code blocks (lines starting with ```)
+        if line.strip().startswith('```'):
+            flush_text_lines()
+            
+            # Extract language from the opening line
+            lang_match = line.strip()[3:].strip()
+            lang = lang_match if lang_match else 'text'
+            
+            # Collect code block content until closing ```
+            code_lines = []
+            i += 1
+            while i < len(lines) and not lines[i].strip().startswith('```'):
+                code_lines.append(lines[i])
+                i += 1
+            
+            # Add the code block fragment
+            code_content = '\n'.join(code_lines)
+            fragments.append({'type': 'codeblock', 'content': code_content, 'lang': lang})
+            
+            # Skip the closing ``` line
+            if i < len(lines):
+                i += 1
+            continue
+        
+        # Regular text line
+        current_text_lines.append(line)
+        i += 1
+    
+    flush_text_lines()
+    return fragments
 
 
 def _discover_available_fonts() -> dict:
@@ -607,16 +774,28 @@ def _discover_available_fonts() -> dict:
             # Merge discovered fonts into our master list
             if font_info.get('families'):
                 for family_name, family_data in font_info['families'].items():
-                    if family_name not in font_families:
-                        font_families[family_name] = []
+                    font_files = []
                     
                     # Add all font files for this family
                     for font_file in family_data.get('files', []):
-                        font_families[family_name].append({
+                        font_files.append({
                             'name': font_file['name'],
                             'path': font_file['path'],
                             'size': font_file['size']
                         })
+                    
+                    # Create mappings for both underscore and space variants
+                    # This handles cases like "Playfair_Display" -> "Playfair Display"
+                    family_variants = [family_name]
+                    if '_' in family_name:
+                        family_variants.append(family_name.replace('_', ' '))
+                    if ' ' in family_name:
+                        family_variants.append(family_name.replace(' ', '_'))
+                    
+                    for variant in family_variants:
+                        if variant not in font_families:
+                            font_families[variant] = []
+                        font_families[variant].extend(font_files)
     
     except ImportError:
         # Fallback: basic font discovery without CLI functions
@@ -631,14 +810,23 @@ def _discover_available_fonts() -> dict:
                         relative_path = font_file.relative_to(assets_fonts)
                         family_name = relative_path.parts[0] if len(relative_path.parts) > 1 else 'Unknown'
                         
-                        if family_name not in font_families:
-                            font_families[family_name] = []
-                        
-                        font_families[family_name].append({
+                        font_file_info = {
                             'name': font_file.name,
                             'path': str(font_file),
                             'size': font_file.stat().st_size
-                        })
+                        }
+                        
+                        # Create mappings for both underscore and space variants
+                        family_variants = [family_name]
+                        if '_' in family_name:
+                            family_variants.append(family_name.replace('_', ' '))
+                        if ' ' in family_name:
+                            family_variants.append(family_name.replace(' ', '_'))
+                        
+                        for variant in family_variants:
+                            if variant not in font_families:
+                                font_families[variant] = []
+                            font_families[variant].append(font_file_info)
             
             # Also check examples/assets/fonts directory (example fonts)
             examples_assets_fonts = pathlib.Path('examples/assets/fonts')
@@ -650,14 +838,23 @@ def _discover_available_fonts() -> dict:
                         relative_path = font_file.relative_to(examples_assets_fonts)
                         family_name = relative_path.parts[0] if len(relative_path.parts) > 1 else 'Unknown'
                         
-                        if family_name not in font_families:
-                            font_families[family_name] = []
-                        
-                        font_families[family_name].append({
+                        font_file_info = {
                             'name': font_file.name,
                             'path': str(font_file),
                             'size': font_file.stat().st_size
-                        })
+                        }
+                        
+                        # Create mappings for both underscore and space variants
+                        family_variants = [family_name]
+                        if '_' in family_name:
+                            family_variants.append(family_name.replace('_', ' '))
+                        if ' ' in family_name:
+                            family_variants.append(family_name.replace(' ', '_'))
+                        
+                        for variant in family_variants:
+                            if variant not in font_families:
+                                font_families[variant] = []
+                            font_families[variant].append(font_file_info)
         except Exception:
             pass
     
@@ -698,9 +895,11 @@ def update_html_total(html_path: pathlib.Path, total: int):
         if count2 == 0:
             return False
         else:
-            html_path.write_text(new_txt, encoding='utf-8'); return True
+            html_path.write_text(new_txt, encoding='utf-8')
+            return True
     else:
-        html_path.write_text(new_txt, encoding='utf-8'); return True
+        html_path.write_text(new_txt, encoding='utf-8')
+        return True
 
 
 def adjust_asset_paths(ir, typst_dir: pathlib.Path):

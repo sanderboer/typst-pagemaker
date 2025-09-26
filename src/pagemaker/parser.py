@@ -1,6 +1,5 @@
-import re, pathlib, datetime
-from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+import re
+from typing import List, Dict, Optional
 
 HEADLINE_RE = re.compile(r'^(?P<stars>\*+)\s+(?P<title>.+)$')
 PROP_BEGIN_RE = re.compile(r'^:PROPERTIES:', re.I)
@@ -34,24 +33,29 @@ def parse_padding(val: Optional[str]) -> Optional[Dict[str, float]]:
         except Exception:
             return None
     if len(nums) == 1:
-        t = r = b = l = nums[0]
+        t = r = b = left = nums[0]
     elif len(nums) == 2:
-        t = b = nums[0]; r = l = nums[1]
+        t = b = nums[0]
+        r = left = nums[1]
     elif len(nums) == 3:
-        t = nums[0]; r = l = nums[1]; b = nums[2]
+        t = nums[0]
+        r = left = nums[1]
+        b = nums[2]
     elif len(nums) >= 4:
-        t, r, b, l = nums[0], nums[1], nums[2], nums[3]
+        t, r, b, left = nums[0], nums[1], nums[2], nums[3]
     else:
         return None
-    return {'top': float(t), 'right': float(r), 'bottom': float(b), 'left': float(l)}
+    return {'top': float(t), 'right': float(r), 'bottom': float(b), 'left': float(left)}
 
 
 def parse_bool(val: Optional[str]) -> Optional[bool]:
     if val is None:
         return None
     s = str(val).strip().lower()
-    if s in ("1", "true", "yes", "y", "on"): return True
-    if s in ("0", "false", "no", "n", "off"): return False
+    if s in ("1", "true", "yes", "y", "on"):
+        return True
+    if s in ("0", "false", "no", "n", "off"):
+        return False
     return None
 
 
@@ -101,7 +105,8 @@ class OrgElement:
             for line in self.content_lines:
                 m = LINK_IMG_RE.match(line.strip())
                 if m:
-                    img = m.group('path'); break
+                    img = m.group('path')
+                    break
             figure = { 'src': img, 'caption': self.props.get('CAPTION'), 'fit': self.props.get('FIT', 'contain') }
         if self.type == 'pdf':
             pdf = {
@@ -194,8 +199,8 @@ class OrgPage:
         top_mm = right_mm = bottom_mm = left_mm = 0.0
         if margins_declared:
             try:
-                t, r, b, l = [float(x.strip()) for x in margins_val.split(',')]
-                top_mm, right_mm, bottom_mm, left_mm = t, r, b, l
+                t, r, b, left_val = [float(x.strip()) for x in margins_val.split(',')]
+                top_mm, right_mm, bottom_mm, left_mm = t, r, b, left_val
             except Exception:
                 # If parsing fails, treat as not declared
                 margins_declared = False
@@ -239,17 +244,22 @@ def parse_area(val):
 
     mb = block_re.match(val)
     if mb:
-        r1 = letters_to_num(mb.group(1)); c1 = int(mb.group(2))
-        r2 = letters_to_num(mb.group(3)); c2 = int(mb.group(4))
+        r1 = letters_to_num(mb.group(1))
+        c1 = int(mb.group(2))
+        r2 = letters_to_num(mb.group(3))
+        c2 = int(mb.group(4))
         if r1 and r2:
-            x = min(c1, c2); y = min(r1, r2)
-            w = abs(c2 - c1) + 1; h = abs(r2 - r1) + 1
+            x = min(c1, c2)
+            y = min(r1, r2)
+            w = abs(c2 - c1) + 1
+            h = abs(r2 - r1) + 1
             return [x, y, w, h]
         return None
 
     mc = cell_re.match(val)
     if mc:
-        r = letters_to_num(mc.group(1)); c = int(mc.group(2))
+        r = letters_to_num(mc.group(1))
+        c = int(mc.group(2))
         if r:
             return [c, r, 1, 1]
         return None
@@ -265,20 +275,28 @@ def parse_area(val):
 
 def slugify(s):
     import re as _re
-    s = s.lower(); s = _re.sub(r'[^a-z0-9]+','-', s); s = s.strip('-'); return s or 'item'
+    s = s.lower()
+    s = _re.sub(r'[^a-z0-9]+','-', s)
+    s = s.strip('-')
+    return s or 'item'
 
 def meta_defaults(meta):
-    d = DEFAULTS.copy();
+    d = DEFAULTS.copy()
     for k,v in meta.items():
-        if k in d: d[k] = v
+        if k in d:
+            d[k] = v
     return d
 
 def parse_org(path):
     with open(path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
-    meta = {}; pages = []
-    current_page = None; current_element = None
-    prop_mode = False; prop_buf = {}; content_buf = []
+    meta = {}
+    pages = []
+    current_page = None
+    current_element = None
+    prop_mode = False
+    prop_buf = {}
+    content_buf = []
 
     def close_element():
         nonlocal current_element, content_buf, current_page
@@ -286,7 +304,8 @@ def parse_org(path):
             current_element.content_lines = content_buf
             if current_page:
                 current_page.elements.append(current_element)
-        current_element = None; content_buf = []
+        current_element = None
+        content_buf = []
 
     for raw in lines:
         line = raw.rstrip('\n')
@@ -310,7 +329,9 @@ def parse_org(path):
                 current_element = OrgElement(id_=slugify(title), type_='body', title=title, props={}, area=None)
             continue
         if PROP_BEGIN_RE.match(line_stripped):
-            prop_mode = True; prop_buf = {}; continue
+            prop_mode = True
+            prop_buf = {}
+            continue
         if PROP_END_RE.match(line_stripped):
             prop_mode = False
             if current_element:
@@ -323,16 +344,20 @@ def parse_org(path):
                         current_element.type = 'figure'
                 if 'AREA' in prop_buf:
                     ar = parse_area(prop_buf['AREA'])
-                    if ar: current_element.area = ar
+                    if ar:
+                        current_element.area = ar
             elif current_page:
                 current_page.props.update(prop_buf)
-            prop_buf = {}; continue
+            prop_buf = {}
+            continue
         if prop_mode:
             if ':' in line_stripped:
                 parts = line_stripped.split(':', 2)
                 if len(parts) >= 3:
-                    key = parts[1].strip().upper(); val = parts[2].strip()
-                    if key: prop_buf[key] = val
+                    key = parts[1].strip().upper()
+                    val = parts[2].strip()
+                    if key:
+                        prop_buf[key] = val
             continue
         if current_element is not None:
             content_buf.append(line_stripped)

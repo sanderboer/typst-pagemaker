@@ -10,7 +10,19 @@ Subcommands:
   fonts     font discovery and management utilities
 
 """
-import argparse, pathlib, json, sys, subprocess, os, time, hashlib, shutil, tempfile, urllib.request, urllib.parse, zipfile, re
+import argparse
+import pathlib
+import json
+import sys
+import subprocess
+import os
+import time
+import hashlib
+import shutil
+import tempfile
+import urllib.request
+import urllib.parse
+import re
 from . import parse_org, generate_typst, adjust_asset_paths, update_html_total
 from .validation import validate_ir
 
@@ -215,7 +227,7 @@ def _validate_fonts_in_build(ir: dict, strict: bool = False) -> bool:
         return True  # No fonts referenced, nothing to validate
     
     if font_usage['missing_fonts']:
-        print(f"⚠️  Font Validation Issues:")
+        print("⚠️  Font Validation Issues:")
         for font in sorted(font_usage['missing_fonts']):
             print(f"   ❌ Missing font: '{font}'")
             # Show where it's used
@@ -223,16 +235,16 @@ def _validate_fonts_in_build(ir: dict, strict: bool = False) -> bool:
                 if usage['font'] == font:
                     print(f"      Used in: {usage['location']}")
         
-        print(f"\n💡 Suggestions:")
-        print(f"   • Install missing fonts: pagemaker fonts install \"FontName\"")
-        print(f"   • Search for alternatives: pagemaker fonts search \"FontName\"")
+        print("\n💡 Suggestions:")
+        print("   • Install missing fonts: pagemaker fonts install \"FontName\"")
+        print("   • Search for alternatives: pagemaker fonts search \"FontName\"")
         print(f"   • Use available fonts: {', '.join(sorted(list(font_usage['available_fonts'])[:5]))}")
         
         if strict:
-            print(f"\n❌ Build failed due to missing fonts (strict mode)")
+            print("\n❌ Build failed due to missing fonts (strict mode)")
             return False
         else:
-            print(f"\n⚠️  Build continuing with font fallbacks...")
+            print("\n⚠️  Build continuing with font fallbacks...")
     
     return True
 
@@ -626,8 +638,10 @@ def _make_sanitized_copy(src: pathlib.Path, dst: pathlib.Path) -> bool:
     finally:
         try:
             for p in tmpdir.glob('*'):
-                try: p.unlink()
-                except OSError: pass
+                try:
+                    p.unlink()
+                except OSError:
+                    pass
             tmpdir.rmdir()
         except OSError:
             pass
@@ -738,8 +752,10 @@ def _compile_with_fallback(ir: dict, export_dir: pathlib.Path, typst_path: pathl
             ok = try_compile(ir_svg)
 
     if ok and not no_clean:
-        try: typst_path.unlink()
-        except OSError: pass
+        try:
+            typst_path.unlink()
+        except OSError:
+            pass
     return ok
 
 
@@ -751,7 +767,8 @@ def cmd_pdf(args):
         if not _validate_fonts_in_build(ir, strict=getattr(args, 'strict_fonts', False)):
             sys.exit(1)
     
-    export_dir = pathlib.Path(args.export_dir); export_dir.mkdir(parents=True, exist_ok=True)
+    export_dir = pathlib.Path(args.export_dir)
+    export_dir.mkdir(parents=True, exist_ok=True)
     adjust_asset_paths(ir, export_dir)
     typst_filename = args.output if args.output else 'deck.typ'
     typst_path = export_dir / typst_filename if not pathlib.Path(typst_filename).is_absolute() else pathlib.Path(typst_filename)
@@ -800,7 +817,8 @@ def cmd_watch(args):
     print(f"Watching {org_path} interval={args.interval}s pdf={args.pdf} (once={args.once})")
     def compute_hash(p: pathlib.Path):
         try:
-            data = p.read_bytes(); return hashlib.sha256(data).hexdigest()
+            data = p.read_bytes()
+            return hashlib.sha256(data).hexdigest()
         except Exception:
             return None
     def build_once():
@@ -850,7 +868,7 @@ def cmd_watch(args):
                     ok = build_once()
                     if not ok:
                         sys.exit(1)
-                    print(f"[watch] Initial build complete")
+                    print("[watch] Initial build complete")
                 except Exception as e:
                     print(f"[watch] ERROR during initial build: {e}", file=sys.stderr)
                     sys.exit(1)
@@ -885,7 +903,7 @@ def cmd_fonts_list_all(args):
     _print_font_info(project_info, "2. Project Fonts (Custom Library)", args.details)
     
     # Show font resolution order
-    print(f"\n🎯 Font Resolution Order")
+    print("\n🎯 Font Resolution Order")
     print("=" * 25)
     for i, path in enumerate(font_paths, 1):
         print(f"  {i}. {path}")
@@ -895,7 +913,7 @@ def cmd_fonts_list_all(args):
     project_families = len(project_info['families']) if project_info['exists'] else 0
     total_families = bundled_families + project_families
     
-    print(f"\n📊 Summary")
+    print("\n📊 Summary")
     print("=" * 10)
     print(f"  Bundled families: {bundled_families}")
     print(f"  Project families: {project_families}")  
@@ -934,7 +952,7 @@ def cmd_fonts_validate(args):
             print(f"  {i}. {font_path} - ❌ Font family not found")
     
     # Final result
-    print(f"\n🎯 Result")
+    print("\n🎯 Result")
     print("=" * 10)
     if found_locations:
         print(f"✅ Font '{font_name}' is available")
@@ -987,12 +1005,12 @@ def cmd_fonts_install(args):
     success = _install_google_font(font_family, variants, force)
     
     if success:
-        print(f"\n✅ Installation complete!")
+        print("\n✅ Installation complete!")
         print(f"Font '{font_family}' is now available for use in your documents.")
-        print(f"\nUsage example:")
+        print("\nUsage example:")
         print(f'#+CUSTOM_STYLE: #set text(font: "{font_family}", size: 12pt)')
     else:
-        print(f"\n❌ Installation failed!")
+        print("\n❌ Installation failed!")
         print("Try searching for the exact font name first:")
         print(f"  pagemaker fonts search \"{font_family}\"")
         sys.exit(1)
@@ -1027,13 +1045,13 @@ def cmd_fonts_analyze(args):
             print("   Document will use system defaults or Typst fallbacks")
             return
         
-        print(f"📊 Font Usage Analysis:")
+        print("📊 Font Usage Analysis:")
         print(f"   Referenced fonts: {len(font_usage['fonts_found'])}")
         print(f"   Available fonts: {len(font_usage['available_fonts'])}")
         print(f"   Missing fonts: {len(font_usage['missing_fonts'])}")
         
         # Show referenced fonts
-        print(f"\n🔤 Fonts Referenced in Document:")
+        print("\n🔤 Fonts Referenced in Document:")
         for font in sorted(font_usage['fonts_found']):
             status = "✅" if font in font_usage['available_fonts'] else "❌"
             print(f"   {status} {font}")
@@ -1046,7 +1064,7 @@ def cmd_fonts_analyze(args):
         
         # Show missing fonts with suggestions
         if font_usage['missing_fonts']:
-            print(f"\n⚠️  Missing Fonts:")
+            print("\n⚠️  Missing Fonts:")
             for font in sorted(font_usage['missing_fonts']):
                 print(f"   ❌ {font}")
                 print(f"      Install: pagemaker fonts install \"{font}\"")
@@ -1055,7 +1073,7 @@ def cmd_fonts_analyze(args):
         # Show available alternatives
         if font_usage['available_fonts'] and len(font_usage['available_fonts']) > len(font_usage['fonts_found']):
             unused_fonts = font_usage['available_fonts'] - font_usage['fonts_found']
-            print(f"\n💡 Available Alternative Fonts:")
+            print("\n💡 Available Alternative Fonts:")
             for font in sorted(list(unused_fonts)[:10]):  # Show first 10
                 print(f"   • {font}")
             if len(unused_fonts) > 10:
@@ -1250,7 +1268,7 @@ def cmd_fonts_specimen(args):
     
     # Optionally build PDF
     if build_pdf:
-        print(f"📄 Building PDF...")
+        print("📄 Building PDF...")
         
         # Use the existing build functionality
         import subprocess
@@ -1268,7 +1286,7 @@ def cmd_fonts_specimen(args):
         except Exception as e:
             print(f"❌ PDF build error: {e}")
     
-    print(f"\n💡 Usage:")
+    print("\n💡 Usage:")
     print(f"   Preview: pagemaker build {output_file}")
     print(f"   PDF: pagemaker pdf {output_file}")
     print(f"   Open: open export/{output_path.stem}.pdf")
@@ -1278,22 +1296,36 @@ def build_parser():
     sub = p.add_subparsers(dest='command', required=True)
 
     b = sub.add_parser('build', help='org -> typst')
-    b.add_argument('org'); b.add_argument('-o','--output', default='deck.typ'); b.add_argument('--ir'); b.add_argument('--update-html'); b.add_argument('--export-dir', default=DEFAULT_EXPORT_DIR)
+    b.add_argument('org')
+    b.add_argument('-o','--output', default='deck.typ')
+    b.add_argument('--ir')
+    b.add_argument('--update-html')
+    b.add_argument('--export-dir', default=DEFAULT_EXPORT_DIR)
     b.add_argument('--validate-fonts', action='store_true', help='validate all fonts are available before build')
     b.add_argument('--strict-fonts', action='store_true', help='fail build if any fonts are missing')
     b.set_defaults(func=cmd_build)
 
     pdf = sub.add_parser('pdf', help='org -> typst -> pdf')
-    pdf.add_argument('org'); pdf.add_argument('-o','--output', default='deck.typ'); pdf.add_argument('--pdf-output'); pdf.add_argument('--typst-bin', default='typst'); pdf.add_argument('--export-dir', default=DEFAULT_EXPORT_DIR); pdf.add_argument('--no-clean', action='store_true'); pdf.add_argument('--sanitize-pdfs', action='store_true', help='Attempt to sanitize PDFs and fallback to SVG if necessary')
+    pdf.add_argument('org')
+    pdf.add_argument('-o','--output', default='deck.typ')
+    pdf.add_argument('--pdf-output')
+    pdf.add_argument('--typst-bin', default='typst')
+    pdf.add_argument('--export-dir', default=DEFAULT_EXPORT_DIR)
+    pdf.add_argument('--no-clean', action='store_true')
+
     pdf.add_argument('--validate-fonts', action='store_true', help='validate all fonts are available before build')
     pdf.add_argument('--strict-fonts', action='store_true', help='fail build if any fonts are missing')
+    pdf.add_argument('--sanitize-pdfs', action='store_true', help='Attempt to sanitize PDFs and fallback to SVG if necessary')
     pdf.set_defaults(func=cmd_pdf)
 
     irp = sub.add_parser('ir', help='emit IR JSON')
-    irp.add_argument('org'); irp.set_defaults(func=cmd_ir)
+    irp.add_argument('org')
+    irp.set_defaults(func=cmd_ir)
 
     val = sub.add_parser('validate', help='validate IR')
-    val.add_argument('org'); val.add_argument('--strict-assets', action='store_true', help='Treat missing figure/pdf assets as errors'); val.set_defaults(func=cmd_validate)
+    val.add_argument('org')
+    val.add_argument('--strict-assets', action='store_true', help='Treat missing figure/pdf assets as errors')
+    val.set_defaults(func=cmd_validate)
  
     watch = sub.add_parser('watch', help='watch org file and rebuild on change')
     watch.add_argument('org')
@@ -1369,7 +1401,9 @@ def build_parser():
 
 
 def main(argv=None):
-    parser = build_parser(); args = parser.parse_args(argv); args.func(args)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    args.func(args)
 
 if __name__ == '__main__':
     main()

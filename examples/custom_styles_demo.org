@@ -10,6 +10,7 @@
 #+STYLE_TEST: font: Fauna One, size: 30pt, weight:bold, color: rgb(98%,50%,50%)
 #+STYLE_HERO: font: Manrope, weight: bold, size: 36pt, color: #123456
 
+
 * Page 1
 :PROPERTIES:
 :MASTER: 

@@ -1,0 +1,201 @@
+#+TITLE: Font Management Example
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+#+MARGINS: 10,10,10,10
+#+GRID_DEBUG: true
+#+STYLE_HEADER: color: #ffffff, spacing: 10mm
+#+STYLE_INTER_ULTRALIGHT: font: Inter, size: 14pt, weight: 100
+#+STYLE_INTER_LIGHT: font: Inter, size: 14pt, weight: 300
+#+STYLE_INTER_REGULAR: font: Inter, size: 14pt, weight: 400
+#+STYLE_INTER_MEDIUM: font: Inter, size: 14pt, weight: 500
+#+STYLE_INTER_BOLD: font: Inter, size: 14pt, weight: 700
+#+STYLE_INTER_ULTRABOLD: font: Inter, size: 14pt, weight: 900
+
+#+STYLE_CRIMSON_ULTRALIGHT: font: Crimson Pro, size: 14pt, weight: 100
+#+STYLE_CRIMSON_LIGHT: font: Crimson Pro, size: 14pt, weight: 300
+#+STYLE_CRIMSON_REGULAR: font: Crimson Pro, size: 14pt, weight: 400
+#+STYLE_CRIMSON_MEDIUM: font: Crimson Pro, size: 14pt, weight: 500
+#+STYLE_CRIMSON_BOLD: font: Crimson Pro, size: 14pt, weight: 700
+#+STYLE_CRIMSON_ULTRABOLD: font: Crimson Pro, size: 14pt, weight: 900
+
+
+
+* Font test
+:PROPERTIES:
+:ID: Font test
+:END:
+** rectangle
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: b2,b13
+:COLOR: #334455
+:ALPHA: 1.0
+:Z: 10
+:END:
+
+
+** Inter
+:PROPERTIES:
+:Padding: 10
+:TYPE: header
+:AREA: B2, B12
+:Z: 50
+:END:
+
+Inter font
+
+** ultralight
+:PROPERTIES:
+:TYPE: body
+:Padding: 10,10
+:STYLE: inter_ultralight
+:AREA: C2, C7
+:Z: 50
+:END:
+Ultralight; weight 100
+:::
+The quick brown *fox* /jumps/ over the lazy dog
+
+** light
+:PROPERTIES:
+:TYPE: body
+:STYLE: inter_light
+:Padding: 10,10
+:AREA: D2, D7
+:Z: 50
+:END:
+Light; weight 300
+:::
+The quick brown fox jumps over the lazy dog
+
+** regular
+:PROPERTIES:
+:TYPE: body
+:STYLE: inter_regular
+:AREA: E2, E7
+:Z: 50
+:Padding: 10,10
+:END:
+Regular; weight 400
+:::
+The quick brown fox jumps over the lazy dog
+
+** medium
+:PROPERTIES:
+:TYPE: body
+:Padding: 10,10
+:STYLE: inter_medium
+:AREA: F2, F7
+:Z: 50
+:END:
+Medium; weight 500
+:::
+The quick brown fox jumps over the lazy dog
+
+** bold
+:PROPERTIES:
+:TYPE: body
+:STYLE: inter_bold
+:Padding: 10,10
+:AREA: G2, G7
+:Z: 50
+:END:
+Bold; weight 700
+:::
+The quick brown fox jumps over the lazy dog
+
+** ultrabold
+:PROPERTIES:
+:TYPE: body
+:Padding: 10,10
+:STYLE: inter_ultrabold
+:AREA: H2, H7
+:Z: 50
+:END:
+Ultrabold; weight 900
+:::
+The quick brown fox jumps over the lazy dog
+
+** Crimson Pro
+:PROPERTIES:
+:TYPE: header
+:Padding: 10
+:STYLE:
+:AREA: B8, B12
+:Z: 50
+:END:
+
+Crimson Pro font
+
+** ultralight
+:PROPERTIES:
+:TYPE: body
+:STYLE: crimson_ultralight
+:Padding: 10,10
+:AREA: C8, C12
+:Z: 50
+:END:
+Ultralight; weight 100
+:::
+The quick brown *fox* /jumps/ over the lazy dog
+
+** light
+:PROPERTIES:
+:TYPE: body
+:Padding: 10,10
+:STYLE: crimson_light
+:AREA: D8, D12
+:Z: 50
+:END:
+Light; weight 300
+:::
+The quick brown fox jumps over the lazy dog
+
+** regular
+:PROPERTIES:
+:TYPE: body
+:Padding: 10,10
+:STYLE: crimson_regular
+:AREA: E8, E12
+:Z: 50
+:END:
+Regular; weight 400
+:::
+The quick brown fox jumps over the lazy dog
+
+** medium
+:PROPERTIES:
+:TYPE: body
+:Padding: 10,10
+:STYLE: crimson_medium
+:AREA: F8, F12
+:Z: 50
+:END:
+Medium; weight 500
+:::
+The quick brown fox jumps over the lazy dog
+
+** bold
+:PROPERTIES:
+:TYPE: body
+:Padding: 10,10
+:STYLE: crimson_bold
+:AREA: G8, G12
+:Z: 50
+:END:
+Bold; weight 700
+:::
+The quick brown fox jumps over the lazy dog
+
+** ultrabold
+:PROPERTIES:
+:Padding: 10,10
+:TYPE: body
+:STYLE: crimson_ultrabold
+:AREA: H8, H12
+:Z: 50
+:END:
+Ultrabold; weight 900
+:::
+The quick brown fox jumps over the lazy dog

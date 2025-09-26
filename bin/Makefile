@@ -9,9 +9,41 @@ IR?=deck.json
 TYPST?=typst
 PY?=python3
  
-.PHONY: all build pdf typst ir watch clean assets check debug-overlay
+.PHONY: all build pdf typst ir watch clean assets check debug-overlay help test test-unit test-integration test-verbose test-coverage
  
 all: build
+ 
+help:
+	@echo "A101 PageMaker Build System"
+	@echo ""
+	@echo "Build Targets:"
+	@echo "  all           - Build default presentation (same as build)"
+	@echo "  build         - Build PDF presentation from Org file"
+	@echo "  $(TYP)        - Generate Typst file from Org"
+	@echo "  $(PDF)        - Build PDF from Org (with sanitization)"
+	@echo "  ir            - Generate intermediate JSON representation"
+	@echo "  watch         - Watch for changes and rebuild automatically"
+	@echo ""
+	@echo "Development Targets:"
+	@echo "  clean         - Remove generated files"
+	@echo "  assets        - Check that all referenced assets exist"
+	@echo "  check         - Run assets check then build"
+	@echo "  debug-overlay - Build debug overlay example"
+	@echo ""
+	@echo "Testing Targets:"
+	@echo "  test          - Run all tests"
+	@echo "  test-unit     - Run unit tests only"
+	@echo "  test-integration - Run integration tests only"
+	@echo "  test-verbose  - Run tests with maximum verbosity"
+	@echo "  test-coverage - Run tests with coverage report"
+	@echo ""
+	@echo "Variables:"
+	@echo "  ORG=$(ORG)"
+	@echo "  TYP=$(TYP)"
+	@echo "  PDF=$(PDF)"
+	@echo "  HTML=$(HTML)"
+	@echo "  TYPST=$(TYPST)"
+	@echo "  PY=$(PY)"
  
 build: $(PDF)
 	@echo 'Build complete -> $(PDF)'

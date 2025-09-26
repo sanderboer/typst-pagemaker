@@ -756,6 +756,58 @@ Notes:
 - Legacy format "x,y,w,h" remains supported for backward compatibility.
 - Debug grid labels: columns show 1..N at top; rows show a..z at left (rows > 26 currently fall back to numeric display).
 
+## Editor Integration (Emacs)
+
+pagemaker ships a CLI, and an optional Emacs minor mode (org-pagemaker) to drive the CLI from Org buffers. This section shows how to install and use it.
+
+### Requirements
+- Emacs 27 or newer recommended
+- Optional: hydra package (for the in-buffer command menu)
+- pagemaker CLI available on PATH (pip install typst-pagemaker)
+
+### Install via straight.el
+```elisp
+;; Stable: pin to a released tag (recommended)
+(use-package org-pagemaker
+  :straight (org-pagemaker
+             :type git
+             :host github
+             :repo "sanderboer/org-pagemaker"
+             :tag "v0.1.2"         ;; pin to a release tag (if available)
+             :files ("lisp/*.el"))
+  :hook (org-mode . org-pagemaker-mode))
+
+
+;; (use-package org-pagemaker
+;;   :straight (org-pagemaker :type git :host github :repo "sanderboer/org-pagemaker" :files ("lisp/*.el"))
+;;   :hook (org-mode . org-pagemaker-mode))
+```
+
+Notes:
+- The Emacs package is developed in a separate repo; this project’s .gitignore ignores any nested pagemaker-el/ checkout under the root.
+- Ensure the pagemaker executable resolves in Emacs (M-: (executable-find "pagemaker")). If needed, adjust exec-path or your shell init for GUI Emacs.
+
+### Keybindings (org-pagemaker-mode)
+- C-c p h: Show the org-pagemaker Hydra (if hydra is installed)
+- C-c p b: Build Typst (.typ)
+- C-c p p: Build PDF
+- C-c p w: Watch and rebuild on save
+- C-c p v: Validate IR
+- C-c p s: Build with PDF sanitize/fallback
+- C-c p o: Open last output (PDF/Typst)
+- C-c p i: Insert example/template
+
+The Hydra is an optional convenience. If hydra is not present, C-c p h displays a helpful message; all other keybindings continue to work.
+
+### Quick check
+1) Open any of the example .org files in this repo
+2) Enable the mode: M-x org-pagemaker-mode
+3) Run C-c p b to generate a .typ into export/ (or use C-c p p for a PDF if Typst is installed)
+
+### Pinning and upgrades
+- Prefer pinning to a stable tag (e.g., :tag "v0.1.2" when available).
+- To update: bump the :tag or track main and run straight-pull followed by straight-rebuild.
+
 ## Development
 
 ### Running Tests

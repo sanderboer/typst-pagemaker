@@ -30,7 +30,7 @@ This approach is ideal for creating presentations, posters, reports, and any doc
 - **Rectangles**: Colored overlays with alpha transparency
 - **Images**: Fit modes (contain, cover, fill) and captions
 - **Debug grid**: Optional grid lines and labels (columns 1..N, rows a..z)
-- **Custom fonts**: Integrated support for Manrope and other typography families
+- **Custom fonts**: Integrated font management system with Google Fonts integration
 - **Text justification**: `:JUSTIFY:` for header/subheader/body (wraps Typst `par(justify: true)`)
 - **Padding**: `:PADDING:` on text, images, SVG, and PDF (CSS-like TRBL shorthand in mm)
 - **Alignment & flow**: `:ALIGN:` (left|center|right) for text/figure/svg/pdf/toc; `:VALIGN:` (top|middle|bottom) for text (note: `middle` maps to Typst `horizon`); `:FLOW:` (normal|bottom-up|center-out) — when `:VALIGN:` is not set for text, `:FLOW:` can imply vertical alignment (bottom-up -> bottom, center-out -> horizon).
@@ -205,7 +205,7 @@ pagemaker/
 │   ├── Makefile          # Build automation
 │   └── debug_test_fonts.sh
 ├── assets/               # Fonts and test resources
-│   ├── fonts/           # Manrope and other typography
+│   ├── fonts/           # Bundled professional fonts and project fonts
 │   ├── test-images/     # Sample images for testing
 │   └── test-pdfs/       # Sample PDFs for testing
 ├── examples/            # Example Org files and outputs
@@ -341,8 +341,8 @@ The CLI automatically detects these tools. If unavailable, related stages are sk
 Example:
 ```org
 #+STYLE_HEADER: font: Shree714, weight: 900, size: 30pt, color: #ff00aa
-#+STYLE_BODY: font: Manrope, color: rgb(50%,50%,50%)
-#+STYLE_HERO: font: Manrope, weight: bold, size: 36pt, color: #123456
+#+STYLE_BODY: font: Inter, color: rgb(50%,50%,50%)
+#+STYLE_HERO: font: Inter, weight: bold, size: 36pt, color: #123456
 
 * Title
 :PROPERTIES:
@@ -379,7 +379,7 @@ If a text block splits into multiple paragraphs, each paragraph is wrapped with 
 
 Example (Org):
 ```org
-#+STYLE_BODY: font: Manrope, leading: 1.4em, spacing: 1em, first-line-indent: 2em, hanging-indent: 1em, linebreaks: loose, justify: false
+#+STYLE_BODY: font: Inter, leading: 1.4em, spacing: 1em, first-line-indent: 2em, hanging-indent: 1em, linebreaks: loose, justify: false
 
 ** Styled Body
 :PROPERTIES:

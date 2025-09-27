@@ -9,7 +9,6 @@ A structured document-to-page layout system for Typst that gives you complete co
 <img src="img/aesop_with_debug_grid.jpg" alt="Alt Text" width="40%">
 </div>
 
-
 ## Design Philosophy
 
 Unlike traditional document systems that rely on automatic text flow and built-in spacing, pagemaker takes a fundamentally different approach:
@@ -187,7 +186,10 @@ TOC element:
 Text: use `:JUSTIFY:` to enable full justification and `:PADDING:` to inset content in millimeters.
 (place this snippet in the examples folder in order for pagemaker to find the fonts and images that are already bundled in the examples/asset folder)
 
-![Example snippet](img/example.jpg "Example snippet")
+<div style="display: flex; justify-content: space-between; align-items: center;">
+  <img src="img/example.jpg" alt="Alt Text" style="width: 48%;">
+</div>
+
 ```org
 #+TITLE: My Presentation
 #+PAGESIZE: A4

@@ -4,10 +4,10 @@ Please note: This project is in no way affiliated with or related to the old Ald
 
 A structured document-to-page layout system for Typst that gives you complete control over element positioning while leveraging Typst's powerful typesetting engine and variable weight font support.
 
+<div>
 <img src="img/aesop.jpg" alt="Alt Text" width="40%">
-
 <img src="img/aesop_with_debug_grid.jpg" alt="Alt Text" width="40%">
-
+</div>
 
 
 ## Design Philosophy

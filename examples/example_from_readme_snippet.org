@@ -1,0 +1,70 @@
+#+TITLE: My Presentation
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+#+GRID_DEBUG: false
+#+STYLE_WHITE_BODY: font: Playfair Display,  color: #ffffff, size: 16pt, spacing: 20pt
+
+
+* Introduction Slide
+:PROPERTIES:
+:ID: intro_slide
+:END:
+
+** Main Title
+:PROPERTIES:
+:TYPE: header
+:AREA: b1,c4
+:PADDING: 8,8
+:JUSTIFY: 
+:Z: 10
+:END:
+Welcome to pagemaker
+
+** Background Rectangle
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: A1,L4
+:COLOR: #3498db
+:ALPHA: 0.2
+:Z: -1
+:END:
+
+** Demo Image
+:PROPERTIES:
+:TYPE: figure
+:AREA: A5, H12
+:PADDING: 0,0,0,0
+:FIT: cover
+:Z: -1
+:END:
+[[file:assets/test-images/landscapes/landscape-1.jpg]]
+
+** poem
+:PROPERTIES:
+:TYPE: body
+:STYLE: white_body
+:AREA: C7,D10
+:valign: top
+:END:
+
+I am but a leaf
+
+Clinging to the tree of life
+
+In the world’s garden.
+
+** poem
+:PROPERTIES:
+:TYPE: subheader
+:STYLE: white_body
+:AREA: E7,F10
+:align: right
+:valign: middle
+:END:
+Last night I saw you,
+
+A dream rose and I your stem
+
+Showing you the sun.
+

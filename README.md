@@ -1,8 +1,14 @@
 # pagemaker
 
-Important: This project is in no way affiliated with or related to the old Aldus PageMaker program from the 90s.
+Please note: This project is in no way affiliated with or related to the old Aldus PageMaker program from the 90s.
 
 A structured document-to-page layout system for Typst that gives you complete control over element positioning while leveraging Typst's powerful typesetting engine and variable weight font support.
+
+
+![custom styles demo](img/aesop.jpg "Custom styles demo.")
+
+![custom styles demo with debug grid](img/aesop_with_debug_grid.jpg "Custom styles demo with debug grid.")
+
 
 ## Design Philosophy
 
@@ -179,12 +185,17 @@ TOC element:
 
 
 Text: use `:JUSTIFY:` to enable full justification and `:PADDING:` to inset content in millimeters.
+(place this snippet in the examples folder in order for pagemaker to find the fonts and images that are already bundled in the examples/asset folder)
+
+![Example snippet](img/example.jpg "Example snippet")
 ```org
 #+TITLE: My Presentation
 #+PAGESIZE: A4
 #+ORIENTATION: landscape
 #+GRID: 12x8
 #+GRID_DEBUG: false
+#+STYLE_WHITE_BODY: font: Playfair Display,  color: #ffffff, size: 16pt, spacing: 20pt
+
 
 * Introduction Slide
 :PROPERTIES:
@@ -194,31 +205,60 @@ Text: use `:JUSTIFY:` to enable full justification and `:PADDING:` to inset cont
 ** Main Title
 :PROPERTIES:
 :TYPE: header
-:AREA: B2,I3
-:PADDING: 6,8
-:JUSTIFY:
-:Z: 100
+:AREA: b1,c4
+:PADDING: 8,8
+:JUSTIFY: 
+:Z: 10
 :END:
 Welcome to pagemaker
 
 ** Background Rectangle
 :PROPERTIES:
 :TYPE: rectangle
-:AREA: A1,L8
+:AREA: A1,L4
 :COLOR: #3498db
 :ALPHA: 0.2
-:Z: 10
+:Z: -1
 :END:
 
 ** Demo Image
 :PROPERTIES:
 :TYPE: figure
-:AREA: H3,K6
-:PADDING: 2,3,2,3
-:FIT: contain
-:Z: 50
+:AREA: A5, H12
+:PADDING: 0,0,0,0
+:FIT: cover
+:Z: -1
 :END:
 [[file:assets/test-images/landscapes/landscape-1.jpg]]
+
+** poem
+:PROPERTIES:
+:TYPE: body
+:STYLE: white_body
+:AREA: C7,D10
+:valign: top
+:END:
+
+I am but a leaf
+
+Clinging to the tree of life
+
+In the world’s garden.
+
+** poem
+:PROPERTIES:
+:TYPE: subheader
+:STYLE: white_body
+:AREA: E7,F10
+:align: right
+:valign: middle
+:END:
+Last night I saw you,
+
+A dream rose and I your stem
+
+Showing you the sun.
+
 ```
 
 ## Directory Structure

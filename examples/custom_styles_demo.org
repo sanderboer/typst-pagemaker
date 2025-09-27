@@ -23,7 +23,7 @@
 :PROPERTIES:
 :TYPE: figure
 :FIT: cover
-:AREA: A1,H12
+:AREA: A1,H8
 :padding: 0
 :END:
 [[file:assets/test-images/forest.jpg]]
@@ -31,7 +31,7 @@
 ** Header example
 :PROPERTIES:
 :TYPE: header
-:AREA: B3,C7
+:AREA: B2,C6
 :VALIGN: top
 :padding: 0
 :END:
@@ -41,7 +41,7 @@ THE GNAT
 
 ** body text
 :PROPERTIES:
-:AREA: D3,G9
+:AREA: D2,G7
 :TYPE: body
 :STYLE: body_white
 :JUSTIFY: true
@@ -53,15 +53,14 @@ A Gnat alighted on one of the horns of a Bull, and remained sitting there for a 
 
 We may often be of more consequence in our own eyes than in the eyes of our neighbours.
 
-* page 2
 
 ** poem
 :PROPERTIES:
-:AREA: B3,G9
+:AREA: B9,G12
 :TYPE: body
 :STYLE: body
 :JUSTIFY: true
-:PADDING: 0,15,0,0
+:PADDING: 0,15,0,15
 :END:
 
 A Gnat alighted on one of the horns of a Bull, and remained sitting there for a considerable time. When it had rested sufficiently and was about to fly away, it said to the Bull, “Do you mind if I go now?” The Bull merely raised his eyes and remarked, without interest, “It’s all one to me; I didn’t notice when you came, and I shan’t know when you go away."

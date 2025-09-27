@@ -6,8 +6,8 @@ A structured document-to-page layout system for Typst that gives you complete co
 
 <img src="img/aesop.jpg" alt="Alt Text" width="40%">
 
+<img src="img/aesop_with_debug_grid.jpg" alt="Alt Text" width="40%">
 
-![custom styles demo with debug grid](img/aesop_with_debug_grid.jpg "Custom styles demo with debug grid.")
 
 
 ## Design Philosophy

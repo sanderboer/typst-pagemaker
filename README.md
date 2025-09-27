@@ -4,10 +4,7 @@ Please note: This project is in no way affiliated with or related to the old Ald
 
 A structured document-to-page layout system for Typst that gives you complete control over element positioning while leveraging Typst's powerful typesetting engine and variable weight font support.
 
-<div>
-<img src="img/aesop.jpg" alt="Alt Text" width="40%">
-<img src="img/aesop_with_debug_grid.jpg" alt="Alt Text" width="40%">
-</div>
+<div><img src="img/aesop.jpg" alt="Alt Text" width="40%"><img src="img/aesop_with_debug_grid.jpg" alt="Alt Text" width="40%"></div>
 
 ## Design Philosophy
 
@@ -186,9 +183,7 @@ TOC element:
 Text: use `:JUSTIFY:` to enable full justification and `:PADDING:` to inset content in millimeters.
 (place this snippet in the examples folder in order for pagemaker to find the fonts and images that are already bundled in the examples/asset folder)
 
-<div style="display: flex; justify-content: space-between; align-items: center;">
-  <img src="img/example.jpg" alt="Alt Text" style="width: 48%;">
-</div>
+<div style="display: flex; justify-content: space-between; align-items: center;"><img src="img/example.jpg" alt="Alt Text" style="width: 48%;"></div>
 
 ```org
 #+TITLE: My Presentation

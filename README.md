@@ -263,18 +263,18 @@ Showing you the sun.
 ## Directory Structure
 
 ```
-pagemaker/
+typst-pagemaker/
 ├── src/                    # Source code
-│   ├── pagemaker/         # Package (parser, generator, CLI)
-├── bin/                   # Build tools and scripts
-│   ├── Makefile          # Build automation
+│   ├── pagemaker/          # Package (parser, generator, CLI)
+├── bin/                    # Build tools and scripts
+│   ├── Makefile            # Build automation
 │   └── debug_test_fonts.sh
-├── assets/               # Fonts and test resources
-│   ├── fonts/           # Bundled professional fonts and project fonts
-│   ├── test-images/     # Sample images for testing
-│   └── test-pdfs/       # Sample PDFs for testing
-├── examples/            # Example Org files and outputs
-├── tests/              # Test suite
+├── examples/               # Example Org files and outputs
+│   ├── assets/             # Fonts and test resources
+│   │   ├── fonts/            # Downloaded fonts
+│   │   ├── test-images/      # Sample images for testing
+│   │   └── test-pdfs/        # Sample PDFs for testing
+├── tests/          # Test suite
 │   ├── unit/          # Unit tests
 │   ├── integration/   # Integration tests
 │   └── fixtures/      # Test data

@@ -1,5 +1,5 @@
 import re
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
 HEADLINE_RE = re.compile(r'^(?P<stars>\*+)\s+(?P<title>.+)$')
 PROP_BEGIN_RE = re.compile(r'^:PROPERTIES:', re.I)
@@ -7,11 +7,23 @@ PROP_END_RE = re.compile(r'^:END:', re.I)
 LINK_IMG_RE = re.compile(r'^\[\[file:(?P<path>[^\]]+)\]\]')
 
 PAGE_SIZES_MM = {
-    'A4': (210, 297), 'A3': (297, 420), 'A2': (420, 594), 'A1': (594, 841), 'A5': (148, 210),
+    'A4': (210, 297),
+    'A3': (297, 420),
+    'A2': (420, 594),
+    'A1': (594, 841),
+    'A5': (148, 210),
 }
 
 # New default: no margins declared unless provided in meta/page
-DEFAULTS = { 'PAGESIZE': 'A4', 'ORIENTATION': 'landscape', 'GRID': '12x8', 'THEME': 'light', 'GRID_DEBUG': 'false', 'MARGINS': '', 'DEFAULT_MASTER': '' }
+DEFAULTS = {
+    'PAGESIZE': 'A4',
+    'ORIENTATION': 'landscape',
+    'GRID': '12x8',
+    'THEME': 'light',
+    'GRID_DEBUG': 'false',
+    'MARGINS': '',
+    'DEFAULT_MASTER': '',
+}
 
 
 def parse_padding(val: Optional[str]) -> Optional[Dict[str, float]]:
@@ -67,6 +79,7 @@ def parse_align(val: Optional[str]) -> Optional[str]:
         return s
     return None
 
+
 def parse_valign(val: Optional[str]) -> Optional[str]:
     if val is None:
         return None
@@ -74,6 +87,7 @@ def parse_valign(val: Optional[str]) -> Optional[str]:
     if s in ("top", "middle", "bottom"):
         return s
     return None
+
 
 def parse_flow(val: Optional[str]) -> Optional[str]:
     if val is None:
@@ -84,6 +98,7 @@ def parse_flow(val: Optional[str]) -> Optional[str]:
         return s
     return None
 
+
 class OrgElement:
     def __init__(self, id_, type_, title, area=None, props=None, content_lines=None):
         self.id = id_
@@ -92,10 +107,11 @@ class OrgElement:
         self.area = area
         self.props = props or {}
         self.content_lines = content_lines or []
+
     def to_ir(self):
         area_obj = None
         if self.area:
-            area_obj = { 'x': self.area[0], 'y': self.area[1], 'w': self.area[2], 'h': self.area[3] }
+            area_obj = {'x': self.area[0], 'y': self.area[1], 'w': self.area[2], 'h': self.area[3]}
         figure = None
         pdf = None
         svg = None
@@ -107,22 +123,23 @@ class OrgElement:
                 if m:
                     img = m.group('path')
                     break
-            figure = { 'src': img, 'caption': self.props.get('CAPTION'), 'fit': self.props.get('FIT', 'contain') }
+            figure = {
+                'src': img,
+                'caption': self.props.get('CAPTION'),
+                'fit': self.props.get('FIT', 'contain'),
+            }
         if self.type == 'pdf':
             pdf = {
                 'src': self.props.get('PDF'),
                 'pages': [int(self.props.get('PAGE', '1'))],
-                'scale': float(self.props.get('SCALE', '1.0'))
+                'scale': float(self.props.get('SCALE', '1.0')),
             }
         if self.type == 'svg':
-            svg = {
-                'src': self.props.get('SVG'),
-                'scale': float(self.props.get('SCALE', '1.0'))
-            }
+            svg = {'src': self.props.get('SVG'), 'scale': float(self.props.get('SCALE', '1.0'))}
         if self.type == 'rectangle':
             rectangle = {
                 'color': self.props.get('COLOR', '#3498db'),
-                'alpha': float(self.props.get('ALPHA', '1.0'))
+                'alpha': float(self.props.get('ALPHA', '1.0')),
             }
         text_blocks = []
         style = None
@@ -134,7 +151,7 @@ class OrgElement:
         if self.type in ('header', 'subheader', 'body'):
             content = '\n'.join(self.content_lines).strip()
             if content:
-                text_blocks.append({'kind':'plain','content':content})
+                text_blocks.append({'kind': 'plain', 'content': content})
             style = self.props.get('STYLE')
             padding_mm = parse_padding(self.props.get('PADDING'))
             if 'JUSTIFY' in self.props:
@@ -147,7 +164,7 @@ class OrgElement:
             valign = parse_valign(self.props.get('VALIGN'))
             flow = parse_flow(self.props.get('FLOW'))
         # Allow padding and alignment for figures/svg/pdf/toc too (alignment currently only used for text/toc)
-        if self.type in ('figure','svg','pdf','toc'):
+        if self.type in ('figure', 'svg', 'pdf', 'toc'):
             if padding_mm is None:
                 padding_mm = parse_padding(self.props.get('PADDING'))
             if align is None:
@@ -170,8 +187,9 @@ class OrgElement:
             'align': align,
             'valign': valign,
             'flow': flow,
-            'padding_mm': padding_mm
+            'padding_mm': padding_mm,
         }
+
 
 class OrgPage:
     def __init__(self, id_, title, props):
@@ -180,6 +198,7 @@ class OrgPage:
         self.props = props
         self.elements = []
         self.master = None
+
     def to_ir(self, global_defaults):
         # Page size and orientation are document-level settings.
         # Ignore per-page overrides to ensure uniform output (Typst limitation).
@@ -192,16 +211,16 @@ class OrgPage:
             w_mm, h_mm = h_mm, w_mm
         grid = self.props.get('GRID', global_defaults['GRID'])
         try:
-            cols, rows = [int(x) for x in grid.lower().split('x')]
+            cols, rows = (int(x) for x in grid.lower().split('x'))
         except Exception:
             cols, rows = 12, 8
         # New semantics: MARGINS are absolute sizes in mm in CSS order TRBL (top,right,bottom,left)
-        margins_val = self.props.get('MARGINS', global_defaults.get('MARGINS',''))
+        margins_val = self.props.get('MARGINS', global_defaults.get('MARGINS', ''))
         margins_declared = isinstance(margins_val, str) and margins_val.strip() != ''
         top_mm = right_mm = bottom_mm = left_mm = 0.0
         if margins_declared:
             try:
-                t, r, b, left_val = [float(x.strip()) for x in margins_val.split(',')]
+                t, r, b, left_val = (float(x.strip()) for x in margins_val.split(','))
                 top_mm, right_mm, bottom_mm, left_mm = t, r, b, left_val
             except Exception:
                 # If parsing fails, treat as not declared
@@ -215,14 +234,19 @@ class OrgPage:
             'orientation': orientation,
             'grid': {'cols': cols, 'rows': rows},
             'grid_total': {'cols': grid_total_cols, 'rows': grid_total_rows},
-            'margins_mm': {'top': top_mm, 'right': right_mm, 'bottom': bottom_mm, 'left': left_mm} if margins_declared else None,
+            'margins_mm': {'top': top_mm, 'right': right_mm, 'bottom': bottom_mm, 'left': left_mm}
+            if margins_declared
+            else None,
             'margins_declared': margins_declared,
-            'master': self.props.get('MASTER', global_defaults.get('DEFAULT_MASTER','')).strip(),
-            'master_def': self.props.get('MASTER_DEF','').strip(),
+            'master': self.props.get('MASTER', global_defaults.get('DEFAULT_MASTER', '')).strip(),
+            'master_def': self.props.get('MASTER_DEF', '').strip(),
             # Record any per-page overrides that are ignored for validation/warnings
-            'ignored_overrides': [k for k in ('PAGE_SIZE', 'PAGESIZE', 'ORIENTATION') if k in self.props],
-            'elements': [e.to_ir() for e in self.elements]
+            'ignored_overrides': [
+                k for k in ('PAGE_SIZE', 'PAGESIZE', 'ORIENTATION') if k in self.props
+            ],
+            'elements': [e.to_ir() for e in self.elements],
         }
+
 
 def parse_area(val):
     val = (val or "").strip()
@@ -277,22 +301,26 @@ def parse_area(val):
         return None
     return None
 
+
 def slugify(s):
     import re as _re
+
     s = s.lower()
-    s = _re.sub(r'[^a-z0-9]+','-', s)
+    s = _re.sub(r'[^a-z0-9]+', '-', s)
     s = s.strip('-')
     return s or 'item'
 
+
 def meta_defaults(meta):
     d = DEFAULTS.copy()
-    for k,v in meta.items():
+    for k, v in meta.items():
         if k in d:
             d[k] = v
     return d
 
+
 def parse_org(path):
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(path, encoding='utf-8') as f:
         lines = f.readlines()
     meta = {}
     pages = []
@@ -316,7 +344,7 @@ def parse_org(path):
         line_stripped = line.lstrip()
         if line_stripped.startswith('#+'):
             try:
-                k,v = line_stripped[2:].split(':',1)
+                k, v = line_stripped[2:].split(':', 1)
                 meta[k.strip().upper()] = v.strip()
             except ValueError:
                 pass
@@ -330,7 +358,9 @@ def parse_org(path):
                 current_page = OrgPage(id_=slugify(title), title=title, props={})
                 pages.append(current_page)
             elif level >= 2 and current_page:
-                current_element = OrgElement(id_=slugify(title), type_='body', title=title, props={}, area=None)
+                current_element = OrgElement(
+                    id_=slugify(title), type_='body', title=title, props={}, area=None
+                )
             continue
         if PROP_BEGIN_RE.match(line_stripped):
             prop_mode = True
@@ -340,11 +370,20 @@ def parse_org(path):
             prop_mode = False
             if current_element:
                 current_element.props.update(prop_buf)
-                etype = prop_buf.get('TYPE','').lower()
-                if etype in ('header','subheader','body','figure','pdf','rectangle','svg','toc'):
+                etype = prop_buf.get('TYPE', '').lower()
+                if etype in (
+                    'header',
+                    'subheader',
+                    'body',
+                    'figure',
+                    'pdf',
+                    'rectangle',
+                    'svg',
+                    'toc',
+                ):
                     current_element.type = etype
                 else:
-                    if len(content_buf)==1 and LINK_IMG_RE.match(content_buf[0].strip()):
+                    if len(content_buf) == 1 and LINK_IMG_RE.match(content_buf[0].strip()):
                         current_element.type = 'figure'
                 if 'AREA' in prop_buf:
                     ar = parse_area(prop_buf['AREA'])
@@ -367,5 +406,5 @@ def parse_org(path):
             content_buf.append(line_stripped)
     close_element()
 
-    ir = { 'meta': meta, 'pages': [p.to_ir(meta_defaults(meta)) for p in pages] }
+    ir = {'meta': meta, 'pages': [p.to_ir(meta_defaults(meta)) for p in pages]}
     return ir

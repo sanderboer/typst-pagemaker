@@ -1,0 +1,10 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Pin to a specific version of ruff-pre-commit (and ruff). Update as needed.
+    rev: v0.6.9
+    hooks:
+      # First, run Ruff formatter to enforce consistent formatting
+      - id: ruff-format
+      # Then, run the Ruff linter with autofix; fail if fixes were applied
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]

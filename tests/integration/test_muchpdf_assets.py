@@ -10,7 +10,6 @@ These tests attempt to compile a minimal Typst document that imports the
   successfully in your environment, this test will show as an unexpected pass).
 """
 
-import os
 import subprocess
 import tempfile
 import unittest
@@ -96,13 +95,17 @@ class TestMuchPDFOnAssets(unittest.TestCase):
         for pdf_path in cases:
             with self.subTest(pdf=pdf_path.name):
                 self.assertTrue(pdf_path.exists(), f"Missing test asset: {pdf_path}")
-                rc, out, err, out_pdf = self._compile_with_muchpdf(pdf_path.relative_to(PROJECT_ROOT))
+                rc, out, err, out_pdf = self._compile_with_muchpdf(
+                    pdf_path.relative_to(PROJECT_ROOT)
+                )
                 msg = (
                     f"MuchPDF failed to compile {pdf_path.name}\n"
                     f"Return code: {rc}\nSTDOUT:\n{out}\nSTDERR:\n{err}\n"
                 )
                 self.assertEqual(rc, 0, msg)
-                self.assertTrue(out_pdf.exists(), f"Expected output PDF not found for {pdf_path.name}")
+                self.assertTrue(
+                    out_pdf.exists(), f"Expected output PDF not found for {pdf_path.name}"
+                )
 
     @unittest.expectedFailure
     def test_known_problem_pdf_expected_to_fail(self):

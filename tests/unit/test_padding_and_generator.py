@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Tests for padding parsing and generator emission"""
-import unittest
-import sys
+
 import os
+import sys
+import unittest
 
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
 sys.path.insert(0, os.path.join(PROJECT_ROOT, 'src'))
@@ -41,19 +42,24 @@ class TestGeneratorPaddedEmission(unittest.TestCase):
     def make_ir(self, pad=None):
         return {
             'meta': {},
-            'pages': [{
-                'title': 'P',
-                'page_size': {'w_mm': 210.0, 'h_mm': 297.0},
-                'grid': {'cols': 12, 'rows': 8},
-                'elements': [{
-                    'id': 't', 'type': 'body',
-                    'area': {'x': 1, 'y': 1, 'w': 2, 'h': 1},
-                    'z': 10,
-                    'text_blocks': [{'kind': 'plain', 'content': 'Hello'}],
-                    'style': None,
-                    'padding_mm': pad,
-                }]
-            }]
+            'pages': [
+                {
+                    'title': 'P',
+                    'page_size': {'w_mm': 210.0, 'h_mm': 297.0},
+                    'grid': {'cols': 12, 'rows': 8},
+                    'elements': [
+                        {
+                            'id': 't',
+                            'type': 'body',
+                            'area': {'x': 1, 'y': 1, 'w': 2, 'h': 1},
+                            'z': 10,
+                            'text_blocks': [{'kind': 'plain', 'content': 'Hello'}],
+                            'style': None,
+                            'padding_mm': pad,
+                        }
+                    ],
+                }
+            ],
         }
 
     def test_emits_layer_grid_padded(self):

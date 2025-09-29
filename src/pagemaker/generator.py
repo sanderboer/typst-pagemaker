@@ -1,6 +1,6 @@
 import datetime
-import pathlib
 import os
+import pathlib
 import re
 import sys
 import warnings
@@ -11,27 +11,47 @@ TYPOGRAPHY = {
         'font_body': 'Manrope',
         'size_header': '2.6em',
         'size_subheader': '1.6em',
-        'size_body': '1.0em'
+        'size_body': '1.0em',
     }
 }
 
 # Validation constants for known Typst values
 VALID_LINEBREAKS = {'auto', 'loose', 'strict'}
-VALID_WEIGHTS = {'thin', 'extralight', 'light', 'regular', 'medium', 'semibold', 'bold', 'extrabold', 'black'}
+VALID_WEIGHTS = {
+    'thin',
+    'extralight',
+    'light',
+    'regular',
+    'medium',
+    'semibold',
+    'bold',
+    'extrabold',
+    'black',
+}
 VALID_NUMERIC_WEIGHTS = {str(i) for i in range(100, 1001, 100)}  # 100, 200, ..., 900
 
 # Style property mappings for efficient lookup
 FONT_ALIASES = {'font-family', 'font'}
-WEIGHT_ALIASES = {'font-weight', 'weight'} 
+WEIGHT_ALIASES = {'font-weight', 'weight'}
 SIZE_ALIASES = {'font-size', 'size'}
 COLOR_ALIASES = {'fill', 'color', 'colour'}
-PARAGRAPH_PARAMS = {'leading', 'spacing', 'justify', 'linebreaks', 'first-line-indent', 'first_line_indent', 'hanging-indent', 'hanging_indent'}
+PARAGRAPH_PARAMS = {
+    'leading',
+    'spacing',
+    'justify',
+    'linebreaks',
+    'first-line-indent',
+    'first_line_indent',
+    'hanging-indent',
+    'hanging_indent',
+}
 
 TYPST_HEADER = """// Auto-generated Typst file
 // Generated: {timestamp}
 
 #set text(fill: rgb("#1b1f23"))
 """
+
 
 def _parse_style_decl(s: str) -> dict:
     """Parse a style declaration string like 'font: Manrope, weight: bold, size: 24pt, color: #333'.
@@ -91,14 +111,17 @@ def _parse_style_decl(s: str) -> dict:
         v = v.strip()
         if not k:
             continue
-        
+
         # Use efficient set lookups instead of tuple checks
         if k in FONT_ALIASES:
             out['font'] = v
         elif k in WEIGHT_ALIASES:
             # Validate weight values
             if v.lower() not in VALID_WEIGHTS and v not in VALID_NUMERIC_WEIGHTS:
-                warnings.warn(f"Unknown font weight '{v}'. Valid values: {', '.join(sorted(VALID_WEIGHTS | VALID_NUMERIC_WEIGHTS))}", UserWarning)
+                warnings.warn(
+                    f"Unknown font weight '{v}'. Valid values: {', '.join(sorted(VALID_WEIGHTS | VALID_NUMERIC_WEIGHTS))}",
+                    UserWarning,
+                )
             out['weight'] = v
         elif k in SIZE_ALIASES:
             out['size'] = v
@@ -107,7 +130,10 @@ def _parse_style_decl(s: str) -> dict:
         elif k == 'linebreaks':
             # Validate linebreaks values
             if v.lower() not in VALID_LINEBREAKS:
-                warnings.warn(f"Unknown linebreaks value '{v}'. Valid values: {', '.join(sorted(VALID_LINEBREAKS))}", UserWarning)
+                warnings.warn(
+                    f"Unknown linebreaks value '{v}'. Valid values: {', '.join(sorted(VALID_LINEBREAKS))}",
+                    UserWarning,
+                )
             out['linebreaks'] = v
         elif k in PARAGRAPH_PARAMS:
             # Handle parameter name normalization
@@ -131,7 +157,7 @@ def _build_styles(meta: dict) -> dict:
       - body: Manrope (no size/weight by default)
     User can override by defining #+STYLE_HEADER:, #+STYLE_SUBHEADER:, #+STYLE_BODY: etc.
     Additional styles can be declared with any other suffix, e.g. #+STYLE_HERO: ...
-    
+
     A global #+FONT: directive will override the default font for all styles unless explicitly overridden.
     """
     styles = {
@@ -139,14 +165,14 @@ def _build_styles(meta: dict) -> dict:
         'subheader': {'font': 'Manrope', 'weight': 'semibold', 'size': '18pt'},
         'body': {'font': 'Manrope'},
     }
-    
+
     # Check for global FONT directive and apply it to all default styles
     if meta and 'FONT' in meta:
         global_font = meta['FONT'].strip()
         if global_font:
             for style_name in styles:
                 styles[style_name]['font'] = global_font
-    
+
     for k, v in (meta or {}).items():
         if not isinstance(k, str) or not k.upper().startswith('STYLE_'):
             continue
@@ -208,12 +234,14 @@ def _split_paragraphs(text: str) -> list:
     lines = text.splitlines()
     paras = []
     buf = []
+
     def flush():
         nonlocal buf
         s = "\n".join(buf).strip()
         if s != "":
             paras.append(s)
         buf = []
+
     for ln in lines:
         strip = ln.strip()
         if strip == "" or strip in ("---", ":::"):
@@ -274,11 +302,11 @@ def _render_text_element(el: dict, styles: dict) -> str:
     Now also handles mixed content with Typst directives and code blocks.
     """
     raw = el_text(el)
-    
+
     # Check if content contains Typst directives or code blocks
     fragments = _process_mixed_content(raw)
     has_mixed_content = any(f['type'] in ('typst', 'codeblock') for f in fragments)
-    
+
     if has_mixed_content:
         # Handle mixed content with text, Typst directives, and code blocks
         result_parts = []
@@ -290,10 +318,12 @@ def _render_text_element(el: dict, styles: dict) -> str:
                 # Convert code blocks to Typst raw syntax with syntax highlighting
                 code_content = fragment['content']
                 lang = fragment['lang']
-                
+
                 # Escape the code content for Typst strings
-                escaped_code = code_content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
-                
+                escaped_code = (
+                    code_content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+                )
+
                 # Use Typst's raw function with language and block parameters
                 if lang and lang != 'text':
                     result_parts.append(f'#raw("{escaped_code}", lang: "{lang}", block: true)')
@@ -304,11 +334,13 @@ def _render_text_element(el: dict, styles: dict) -> str:
                 text_content = fragment['content']
                 paras = _split_paragraphs(text_content)
                 if paras:
-                    style_name = (el.get('style') or el.get('type') or 'body')
-                    style = styles.get(str(style_name).strip().lower(), styles.get(el.get('type'), styles['body']))
+                    style_name = el.get('style') or el.get('type') or 'body'
+                    style = styles.get(
+                        str(style_name).strip().lower(), styles.get(el.get('type'), styles['body'])
+                    )
                     text_args = _style_args(style)
                     par_args = _par_args(style, el.get('justify'))
-                    
+
                     text_pieces = []
                     for p in paras:
                         txt = escape_text(p)
@@ -319,10 +351,10 @@ def _render_text_element(el: dict, styles: dict) -> str:
                             text_pieces.append(f"#par()[{text_call}]")
                     result_parts.append("\n".join(text_pieces))
         return "\n".join(result_parts)
-    
+
     # Original logic for pure text content
     paras = _split_paragraphs(raw)
-    style_name = (el.get('style') or el.get('type') or 'body')
+    style_name = el.get('style') or el.get('type') or 'body'
     style = styles.get(str(style_name).strip().lower(), styles.get(el.get('type'), styles['body']))
     text_args = _style_args(style)
     par_args = _par_args(style, el.get('justify'))
@@ -343,22 +375,24 @@ def _render_text_element(el: dict, styles: dict) -> str:
 
 
 def generate_typst(ir):
-    theme_name = ir['meta'].get('THEME','light')
+    theme_name = ir['meta'].get('THEME', 'light')
     theme = TYPOGRAPHY.get(theme_name, TYPOGRAPHY['light'])
-    
+
     # Build styles from document meta
     styles = _build_styles(ir.get('meta') or {})
-    
+
     # Discover and validate fonts
     available_fonts = _discover_available_fonts()
     font_warnings = _validate_font_availability(styles, available_fonts)
-    
+
     # Emit font warnings if any
     for warning in font_warnings:
         warnings.warn(warning, UserWarning)
-    
+
     out = []
-    out.append(TYPST_HEADER.format(timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat()))
+    out.append(
+        TYPST_HEADER.format(timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat())
+    )
     out.append("#import \"@preview/muchpdf:0.1.1\": muchpdf\n")
     out.append("#let theme = (")
     out.append(f"  font_header: \"{theme['font_header']}\",")
@@ -409,11 +443,21 @@ def generate_typst(ir):
     out.append(f"#let date_dd_mm_yy = \"{dd}.{mm}.{yy}\"\n")
     out.append("#let page_no = context counter(page).display()\n")
     out.append("#let page_total = context counter(page).final().at(0)\n")
-    out.append("#let Fig(img, caption: none) = if caption == none { \n  block(width: 100%, height: 100%, clip: true)[#img] \n} else { \n  block(width: 100%, height: 100%)[\n    #block(height: 85%, clip: true)[#img] \n    #block(height: 15%)[#text(size: 0.75em, fill: rgb(60%,60%,60%))[caption]] \n  ] \n}\n")
-    out.append("#let ColorRect(color, alpha) = {\n  block(width: 100%, height: 100%, fill: rgb(color).transparentize(100% - alpha * 100%))[]\n}\n")
-    out.append("#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  let pdf_data = read(path, encoding: none)\n  let pg = page - 1\n  let muchpdf_image = muchpdf(pdf_data, pages: pg, scale: scale)\n  block(width: 100%, height: 100%, clip: true)[\n    #muchpdf_image\n  ]\n}\n")
-    out.append("#let layer(cw, ch, x, y, w, h, body) = place(\n  dx: (x - 1) * cw,\n  dy: (y - 1) * ch,\n  block(\n    width: w * cw,\n    height: h * ch,\n    body\n  )\n)\n")
-    out.append("#let layer_mm(cw, ch, left_mm, top_mm, x, y, w, h, body) = place(\n  dx: left_mm + (x - 1) * cw,\n  dy: top_mm + (y - 1) * ch,\n  block(\n    width: w * cw,\n    height: h * ch,\n    body\n  )\n)\n")
+    out.append(
+        "#let Fig(img, caption: none) = if caption == none { \n  block(width: 100%, height: 100%, clip: true)[#img] \n} else { \n  block(width: 100%, height: 100%)[\n    #block(height: 85%, clip: true)[#img] \n    #block(height: 15%)[#text(size: 0.75em, fill: rgb(60%,60%,60%))[caption]] \n  ] \n}\n"
+    )
+    out.append(
+        "#let ColorRect(color, alpha) = {\n  block(width: 100%, height: 100%, fill: rgb(color).transparentize(100% - alpha * 100%))[]\n}\n"
+    )
+    out.append(
+        "#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  let pdf_data = read(path, encoding: none)\n  let pg = page - 1\n  let muchpdf_image = muchpdf(pdf_data, pages: pg, scale: scale)\n  block(width: 100%, height: 100%, clip: true)[\n    #muchpdf_image\n  ]\n}\n"
+    )
+    out.append(
+        "#let layer(cw, ch, x, y, w, h, body) = place(\n  dx: (x - 1) * cw,\n  dy: (y - 1) * ch,\n  block(\n    width: w * cw,\n    height: h * ch,\n    body\n  )\n)\n"
+    )
+    out.append(
+        "#let layer_mm(cw, ch, left_mm, top_mm, x, y, w, h, body) = place(\n  dx: left_mm + (x - 1) * cw,\n  dy: top_mm + (y - 1) * ch,\n  block(\n    width: w * cw,\n    height: h * ch,\n    body\n  )\n)\n"
+    )
     out.append("""#let draw_grid(cols, rows, cw, ch) = {
   // grid lines
   for col in range(1, cols + 1) {
@@ -557,24 +601,31 @@ def generate_typst(ir):
         if mref and mref in masters:
             combined_elements.extend(masters[mref])
         combined_elements.extend(page.get('elements', []))
-        elements = sorted(combined_elements, key=lambda e: e.get('z',100))
+        elements = sorted(combined_elements, key=lambda e: e.get('z', 100))
         for el in elements:
-            area = el['area'] or {'x':1,'y':1,'w':cols,'h':1}
-            x,y,wc,hc = area['x'], area['y'], area['w'], area['h']
+            area = el['area'] or {'x': 1, 'y': 1, 'w': cols, 'h': 1}
+            x, y, wc, hc = area['x'], area['y'], area['w'], area['h']
             # Always interpret AREA in total grid coordinates.
             x_total = x
             y_total = y
             # Validate bounds against total grid when margins exist, else content grid.
-            limit_cols = (total_cols if margins_declared else cols)
-            limit_rows = (total_rows if margins_declared else rows)
-            out_of_bounds = (x < 1 or y < 1 or wc < 1 or hc < 1 or (x + wc - 1) > limit_cols or (y + hc - 1) > limit_rows)
+            limit_cols = total_cols if margins_declared else cols
+            limit_rows = total_rows if margins_declared else rows
+            out_of_bounds = (
+                x < 1
+                or y < 1
+                or wc < 1
+                or hc < 1
+                or (x + wc - 1) > limit_cols
+                or (y + hc - 1) > limit_rows
+            )
             if out_of_bounds:
                 print(
                     f"WARNING: AREA out-of-bounds for element {el['id']} on page {page['title']}: ({x},{y},{wc},{hc})",
                     file=sys.stderr,
                 )
             content_fragments = []
-            if el['type'] in ('header','subheader','body'):
+            if el['type'] in ('header', 'subheader', 'body'):
                 content_fragments.append(_render_text_element(el, styles))
             elif el['type'] == 'rectangle' and el.get('rectangle'):
                 rect = el['rectangle']
@@ -585,25 +636,38 @@ def generate_typst(ir):
                 src = el['figure']['src']
                 cap = el['figure'].get('caption')
                 fit = el['figure'].get('fit', 'contain')
-                fit_map = {'fill':'cover', 'contain':'contain', 'cover':'cover', 'stretch':'stretch'}
+                fit_map = {
+                    'fill': 'cover',
+                    'contain': 'contain',
+                    'cover': 'cover',
+                    'stretch': 'stretch',
+                }
                 fit_val = fit_map.get(str(fit).lower(), str(fit))
                 if cap:
                     cap_e = escape_text(cap)
-                    content_fragments.append(f"Fig(image(\"{src}\", width: 100%, height: 100%, fit: \"{fit_val}\"), caption: \"{cap_e}\")")
+                    content_fragments.append(
+                        f"Fig(image(\"{src}\", width: 100%, height: 100%, fit: \"{fit_val}\"), caption: \"{cap_e}\")"
+                    )
                 else:
-                    content_fragments.append(f"Fig(image(\"{src}\", width: 100%, height: 100%, fit: \"{fit_val}\"))")
+                    content_fragments.append(
+                        f"Fig(image(\"{src}\", width: 100%, height: 100%, fit: \"{fit_val}\"))"
+                    )
             elif el['type'] == 'svg' and el.get('svg'):
                 svg = el['svg']
                 ssrc = svg.get('src')
                 # Render SVG via image fit contain into the frame
-                content_fragments.append(f"Fig(image(\"{ssrc}\", width: 100%, height: 100%, fit: \"contain\"))")
+                content_fragments.append(
+                    f"Fig(image(\"{ssrc}\", width: 100%, height: 100%, fit: \"contain\"))"
+                )
             elif el['type'] == 'pdf' and el.get('pdf'):
                 pdf = el['pdf']
                 psrc = pdf['src']
                 ppage = pdf['pages'][0]
-                scale = pdf.get('scale',1.0)
+                scale = pdf.get('scale', 1.0)
                 if pathlib.Path(psrc).suffix.lower() != '.pdf':
-                    content_fragments.append(f"Fig(image(\"{psrc}\", width: 100%, height: 100%, fit: \"contain\"))")
+                    content_fragments.append(
+                        f"Fig(image(\"{psrc}\", width: 100%, height: 100%, fit: \"contain\"))"
+                    )
                 else:
                     content_fragments.append(f"PdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale})")
             elif el['type'] == 'toc':
@@ -618,12 +682,22 @@ def generate_typst(ir):
             # Apply ALIGN/VALIGN wrappers if present
             wrapped = frag
             align_terms = []
-            h = (el.get('align') or '').strip().lower() if isinstance(el.get('align'), str) else None
-            v = (el.get('valign') or '').strip().lower() if isinstance(el.get('valign'), str) else None
-            flow = (el.get('flow') or '').strip().lower() if isinstance(el.get('flow'), str) else None
-            if h in ('left','center','right'):
+            h = (
+                (el.get('align') or '').strip().lower()
+                if isinstance(el.get('align'), str)
+                else None
+            )
+            v = (
+                (el.get('valign') or '').strip().lower()
+                if isinstance(el.get('valign'), str)
+                else None
+            )
+            flow = (
+                (el.get('flow') or '').strip().lower() if isinstance(el.get('flow'), str) else None
+            )
+            if h in ('left', 'center', 'right'):
                 align_terms.append(h)
-            if v in ('top','middle','bottom'):
+            if v in ('top', 'middle', 'bottom'):
                 # Map 'middle' to Typst's vertical center token 'horizon'
                 align_terms.append('horizon' if v == 'middle' else v)
             else:
@@ -645,7 +719,15 @@ def generate_typst(ir):
                 out.append(f"// FLOW: {flow}\n")
             # Place elements with padding when specified (text, figure, svg, pdf, toc)
             pad = el.get('padding_mm') if isinstance(el, dict) else None
-            if el.get('type') in ('header','subheader','body','figure','svg','pdf','toc') and isinstance(pad, dict):
+            if el.get('type') in (
+                'header',
+                'subheader',
+                'body',
+                'figure',
+                'svg',
+                'pdf',
+                'toc',
+            ) and isinstance(pad, dict):
                 t = float(pad.get('top', 0.0))
                 r = float(pad.get('right', 0.0))
                 b = float(pad.get('bottom', 0.0))
@@ -654,7 +736,9 @@ def generate_typst(ir):
                 sarg = str(arg).lstrip()
                 if sarg.startswith('#'):
                     arg = f"[{arg}]"
-                out.append(f"#layer_grid_padded(gp,{x_total},{y_total},{wc},{hc}, {t}mm, {r}mm, {b}mm, {left}mm, {arg})\n")
+                out.append(
+                    f"#layer_grid_padded(gp,{x_total},{y_total},{wc},{hc}, {t}mm, {r}mm, {b}mm, {left}mm, {arg})\n"
+                )
             else:
                 # Always place via total grid helper
                 arg = wrapped
@@ -678,34 +762,36 @@ def el_text(el):
     for tb in el.get('text_blocks', []):
         if tb['kind'] == 'plain':
             return tb['content']
-    return el.get('title','')
+    return el.get('title', '')
 
 
 def escape_text(s):
     """Escape text for Typst and convert org-mode markup to Typst formatting."""
     import re
-    
+
     # First escape backslashes and quotes
-    s = s.replace('\\','\\\\').replace('"','\\"')
-    
+    s = s.replace('\\', '\\\\').replace('"', '\\"')
+
     # Convert org-mode bold markup (*text*) to Typst bold weight
     # Use explicit weight: "bold" to ensure it renders as bold
     s = re.sub(r'\*([^*\n]+)\*', r'#text(weight: "bold")[\1]', s)
-    
+
     # Convert org-mode italic markup (/text/) to Typst italic style
     # Use explicit style: "italic" to ensure it renders as italic
     s = re.sub(r'/([^/\n]+)/', r'#text(style: "italic")[\1]', s)
-    
+
     return s
 
 
 def _is_typst_directive(line):
     """Check if a line is a Typst directive that should not be escaped."""
     stripped = line.strip()
-    return (stripped.startswith('#set ') or 
-            stripped.startswith('#show ') or 
-            stripped.startswith('#let ') or
-            stripped.startswith('#import '))
+    return (
+        stripped.startswith('#set ')
+        or stripped.startswith('#show ')
+        or stripped.startswith('#let ')
+        or stripped.startswith('#import ')
+    )
 
 
 def _process_mixed_content(content):
@@ -717,163 +803,207 @@ def _process_mixed_content(content):
     """
     if not content.strip():
         return [{'type': 'text', 'content': content}]
-    
+
     lines = content.split('\n')
     fragments = []
     current_text_lines = []
-    
+
     def flush_text_lines():
         if current_text_lines:
             fragments.append({'type': 'text', 'content': '\n'.join(current_text_lines)})
             current_text_lines.clear()
-    
+
     i = 0
     while i < len(lines):
         line = lines[i]
-        
+
         # Check for Typst directives
         if _is_typst_directive(line):
             flush_text_lines()
             fragments.append({'type': 'typst', 'content': line.strip()})
             i += 1
             continue
-            
+
         # Check for code blocks (lines starting with ```)
         if line.strip().startswith('```'):
             flush_text_lines()
-            
+
             # Extract language from the opening line
             lang_match = line.strip()[3:].strip()
             lang = lang_match if lang_match else 'text'
-            
+
             # Collect code block content until closing ```
             code_lines = []
             i += 1
             while i < len(lines) and not lines[i].strip().startswith('```'):
                 code_lines.append(lines[i])
                 i += 1
-            
+
             # Add the code block fragment
             code_content = '\n'.join(code_lines)
             fragments.append({'type': 'codeblock', 'content': code_content, 'lang': lang})
-            
+
             # Skip the closing ``` line
             if i < len(lines):
                 i += 1
             continue
-        
+
         # Regular text line
         current_text_lines.append(line)
         i += 1
-    
+
     flush_text_lines()
     return fragments
 
 
 def _discover_available_fonts() -> dict:
-    """Discover available fonts from project and bundled sources.
-    Returns dict mapping font family names to their available font files.
+    """Discover available fonts and map real family names to files.
+    Uses fontTools to read family names from TTF/OTF/TTC/OTC. Falls back to
+    directory-based heuristics when fontTools is unavailable or yields nothing.
+    Returns: {family_name: [{name, path, size}, ...]}
     """
-    font_families = {}
-    
-    # Import the font discovery functions from cli module
+    font_families: dict[str, list[dict]] = {}
+
+    # Resolve candidate font paths (project, examples, bundled)
+    font_paths: list[str] = []
     try:
-        from .cli import _get_font_paths, _discover_fonts_in_path
-        
-        # Get all font paths in order of preference
+        from .cli import _get_font_paths  # reuse CLI resolution order
+
         font_paths = _get_font_paths()
-        
-        for font_path_str in font_paths:
-            font_path = pathlib.Path(font_path_str)
-            font_info = _discover_fonts_in_path(font_path)
-            
-            # Merge discovered fonts into our master list
-            if font_info.get('families'):
-                for family_name, family_data in font_info['families'].items():
-                    font_files = []
-                    
-                    # Add all font files for this family
-                    for font_file in family_data.get('files', []):
-                        font_files.append({
-                            'name': font_file['name'],
-                            'path': font_file['path'],
-                            'size': font_file['size']
-                        })
-                    
-                    # Create mappings for both underscore and space variants
-                    # This handles cases like "Playfair_Display" -> "Playfair Display"
-                    family_variants = [family_name]
-                    if '_' in family_name:
-                        family_variants.append(family_name.replace('_', ' '))
-                    if ' ' in family_name:
-                        family_variants.append(family_name.replace(' ', '_'))
-                    
-                    for variant in family_variants:
-                        if variant not in font_families:
-                            font_families[variant] = []
-                        font_families[variant].extend(font_files)
-    
-    except ImportError:
-        # Fallback: basic font discovery without CLI functions
+    except Exception:
+        # Minimal fallback paths
+        for p in ('assets/fonts', 'examples/assets/fonts'):
+            if pathlib.Path(p).exists():
+                font_paths.append(p)
+
+    # Try real-name discovery first (Typst-usable formats only)
+    try:
+        from fontTools.ttLib import TTFont
+        from fontTools.ttLib.ttCollection import TTCollection
+
+        supported_exts = {'.ttf', '.otf', '.ttc', '.otc'}
+
+        def add_mapping(family: str, file_path: pathlib.Path):
+            if not family:
+                return
+            info = {
+                'name': file_path.name,
+                'path': str(file_path),
+                'size': file_path.stat().st_size if file_path.exists() else 0,
+            }
+            # Primary key
+            font_families.setdefault(family, []).append(info)
+            # Compatibility aliases (underscores/spaces)
+            if '_' in family:
+                font_families.setdefault(family.replace('_', ' '), []).append(info)
+            if ' ' in family:
+                font_families.setdefault(family.replace(' ', '_'), []).append(info)
+
+        for root_str in font_paths:
+            root = pathlib.Path(root_str)
+            if not root.exists():
+                continue
+            for f in root.rglob('*'):
+                try:
+                    if not f.is_file() or f.suffix.lower() not in supported_exts:
+                        continue
+                    if f.suffix.lower() in {'.ttc', '.otc'}:
+                        tc = TTCollection(str(f))
+                        for ttf in tc.fonts:
+                            nm = ttf.get('name')
+                            if not nm:
+                                continue
+                            # Preferred Family (16) then Family (1)
+                            fams = set()
+                            for rec in nm.names:
+                                if rec.nameID in (16, 1):
+                                    try:
+                                        fams.add(rec.toUnicode().strip())
+                                    except Exception:
+                                        pass
+                            for fam in fams:
+                                add_mapping(fam, f)
+                    else:
+                        t = TTFont(str(f), lazy=True)
+                        nm = t.get('name')
+                        if nm:
+                            fams = set()
+                            for rec in nm.names:
+                                if rec.nameID in (16, 1):
+                                    try:
+                                        fams.add(rec.toUnicode().strip())
+                                    except Exception:
+                                        pass
+                            for fam in fams:
+                                add_mapping(fam, f)
+                        try:
+                            t.close()
+                        except Exception:
+                            pass
+                except Exception:
+                    # Ignore unreadable/corrupt font files
+                    continue
+    except Exception:
+        # fontTools missing or failed; skip to heuristic fallback
+        pass
+
+    # If nothing discovered via real-name scanning, fallback to directory heuristic
+    if not font_families:
         try:
-            # Check assets/fonts directory (project-level custom fonts)
-            assets_fonts = pathlib.Path('assets/fonts')
-            if assets_fonts.exists():
-                font_extensions = {'.ttf', '.otf', '.woff', '.woff2'}
-                for font_file in assets_fonts.rglob('*'):
-                    if font_file.is_file() and font_file.suffix.lower() in font_extensions:
-                        # Extract family name from directory structure
-                        relative_path = font_file.relative_to(assets_fonts)
-                        family_name = relative_path.parts[0] if len(relative_path.parts) > 1 else 'Unknown'
-                        
-                        font_file_info = {
-                            'name': font_file.name,
-                            'path': str(font_file),
-                            'size': font_file.stat().st_size
-                        }
-                        
-                        # Create mappings for both underscore and space variants
-                        family_variants = [family_name]
-                        if '_' in family_name:
-                            family_variants.append(family_name.replace('_', ' '))
-                        if ' ' in family_name:
-                            family_variants.append(family_name.replace(' ', '_'))
-                        
-                        for variant in family_variants:
-                            if variant not in font_families:
-                                font_families[variant] = []
-                            font_families[variant].append(font_file_info)
-            
-            # Also check examples/assets/fonts directory (example fonts)
-            examples_assets_fonts = pathlib.Path('examples/assets/fonts')
-            if examples_assets_fonts.exists():
-                font_extensions = {'.ttf', '.otf', '.woff', '.woff2'}
-                for font_file in examples_assets_fonts.rglob('*'):
-                    if font_file.is_file() and font_file.suffix.lower() in font_extensions:
-                        # Extract family name from directory structure
-                        relative_path = font_file.relative_to(examples_assets_fonts)
-                        family_name = relative_path.parts[0] if len(relative_path.parts) > 1 else 'Unknown'
-                        
-                        font_file_info = {
-                            'name': font_file.name,
-                            'path': str(font_file),
-                            'size': font_file.stat().st_size
-                        }
-                        
-                        # Create mappings for both underscore and space variants
-                        family_variants = [family_name]
-                        if '_' in family_name:
-                            family_variants.append(family_name.replace('_', ' '))
-                        if ' ' in family_name:
-                            family_variants.append(family_name.replace(' ', '_'))
-                        
-                        for variant in family_variants:
-                            if variant not in font_families:
-                                font_families[variant] = []
-                            font_families[variant].append(font_file_info)
+            # Prefer using CLI helper to gather files grouped by top-level dir
+            from .cli import _discover_fonts_in_path
+
+            for root_str in font_paths or []:
+                font_info = _discover_fonts_in_path(pathlib.Path(root_str))
+                for family_name, family_data in (font_info.get('families') or {}).items():
+                    files = []
+                    for font_file in family_data.get('files', []):
+                        files.append(
+                            {
+                                'name': font_file['name'],
+                                'path': font_file['path'],
+                                'size': font_file['size'],
+                            }
+                        )
+                    # Add with underscore/space aliases
+                    variants = {family_name}
+                    if '_' in family_name:
+                        variants.add(family_name.replace('_', ' '))
+                    if ' ' in family_name:
+                        variants.add(family_name.replace(' ', '_'))
+                    for v in variants:
+                        font_families.setdefault(v, []).extend(files)
         except Exception:
-            pass
-    
+            # Final minimal heuristic over assets and examples
+            try:
+                for base in ('assets/fonts', 'examples/assets/fonts'):
+                    base_path = pathlib.Path(base)
+                    if not base_path.exists():
+                        continue
+                    for font_file in base_path.rglob('*'):
+                        if font_file.is_file() and font_file.suffix.lower() in {
+                            '.ttf',
+                            '.otf',
+                            '.woff',
+                            '.woff2',
+                        }:
+                            rel = font_file.relative_to(base_path)
+                            family_name = rel.parts[0] if len(rel.parts) > 1 else 'Unknown'
+                            info = {
+                                'name': font_file.name,
+                                'path': str(font_file),
+                                'size': font_file.stat().st_size,
+                            }
+                            variants = {family_name}
+                            if '_' in family_name:
+                                variants.add(family_name.replace('_', ' '))
+                            if ' ' in family_name:
+                                variants.add(family_name.replace(' ', '_'))
+                            for v in variants:
+                                font_families.setdefault(v, []).append(info)
+            except Exception:
+                pass
+
     return font_families
 
 
@@ -883,20 +1013,22 @@ def _validate_font_availability(styles: dict, available_fonts: dict) -> list:
     """
     warnings_list = []
     used_fonts = set()
-    
+
     # Collect all fonts used in styles
     for style_name, style_data in styles.items():
         font = style_data.get('font')
         if font:
             used_fonts.add(font)
-    
+
     # Check if used fonts are available
     for font in used_fonts:
         if font not in available_fonts:
-            warnings_list.append(f"Font '{font}' used in styles but not found in available font paths")
+            warnings_list.append(
+                f"Font '{font}' used in styles but not found in available font paths"
+            )
         elif not available_fonts[font]:
             warnings_list.append(f"Font family '{font}' found but contains no font files")
-    
+
     return warnings_list
 
 
@@ -905,6 +1037,7 @@ def update_html_total(html_path: pathlib.Path, total: int):
         return False
     txt = html_path.read_text(encoding='utf-8')
     import re
+
     new_txt, count = re.subn(r'let total = undefined;', f'let total = {total};', txt, count=1)
     if count == 0:
         new_txt, count2 = re.subn(r'let total = [^;]+;', f'let total = {total};', txt, count=1)
@@ -928,6 +1061,7 @@ def adjust_asset_paths(ir, typst_dir: pathlib.Path):
         project_root = pathlib.Path(__file__).resolve().parents[2]
     except Exception:
         project_root = pathlib.Path.cwd()
+
     def resolve_rel(src: str) -> str:
         if os.path.isabs(src) or re.match(r'^[a-zA-Z]+:', src):
             return src
@@ -948,7 +1082,7 @@ def adjust_asset_paths(ir, typst_dir: pathlib.Path):
                     return os.path.relpath(c, typst_dir)
                 except Exception:
                     continue
-        
+
         # If no file found but src is relative, try best-effort path adjustment
         # relative to project root (common case for assets)
         if not os.path.isabs(src):
@@ -958,6 +1092,7 @@ def adjust_asset_paths(ir, typst_dir: pathlib.Path):
             except Exception:
                 pass
         return src
+
     for page in ir.get('pages', []):
         for el in page.get('elements', []):
             fig = el.get('figure')

@@ -10,29 +10,86 @@ Subcommands:
   fonts     font discovery and management utilities
 
 """
+
 import argparse
-import pathlib
-import json
-import sys
-import subprocess
-import os
-import time
 import hashlib
-import shutil
-import tempfile
-import urllib.request
-import urllib.parse
+import json
+import os
+import pathlib
 import re
-from . import parse_org, generate_typst, adjust_asset_paths, update_html_total
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.parse
+import urllib.request
+
+from . import adjust_asset_paths, generate_typst, parse_org, update_html_total
 from .validation import validate_ir
 
 DEFAULT_EXPORT_DIR = 'export'
+
+# Shared helper: collect real font family names via fontTools (with TTC support)
+# Returns a set of family names found across provided paths. Empty set when fontTools missing.
+# Only TTF/OTF/TTC/OTC are considered (Typst-usable font formats).
+
+
+def _collect_real_font_names(paths: list[str]) -> set[str]:
+    names: set[str] = set()
+    try:
+        from fontTools.ttLib import TTFont
+        from fontTools.ttLib.ttCollection import TTCollection
+    except Exception:
+        return names
+    font_exts = {'.ttf', '.otf', '.ttc', '.otc'}
+    for p in paths:
+        try:
+            root = pathlib.Path(p)
+            if not root.exists():
+                continue
+            for f in root.rglob('*'):
+                try:
+                    if not f.is_file() or f.suffix.lower() not in font_exts:
+                        continue
+                    if f.suffix.lower() in {'.ttc', '.otc'}:
+                        tc = TTCollection(str(f))
+                        for ttf in tc.fonts:
+                            nm = ttf.get('name')
+                            if not nm:
+                                continue
+                            for rec in nm.names:
+                                if rec.nameID in (1, 16):
+                                    try:
+                                        names.add(rec.toUnicode().strip())
+                                    except Exception:
+                                        pass
+                    else:
+                        t = TTFont(str(f), lazy=True)
+                        nm = t.get('name')
+                        if nm:
+                            for rec in nm.names:
+                                if rec.nameID in (1, 16):
+                                    try:
+                                        names.add(rec.toUnicode().strip())
+                                    except Exception:
+                                        pass
+                        try:
+                            t.close()
+                        except Exception:
+                            pass
+                except Exception:
+                    continue
+        except Exception:
+            continue
+    return {n for n in names if n}
+
 
 def _get_google_fonts_api_data() -> dict:
     """Fetch Google Fonts API data. Returns cached data or fetches from API."""
     cache_dir = pathlib.Path.home() / '.pagemaker' / 'cache'
     cache_file = cache_dir / 'google_fonts.json'
-    
+
     # Check cache freshness (24 hours)
     if cache_file.exists():
         cache_age = time.time() - cache_file.stat().st_mtime
@@ -41,74 +98,109 @@ def _get_google_fonts_api_data() -> dict:
                 return json.loads(cache_file.read_text(encoding='utf-8'))
             except (json.JSONDecodeError, OSError):
                 pass
-    
+
     # Fetch from Google Fonts API
     api_url = 'https://www.googleapis.com/webfonts/v1/webfonts?sort=popularity'
     try:
         with urllib.request.urlopen(api_url, timeout=10) as response:
             data = json.loads(response.read().decode('utf-8'))
-            
+
         # Cache the result
         cache_dir.mkdir(parents=True, exist_ok=True)
         cache_file.write_text(json.dumps(data, indent=2), encoding='utf-8')
         return data
-        
+
     except Exception as e:
         print(f"⚠️  Failed to fetch Google Fonts data: {e}", file=sys.stderr)
         print("Using offline fallback list...", file=sys.stderr)
-        
+
         # Fallback list of popular fonts
         return {
             'items': [
-                {'family': 'Inter', 'variants': ['regular', '700'], 'files': {'regular': 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.ttf', '700': 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuBWYAZ9hiA.ttf'}},
-                {'family': 'Roboto', 'variants': ['regular', '700'], 'files': {'regular': 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxK.ttf', '700': 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.ttf'}},
-                {'family': 'Open Sans', 'variants': ['regular', '700'], 'files': {'regular': 'https://fonts.gstatic.com/s/opensans/v34/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsg-1x4gaVQ.ttf', '700': 'https://fonts.gstatic.com/s/opensans/v34/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsjZ1x4gaVQ.ttf'}},
-                {'family': 'Lora', 'variants': ['regular'], 'files': {'regular': 'https://fonts.gstatic.com/s/lora/v26/0QI6MX1D_JOuGQbT0gvTJPa787weuxJBkqsxzqExlA.ttf'}},
-                {'family': 'Playfair Display', 'variants': ['regular'], 'files': {'regular': 'https://fonts.gstatic.com/s/playfairdisplay/v30/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDXbtXK-F2qC0s.ttf'}}
+                {
+                    'family': 'Inter',
+                    'variants': ['regular', '700'],
+                    'files': {
+                        'regular': 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.ttf',
+                        '700': 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuBWYAZ9hiA.ttf',
+                    },
+                },
+                {
+                    'family': 'Roboto',
+                    'variants': ['regular', '700'],
+                    'files': {
+                        'regular': 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxK.ttf',
+                        '700': 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.ttf',
+                    },
+                },
+                {
+                    'family': 'Open Sans',
+                    'variants': ['regular', '700'],
+                    'files': {
+                        'regular': 'https://fonts.gstatic.com/s/opensans/v34/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsg-1x4gaVQ.ttf',
+                        '700': 'https://fonts.gstatic.com/s/opensans/v34/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsjZ1x4gaVQ.ttf',
+                    },
+                },
+                {
+                    'family': 'Lora',
+                    'variants': ['regular'],
+                    'files': {
+                        'regular': 'https://fonts.gstatic.com/s/lora/v26/0QI6MX1D_JOuGQbT0gvTJPa787weuxJBkqsxzqExlA.ttf'
+                    },
+                },
+                {
+                    'family': 'Playfair Display',
+                    'variants': ['regular'],
+                    'files': {
+                        'regular': 'https://fonts.gstatic.com/s/playfairdisplay/v30/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDXbtXK-F2qC0s.ttf'
+                    },
+                },
             ]
         }
+
 
 def _download_font_file(url: str, dest_path: pathlib.Path) -> bool:
     """Download a font file from URL to destination"""
     try:
         dest_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         with urllib.request.urlopen(url, timeout=30) as response:
             if response.status == 200:
                 dest_path.write_bytes(response.read())
                 return True
         return False
-        
+
     except Exception as e:
         print(f"  ❌ Failed to download {url}: {e}", file=sys.stderr)
         return False
 
-def _install_google_font(font_family: str, variants = None, force: bool = False) -> bool:
+
+def _install_google_font(font_family: str, variants=None, force: bool = False) -> bool:
     """Install a Google Font to assets/fonts/"""
     assets_fonts = pathlib.Path('assets/fonts')
     font_dir = assets_fonts / font_family
-    
+
     # Check if already installed
     if font_dir.exists() and not force:
         existing_files = list(font_dir.glob('*.ttf')) + list(font_dir.glob('*.otf'))
         if existing_files:
             print(f"✅ Font '{font_family}' already installed ({len(existing_files)} files)")
             return True
-    
+
     # Get Google Fonts data
     fonts_data = _get_google_fonts_api_data()
-    
+
     # Find the font
     font_info = None
     for font in fonts_data.get('items', []):
         if font['family'].lower() == font_family.lower():
             font_info = font
             break
-    
+
     if not font_info:
         print(f"❌ Font '{font_family}' not found in Google Fonts")
         return False
-    
+
     # Determine variants to download
     available_variants = list(font_info.get('files', {}).keys())
     if not variants:
@@ -118,31 +210,31 @@ def _install_google_font(font_family: str, variants = None, force: bool = False)
             variants.append('700')
         if 'italic' in available_variants:
             variants.append('italic')
-    
+
     # Filter to available variants
     variants = [v for v in variants if v in available_variants]
     if not variants:
         print(f"❌ No valid variants found for '{font_family}'")
         print(f"Available: {', '.join(available_variants)}")
         return False
-    
+
     print(f"📥 Installing '{font_family}' variants: {', '.join(variants)}")
-    
+
     # Download variants
     success_count = 0
     for variant in variants:
         url = font_info['files'][variant]
-        
+
         # Generate filename
         if variant == 'regular':
             filename = f"{font_family.replace(' ', '')}-Regular.ttf"
         elif variant.isdigit():
-            filename = f"{font_family.replace(' ', '')}-{variant}.ttf"  
+            filename = f"{font_family.replace(' ', '')}-{variant}.ttf"
         else:
             filename = f"{font_family.replace(' ', '')}-{variant.title()}.ttf"
-        
+
         dest_path = font_dir / filename
-        
+
         print(f"  📁 {filename}...", end=' ')
         if _download_font_file(url, dest_path):
             size = _format_size(dest_path.stat().st_size)
@@ -150,7 +242,7 @@ def _install_google_font(font_family: str, variants = None, force: bool = False)
             success_count += 1
         else:
             print("❌")
-    
+
     if success_count > 0:
         print(f"✅ Installed {success_count}/{len(variants)} variants of '{font_family}'")
         return True
@@ -158,74 +250,128 @@ def _install_google_font(font_family: str, variants = None, force: bool = False)
         print(f"❌ Failed to install '{font_family}'")
         return False
 
+
 def _analyze_font_usage(ir: dict) -> dict:
-    """Analyze which fonts are referenced in the IR"""
-    font_usage = {
-        'fonts_found': set(),
-        'missing_fonts': set(),
-        'usage_locations': []
-    }
-    
-    # Check CUSTOM_STYLE headers for font declarations (both root and meta locations)
-    custom_style = ir.get('custom_style', '') or ir.get('meta', {}).get('CUSTOM_STYLE', '')
-    # Look for both font: "Name" and font:"Name" patterns
-    font_matches = re.findall(r'font:\s*"([^"]+)"', custom_style)
-    for font_name in font_matches:
-        font_usage['fonts_found'].add(font_name)
-        font_usage['usage_locations'].append({
-            'type': 'custom_style',
-            'font': font_name,
-            'location': 'document header (#+CUSTOM_STYLE)'
-        })
-    
-    # Check page elements for font references
+    """Analyze which fonts are referenced in the IR.
+
+    Sources scanned:
+    - CUSTOM_STYLE meta/header blocks (quoted font names)
+    - STYLE_* meta declarations (quoted or unquoted font: ...)
+    - Global FONT meta directive
+    - Inline Typst directives in element content (#set text(font: "..."))
+    """
+    font_usage = {'fonts_found': set(), 'missing_fonts': set(), 'usage_locations': []}
+
+    meta = ir.get('meta', {}) or {}
+
+    # 1) CUSTOM_STYLE headers (quoted fonts inside the style string)
+    custom_style = ir.get('custom_style', '') or meta.get('CUSTOM_STYLE', '')
+    for font_name in re.findall(r'font:\s*"([^"]+)"', custom_style):
+        if font_name:
+            font_usage['fonts_found'].add(font_name)
+            font_usage['usage_locations'].append(
+                {
+                    'type': 'custom_style',
+                    'font': font_name,
+                    'location': 'document header (#+CUSTOM_STYLE)',
+                }
+            )
+
+    # 2) STYLE_* meta declarations: accept quoted or unquoted
+    #    Examples: 'font: Playfair Display, size: 20mm' or 'font:"Inter"'
+    style_keys = [
+        k
+        for k in meta.keys()
+        if isinstance(k, str) and k.upper().startswith('STYLE_') and k.upper() != 'STYLE'
+    ]
+    for sk in style_keys:
+        decl = meta.get(sk, '') or ''
+        # Prefer quoted first
+        names = re.findall(r'font\s*:\s*"([^"]+)"', decl)
+        if not names:
+            # Fallback to unquoted up to comma/semicolon/end
+            m = re.search(r'font\s*:\s*([^,;]+)', decl)
+            if m:
+                candidate = m.group(1).strip()
+                # Strip potential trailing tokens
+                candidate = candidate.strip('"\' )')
+                if candidate:
+                    names = [candidate]
+        for name in names:
+            n = name.strip()
+            if not n:
+                continue
+            font_usage['fonts_found'].add(n)
+            font_usage['usage_locations'].append(
+                {'type': 'style_meta', 'font': n, 'location': f'meta {sk}'}
+            )
+
+    # 3) Global FONT meta override
+    if isinstance(meta.get('FONT'), str) and meta.get('FONT').strip():
+        n = meta['FONT'].strip()
+        font_usage['fonts_found'].add(n)
+        font_usage['usage_locations'].append({'type': 'meta', 'font': n, 'location': 'meta FONT'})
+
+    # 4) Inline Typst in element content
     for page_idx, page in enumerate(ir.get('pages', []), 1):
         for elem_idx, element in enumerate(page.get('elements', []), 1):
-            # Check element content for font declarations
             content = element.get('content', '')
             if isinstance(content, str):
-                # Look for #set text(font: "FontName") patterns
-                font_matches = re.findall(r'#set\s+text\([^)]*font:\s*"([^"]+)"', content)
-                for font_name in font_matches:
+                for font_name in re.findall(r'#set\s+text\([^)]*font:\s*"([^"]+)"', content):
                     font_usage['fonts_found'].add(font_name)
-                    font_usage['usage_locations'].append({
-                        'type': 'element_content',
-                        'font': font_name,
-                        'location': f'page {page_idx}, element {elem_idx}'
-                    })
-    
-    # Check which fonts are actually available
-    available_fonts = set()
+                    font_usage['usage_locations'].append(
+                        {
+                            'type': 'element_content',
+                            'font': font_name,
+                            'location': f'page {page_idx}, element {elem_idx}',
+                        }
+                    )
+
+    # Build availability set using real font names, with optional env override
     font_paths = _get_font_paths()
-    
-    for font_path in font_paths:
-        path_obj = pathlib.Path(font_path)
-        if not path_obj.exists():
-            continue
-            
-        # Look for font family directories
-        try:
-            for item in path_obj.iterdir():
-                if item.is_dir() and not item.name.startswith('.'):
-                    font_files = list(item.glob('*.ttf')) + list(item.glob('*.otf'))
-                    if font_files:
-                        available_fonts.add(item.name)
-        except OSError:
-            continue
-    
+    disable_ft = str(os.environ.get('PAGEMAKER_DISABLE_FONTTOOLS', '')).strip().lower()
+    force_dirnames = disable_ft not in ('', '0', 'false', 'no')
+    available_real = set() if force_dirnames else _collect_real_font_names(font_paths)
+
+    # Directory-name heuristic (forced or fallback)
+    if force_dirnames or not available_real:
+        available_dirnames = set()
+        for font_path in font_paths:
+            path_obj = pathlib.Path(font_path)
+            if not path_obj.exists():
+                continue
+            try:
+                for item in path_obj.iterdir():
+                    if item.is_dir() and not item.name.startswith('.'):
+                        font_files = list(item.glob('*.ttf')) + list(item.glob('*.otf'))
+                        if font_files:
+                            n = item.name
+                            available_dirnames.add(n)
+                            if '_' in n:
+                                available_dirnames.add(n.replace('_', ' '))
+                            if ' ' in n:
+                                available_dirnames.add(n.replace(' ', '_'))
+            except OSError:
+                continue
+        if force_dirnames:
+            available_real = available_dirnames
+        else:
+            available_real |= available_dirnames
+
     # Determine missing fonts
-    font_usage['missing_fonts'] = font_usage['fonts_found'] - available_fonts
-    font_usage['available_fonts'] = available_fonts
-    
+    font_usage['missing_fonts'] = font_usage['fonts_found'] - available_real
+    font_usage['available_fonts'] = available_real
+
     return font_usage
+
 
 def _validate_fonts_in_build(ir: dict, strict: bool = False) -> bool:
     """Validate fonts used in the document. Returns True if validation passes."""
     font_usage = _analyze_font_usage(ir)
-    
+
     if not font_usage['fonts_found']:
         return True  # No fonts referenced, nothing to validate
-    
+
     if font_usage['missing_fonts']:
         print("⚠️  Font Validation Issues:")
         for font in sorted(font_usage['missing_fonts']):
@@ -234,42 +380,46 @@ def _validate_fonts_in_build(ir: dict, strict: bool = False) -> bool:
             for usage in font_usage['usage_locations']:
                 if usage['font'] == font:
                     print(f"      Used in: {usage['location']}")
-        
+
         print("\n💡 Suggestions:")
         print("   • Install missing fonts: pagemaker fonts install \"FontName\"")
         print("   • Search for alternatives: pagemaker fonts search \"FontName\"")
-        print(f"   • Use available fonts: {', '.join(sorted(list(font_usage['available_fonts'])[:5]))}")
-        
+        print(
+            f"   • Use available fonts: {', '.join(sorted(list(font_usage['available_fonts'])[:5]))}"
+        )
+
         if strict:
             print("\n❌ Build failed due to missing fonts (strict mode)")
             return False
         else:
             print("\n⚠️  Build continuing with font fallbacks...")
-    
+
     return True
+
 
 def _get_font_discovery_cache_path() -> pathlib.Path:
     """Get path to font discovery cache file"""
     cache_dir = pathlib.Path.home() / '.pagemaker' / 'cache'
     return cache_dir / 'font_discovery.json'
 
+
 def _is_cache_valid(cache_path: pathlib.Path, font_paths: list) -> bool:
     """Check if font discovery cache is still valid"""
     if not cache_path.exists():
         return False
-    
+
     try:
         cache_data = json.loads(cache_path.read_text(encoding='utf-8'))
-        
+
         # Check cache age (5 minutes)
         cache_age = time.time() - cache_data.get('timestamp', 0)
         if cache_age > 300:  # 5 minutes
             return False
-        
+
         # Check if font paths changed
         if cache_data.get('font_paths') != font_paths:
             return False
-        
+
         # Check if any font directories were modified since cache
         cache_time = cache_data.get('timestamp', 0)
         for font_path in font_paths:
@@ -280,33 +430,35 @@ def _is_cache_valid(cache_path: pathlib.Path, font_paths: list) -> bool:
                         return False
                 except OSError:
                     continue
-        
+
         return True
-        
+
     except (json.JSONDecodeError, OSError, KeyError):
         return False
+
 
 def _save_font_discovery_cache(cache_path: pathlib.Path, font_paths: list, discovery_results: dict):
     """Save font discovery results to cache"""
     try:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         cache_data = {
             'timestamp': time.time(),
             'font_paths': font_paths,
-            'results': discovery_results
+            'results': discovery_results,
         }
-        
+
         cache_path.write_text(json.dumps(cache_data, indent=2), encoding='utf-8')
     except Exception:
         # Cache failures shouldn't break functionality
         pass
 
+
 def _get_cached_font_discovery() -> dict:
     """Get font discovery results with caching"""
     font_paths = _get_font_paths()
     cache_path = _get_font_discovery_cache_path()
-    
+
     # Try to use cache
     if _is_cache_valid(cache_path, font_paths):
         try:
@@ -314,73 +466,45 @@ def _get_cached_font_discovery() -> dict:
             return cache_data['results']
         except (json.JSONDecodeError, OSError, KeyError):
             pass
-    
+
     # Cache miss - do fresh discovery
     results = {
         'bundled': _get_bundled_fonts(),
         'project': _get_project_fonts(),
-        'font_paths': font_paths
+        'font_paths': font_paths,
     }
-    
+
     # Save to cache
     _save_font_discovery_cache(cache_path, font_paths, results)
-    
+
     return results
+
 
 def _search_google_fonts(query: str, limit: int = 10) -> list:
     """Search Google Fonts by name"""
     fonts_data = _get_google_fonts_api_data()
     query_lower = query.lower()
-    
+
     matches = []
     for font in fonts_data.get('items', []):
-        family = font['family']
-        if query_lower in family.lower():
-            matches.append({
-                'family': family,
-                'variants': len(font.get('files', {})),
-                'variants_list': list(font.get('files', {}).keys()),
-                'category': font.get('category', 'unknown')
-            })
-    
+        family = font.get('family', '')
+        if family and query_lower in family.lower():
+            matches.append(
+                {
+                    'family': family,
+                    'variants': len(font.get('files', {})),
+                    'variants_list': list(font.get('files', {}).keys()),
+                    'category': font.get('category', 'unknown'),
+                }
+            )
+
     return matches[:limit]
-    """Search Google Fonts by name"""
-    fonts_data = _get_google_fonts_api_data()
-    query_lower = query.lower()
-    
-    matches = []
-    for font in fonts_data.get('items', []):
-        family = font['family']
-        if query_lower in family.lower():
-            matches.append({
-                'family': family,
-                'variants': len(font.get('files', {})),
-                'variants_list': list(font.get('files', {}).keys()),
-                'category': font.get('category', 'unknown')
-            })
-    
-    return matches[:limit]
-    """Search Google Fonts by name"""
-    fonts_data = _get_google_fonts_api_data()
-    query_lower = query.lower()
-    
-    matches = []
-    for font in fonts_data.get('items', []):
-        family = font['family']
-        if query_lower in family.lower():
-            matches.append({
-                'family': family,
-                'variants': len(font.get('files', {})),
-                'variants_list': list(font.get('files', {}).keys()),
-                'category': font.get('category', 'unknown')
-            })
-    
-    return matches[:limit]
+
 
 def _get_font_paths() -> list[str]:
     """Get font paths in order of preference: user-specified -> bundled fallback"""
     font_paths = []
-    
+
     # 1. Check for project-local assets/fonts (for development/user customization)
     local_fonts = pathlib.Path('assets/fonts')
     if local_fonts.exists():
@@ -389,7 +513,7 @@ def _get_font_paths() -> list[str]:
         static_path = local_fonts / 'static'
         if static_path.exists():
             font_paths.append(str(static_path))
-    
+
     # 1b. Check examples/assets/fonts as fallback (example fonts)
     examples_fonts = pathlib.Path('examples/assets/fonts')
     if examples_fonts.exists():
@@ -398,12 +522,13 @@ def _get_font_paths() -> list[str]:
         static_path = examples_fonts / 'static'
         if static_path.exists():
             font_paths.append(str(static_path))
-    
+
     # 2. Add bundled fonts as fallback
     try:
         # Get the path to bundled fonts in the installed package
         # Use a more compatible approach that works across Python versions
         import pagemaker
+
         package_path = pathlib.Path(pagemaker.__file__).parent
         package_fonts_path = package_path / 'fonts'
         if package_fonts_path.exists():
@@ -415,54 +540,51 @@ def _get_font_paths() -> list[str]:
     except Exception:
         # Fallback: fonts not bundled or package not found
         pass
-    
+
     # Filter out None values and return unique paths
     return list(dict.fromkeys(fp for fp in font_paths if fp is not None))
 
+
 def _discover_fonts_in_path(font_path: pathlib.Path) -> dict:
     """Discover fonts in a given path and return structured information"""
-    font_info = {
-        'path': str(font_path),
-        'exists': font_path.exists(),
-        'families': {}
-    }
-    
+    font_info = {'path': str(font_path), 'exists': font_path.exists(), 'families': {}}
+
     if not font_path.exists():
         return font_info
-    
+
     # Look for font files (TTF, OTF, WOFF, WOFF2)
     font_extensions = {'.ttf', '.otf', '.woff', '.woff2'}
-    
+
     try:
         for item in font_path.rglob('*'):
             if item.is_file() and item.suffix.lower() in font_extensions:
                 # Extract family name from path structure
                 relative_path = item.relative_to(font_path)
                 family_name = relative_path.parts[0] if len(relative_path.parts) > 1 else 'Root'
-                
+
                 if family_name not in font_info['families']:
-                    font_info['families'][family_name] = {
-                        'files': [],
-                        'total_size': 0
-                    }
-                
+                    font_info['families'][family_name] = {'files': [], 'total_size': 0}
+
                 file_size = item.stat().st_size
-                font_info['families'][family_name]['files'].append({
-                    'name': item.name,
-                    'path': str(item),
-                    'size': file_size,
-                    'size_human': _format_size(file_size)
-                })
+                font_info['families'][family_name]['files'].append(
+                    {
+                        'name': item.name,
+                        'path': str(item),
+                        'size': file_size,
+                        'size_human': _format_size(file_size),
+                    }
+                )
                 font_info['families'][family_name]['total_size'] += file_size
-        
+
         # Add human-readable sizes for families
         for family in font_info['families'].values():
             family['total_size_human'] = _format_size(family['total_size'])
-            
+
     except Exception as e:
         font_info['error'] = str(e)
-    
+
     return font_info
+
 
 def _format_size(size_bytes: int) -> str:
     """Format file size in human-readable form"""
@@ -475,64 +597,73 @@ def _format_size(size_bytes: int) -> str:
     else:
         return f"{size_bytes / (1024 * 1024 * 1024):.1f}GB"
 
+
 def _get_bundled_fonts() -> dict:
     """Get information about bundled fonts"""
     try:
         import pagemaker
+
         package_path = pathlib.Path(pagemaker.__file__).parent
         package_fonts_path = package_path / 'fonts'
         return _discover_fonts_in_path(package_fonts_path)
     except Exception:
         return {'path': 'Not found', 'exists': False, 'families': {}}
 
+
 def _get_project_fonts() -> dict:
     """Get information about project fonts in assets/fonts"""
     assets_fonts = pathlib.Path('assets/fonts')
     return _discover_fonts_in_path(assets_fonts)
 
+
 def _print_font_info(font_info: dict, title: str, show_details: bool = False):
     """Print formatted font information"""
     print(f"\n{title}")
     print("=" * len(title))
-    
+
     if not font_info['exists']:
         print(f"❌ Path not found: {font_info['path']}")
         return
-    
+
     if 'error' in font_info:
         print(f"⚠️  Error reading path: {font_info['error']}")
         return
-        
+
     if not font_info['families']:
         print(f"📂 Path exists but no fonts found: {font_info['path']}")
         return
-    
+
     print(f"📂 Path: {font_info['path']}")
     print(f"📊 Found {len(font_info['families'])} font families")
-    
+
     total_files = sum(len(family['files']) for family in font_info['families'].values())
     total_size = sum(family['total_size'] for family in font_info['families'].values())
     print(f"📄 Total files: {total_files} ({_format_size(total_size)})")
-    
+
     # List families
     for family_name, family_info in sorted(font_info['families'].items()):
         file_count = len(family_info['files'])
         size_info = family_info['total_size_human']
         print(f"  🔤 {family_name}: {file_count} files ({size_info})")
-        
+
         if show_details:
             for font_file in sorted(family_info['files'], key=lambda x: x['name']):
                 print(f"    📁 {font_file['name']} ({font_file['size_human']})")
 
+
 def _check_typst_binary(typst_bin: str = 'typst') -> bool:
     """Check if Typst binary is available and working"""
     try:
-        result = subprocess.run([typst_bin, '--version'], 
-                              capture_output=True, text=True, timeout=10)
+        result = subprocess.run(
+            [typst_bin, '--version'], capture_output=True, text=True, timeout=10
+        )
         if result.returncode == 0:
             return True
         else:
-            print(f"ERROR: Typst binary '{typst_bin}' returned error code {result.returncode}", file=sys.stderr)
+            print(
+                f"ERROR: Typst binary '{typst_bin}' returned error code {result.returncode}",
+                file=sys.stderr,
+            )
             return False
     except FileNotFoundError:
         print(f"ERROR: Typst binary '{typst_bin}' not found in PATH", file=sys.stderr)
@@ -545,26 +676,95 @@ def _check_typst_binary(typst_bin: str = 'typst') -> bool:
         print(f"ERROR: Failed to check Typst binary '{typst_bin}': {e}", file=sys.stderr)
         return False
 
+
 def _write(path: pathlib.Path, data: str):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(data, encoding='utf-8')
 
+
+def _attempt_auto_download_missing_fonts(ir: dict) -> None:
+    """Try to download missing fonts referenced in the IR using fontdownloader.
+
+    Downloads into ./assets/fonts/<FontName>/ as provided by fontdownloader.
+    Ignores WOFF files for Typst availability checks; relies on TTF/OTF/TTC.
+    After each download attempt, rescans availability and reports status.
+    """
+    try:
+        initial_usage = _analyze_font_usage(ir)
+        missing = sorted(initial_usage.get('missing_fonts', []))
+        if not missing:
+            return
+        print(f"🔤 Missing fonts detected: {', '.join(missing)}")
+
+        # Try programmatic API first, then CLI fallback per font
+        for name in missing:
+            attempted = False
+            try:
+                from fontdownloader import cli as fd_cli  # type: ignore
+
+                try:
+                    print(f"📥 Attempting to download '{name}' via fontdownloader...")
+                    fd_cli._download_full_family(name, force=False)  # noqa: SLF001
+                    attempted = True
+                except Exception as e:
+                    print(f"  ⚠️  Auto-download failed for '{name}': {e}")
+            except Exception:
+                # programmatic import failed; try CLI
+                pass
+
+            if not attempted:
+                try:
+                    print(f"📥 Attempting to download '{name}' via fontdownloader CLI...")
+                    res = subprocess.run(
+                        [sys.executable, '-m', 'fontdownloader.cli', 'download', name],
+                        capture_output=True,
+                        text=True,
+                    )
+                    if res.stdout:
+                        sys.stdout.write(res.stdout)
+                    if res.stderr:
+                        sys.stderr.write(res.stderr)
+                except Exception as e:
+                    print(f"  ⚠️  Auto-download (CLI) failed for '{name}': {e}")
+
+            # Rescan availability after this attempt
+            available_after = _analyze_font_usage(ir).get('available_fonts', set())
+            if name in available_after:
+                print(f"  ✅ '{name}' is now available")
+            else:
+                print(f"  ❌ '{name}' still not available after download attempt")
+    except Exception as e:
+        # Non-fatal
+        print(f"⚠️  Font auto-download step encountered an issue: {e}")
+
+
 def cmd_build(args):
     ir = parse_org(args.org)
-    
-    # Validate fonts if requested
+
+    # Try to fetch any missing fonts automatically
+    _attempt_auto_download_missing_fonts(ir)
+
+    # Validate fonts if requested (after auto-download attempt)
     if getattr(args, 'validate_fonts', False):
         if not _validate_fonts_in_build(ir, strict=getattr(args, 'strict_fonts', False)):
             sys.exit(1)
-    
+
     export_dir = pathlib.Path(args.export_dir)
     export_dir.mkdir(parents=True, exist_ok=True)
     adjust_asset_paths(ir, export_dir)
     if args.ir:
-        ir_path = export_dir / args.ir if not pathlib.Path(args.ir).is_absolute() else pathlib.Path(args.ir)
+        ir_path = (
+            export_dir / args.ir
+            if not pathlib.Path(args.ir).is_absolute()
+            else pathlib.Path(args.ir)
+        )
         ir_path.parent.mkdir(parents=True, exist_ok=True)
         ir_path.write_text(json.dumps(ir, indent=2), encoding='utf-8')
-    out_path = export_dir / args.output if not pathlib.Path(args.output).is_absolute() else pathlib.Path(args.output)
+    out_path = (
+        export_dir / args.output
+        if not pathlib.Path(args.output).is_absolute()
+        else pathlib.Path(args.output)
+    )
     typst_code = generate_typst(ir)
     _write(out_path, typst_code)
     if args.update_html:
@@ -572,34 +772,41 @@ def cmd_build(args):
     print(f"Built Typst: {out_path} pages={len(ir['pages'])}")
 
 
-def _compile_pdf(typst_file: pathlib.Path, pdf_path: pathlib.Path, typst_bin: str = 'typst') -> bool:
+def _compile_pdf(
+    typst_file: pathlib.Path, pdf_path: pathlib.Path, typst_bin: str = 'typst'
+) -> bool:
     if not _check_typst_binary(typst_bin):
         return False
-        
+
     try:
         project_root = pathlib.Path.cwd()
         cmd = [
             typst_bin,
             'compile',
-            '--root', str(project_root),
+            '--root',
+            str(project_root),
         ]
-        
+
         # Add font paths dynamically (user fonts take precedence over bundled)
         font_paths = _get_font_paths()
         for font_path in font_paths:
             cmd.extend(['--font-path', font_path])
-            
+
         cmd.extend([str(typst_file), str(pdf_path)])
-        
+
         res = subprocess.run(cmd, capture_output=True, text=True)
         if res.returncode == 0:
             return True
         else:
-            print(f"ERROR: Typst compile failed (exit {res.returncode}):\n{res.stderr}", file=sys.stderr)
+            print(
+                f"ERROR: Typst compile failed (exit {res.returncode}):\n{res.stderr}",
+                file=sys.stderr,
+            )
             print(f"Font paths used: {font_paths}", file=sys.stderr)
     except FileNotFoundError:
         print(f"ERROR: typst binary not found at '{typst_bin}'", file=sys.stderr)
     return False
+
 
 def _bin_exists(name: str) -> bool:
     return shutil.which(name) is not None
@@ -613,19 +820,47 @@ def _make_sanitized_copy(src: pathlib.Path, dst: pathlib.Path) -> bool:
         # qpdf stage
         qpdf_out = tmpdir / 'q1.pdf'
         if _bin_exists('qpdf'):
-            res = subprocess.run(['qpdf', '--stream-data=uncompress', '--recompress-flate', '--object-streams=disable', str(work_in), str(qpdf_out)], capture_output=True, text=True)
+            res = subprocess.run(
+                [
+                    'qpdf',
+                    '--stream-data=uncompress',
+                    '--recompress-flate',
+                    '--object-streams=disable',
+                    str(work_in),
+                    str(qpdf_out),
+                ],
+                capture_output=True,
+                text=True,
+            )
             if res.returncode == 0 and qpdf_out.exists():
                 work_in = qpdf_out
         # mutool clean stage
         mutool_out = tmpdir / 'm1.pdf'
         if _bin_exists('mutool'):
-            res = subprocess.run(['mutool', 'clean', '-gg', '-d', str(work_in), str(mutool_out)], capture_output=True, text=True)
+            res = subprocess.run(
+                ['mutool', 'clean', '-gg', '-d', str(work_in), str(mutool_out)],
+                capture_output=True,
+                text=True,
+            )
             if res.returncode == 0 and mutool_out.exists():
                 work_in = mutool_out
         # ghostscript stage
         gs_out = tmpdir / 'g1.pdf'
         if _bin_exists('gs'):
-            res = subprocess.run(['gs', '-sDEVICE=pdfwrite', '-dCompatibilityLevel=1.7', '-dPDFSETTINGS=/prepress', '-dNOPAUSE', '-dBATCH', f'-sOutputFile={gs_out}', str(work_in)], capture_output=True, text=True)
+            res = subprocess.run(
+                [
+                    'gs',
+                    '-sDEVICE=pdfwrite',
+                    '-dCompatibilityLevel=1.7',
+                    '-dPDFSETTINGS=/prepress',
+                    '-dNOPAUSE',
+                    '-dBATCH',
+                    f'-sOutputFile={gs_out}',
+                    str(work_in),
+                ],
+                capture_output=True,
+                text=True,
+            )
             if res.returncode == 0 and gs_out.exists():
                 work_in = gs_out
         # Finalize to dst
@@ -651,20 +886,55 @@ def _convert_pdf_to_svg(src_pdf: pathlib.Path, out_svg: pathlib.Path, page: int 
     if not _bin_exists('mutool'):
         return False
     # Render only the requested page to a single SVG
-    res = subprocess.run(['mutool', 'draw', '-F', 'svg', '-o', str(out_svg), str(src_pdf), str(page)], capture_output=True, text=True)
+    res = subprocess.run(
+        ['mutool', 'draw', '-F', 'svg', '-o', str(out_svg), str(src_pdf), str(page)],
+        capture_output=True,
+        text=True,
+    )
     if res.returncode != 0:
         return False
     return out_svg.exists()
 
 
-def _convert_pdf_to_png(src_pdf: pathlib.Path, out_png: pathlib.Path, page: int = 1, dpi: int = 160) -> bool:
+def _convert_pdf_to_png(
+    src_pdf: pathlib.Path, out_png: pathlib.Path, page: int = 1, dpi: int = 160
+) -> bool:
     # Prefer mutool PNG rendering; fallback to Ghostscript pngalpha
     if _bin_exists('mutool'):
-        res = subprocess.run(['mutool', 'draw', '-F', 'png', '-r', str(dpi), '-o', str(out_png), str(src_pdf), str(page)], capture_output=True, text=True)
+        res = subprocess.run(
+            [
+                'mutool',
+                'draw',
+                '-F',
+                'png',
+                '-r',
+                str(dpi),
+                '-o',
+                str(out_png),
+                str(src_pdf),
+                str(page),
+            ],
+            capture_output=True,
+            text=True,
+        )
         if res.returncode == 0 and out_png.exists():
             return True
     if _bin_exists('gs'):
-        res = subprocess.run(['gs', '-sDEVICE=pngalpha', f'-r{dpi}', '-dNOPAUSE', '-dBATCH', f'-dFirstPage={page}', f'-dLastPage={page}', f'-sOutputFile={out_png}', str(src_pdf)], capture_output=True, text=True)
+        res = subprocess.run(
+            [
+                'gs',
+                '-sDEVICE=pngalpha',
+                f'-r{dpi}',
+                '-dNOPAUSE',
+                '-dBATCH',
+                f'-dFirstPage={page}',
+                f'-dLastPage={page}',
+                f'-sOutputFile={out_png}',
+                str(src_pdf),
+            ],
+            capture_output=True,
+            text=True,
+        )
         if res.returncode == 0 and out_png.exists():
             return True
     return False
@@ -672,6 +942,7 @@ def _convert_pdf_to_png(src_pdf: pathlib.Path, out_png: pathlib.Path, page: int 
 
 def _apply_pdf_sanitized_copies(ir: dict, export_dir: pathlib.Path) -> dict:
     import copy
+
     new_ir = copy.deepcopy(ir)
     for page in new_ir.get('pages', []):
         for el in page.get('elements', []):
@@ -683,7 +954,7 @@ def _apply_pdf_sanitized_copies(ir: dict, export_dir: pathlib.Path) -> dict:
                 continue
             abs_src = src_path if src_path.is_absolute() else (export_dir / src_path)
             if not abs_src.exists():
-                abs_src = (pathlib.Path.cwd() / src_path)
+                abs_src = pathlib.Path.cwd() / src_path
             abs_src = abs_src.resolve()
             if not abs_src.exists():
                 continue
@@ -697,6 +968,7 @@ def _apply_pdf_sanitized_copies(ir: dict, export_dir: pathlib.Path) -> dict:
 
 def _apply_pdf_svg_fallbacks(ir: dict, export_dir: pathlib.Path) -> dict:
     import copy
+
     new_ir = copy.deepcopy(ir)
     for page in new_ir.get('pages', []):
         for el in page.get('elements', []):
@@ -709,7 +981,7 @@ def _apply_pdf_svg_fallbacks(ir: dict, export_dir: pathlib.Path) -> dict:
                 continue
             abs_src = src_path if src_path.is_absolute() else (export_dir / src_path)
             if not abs_src.exists():
-                abs_src = (pathlib.Path.cwd() / src_path)
+                abs_src = pathlib.Path.cwd() / src_path
             abs_src = abs_src.resolve()
             if not abs_src.exists():
                 continue
@@ -734,7 +1006,15 @@ def _apply_pdf_svg_fallbacks(ir: dict, export_dir: pathlib.Path) -> dict:
     return new_ir
 
 
-def _compile_with_fallback(ir: dict, export_dir: pathlib.Path, typst_path: pathlib.Path, pdf_path: pathlib.Path, typst_bin: str, sanitize: bool, no_clean: bool) -> bool:
+def _compile_with_fallback(
+    ir: dict,
+    export_dir: pathlib.Path,
+    typst_path: pathlib.Path,
+    pdf_path: pathlib.Path,
+    typst_bin: str,
+    sanitize: bool,
+    no_clean: bool,
+) -> bool:
     def try_compile(with_ir: dict) -> bool:
         typst_code_local = generate_typst(with_ir)
         _write(typst_path, typst_code_local)
@@ -761,19 +1041,28 @@ def _compile_with_fallback(ir: dict, export_dir: pathlib.Path, typst_path: pathl
 
 def cmd_pdf(args):
     ir = parse_org(args.org)
-    
-    # Validate fonts if requested
+
+    # Try to fetch any missing fonts automatically
+    _attempt_auto_download_missing_fonts(ir)
+
+    # Validate fonts if requested (after auto-download attempt)
     if getattr(args, 'validate_fonts', False):
         if not _validate_fonts_in_build(ir, strict=getattr(args, 'strict_fonts', False)):
             sys.exit(1)
-    
+
     export_dir = pathlib.Path(args.export_dir)
     export_dir.mkdir(parents=True, exist_ok=True)
     adjust_asset_paths(ir, export_dir)
     typst_filename = args.output if args.output else 'deck.typ'
-    typst_path = export_dir / typst_filename if not pathlib.Path(typst_filename).is_absolute() else pathlib.Path(typst_filename)
+    typst_path = (
+        export_dir / typst_filename
+        if not pathlib.Path(typst_filename).is_absolute()
+        else pathlib.Path(typst_filename)
+    )
     pdf_out = args.pdf_output or f"{pathlib.Path(args.org).stem}.pdf"
-    pdf_path = export_dir / pdf_out if not pathlib.Path(pdf_out).is_absolute() else pathlib.Path(pdf_out)
+    pdf_path = (
+        export_dir / pdf_out if not pathlib.Path(pdf_out).is_absolute() else pathlib.Path(pdf_out)
+    )
 
     ok = _compile_with_fallback(
         ir=ir,
@@ -815,22 +1104,34 @@ def cmd_watch(args):
     export_dir.mkdir(parents=True, exist_ok=True)
     last_hash = None
     print(f"Watching {org_path} interval={args.interval}s pdf={args.pdf} (once={args.once})")
+
     def compute_hash(p: pathlib.Path):
         try:
             data = p.read_bytes()
             return hashlib.sha256(data).hexdigest()
         except Exception:
             return None
+
     def build_once():
         ir = parse_org(str(org_path))
+        # Try to fetch any missing fonts automatically
+        _attempt_auto_download_missing_fonts(ir)
         adjust_asset_paths(ir, export_dir)
         if args.update_html:
             update_html_total(pathlib.Path(args.update_html), len(ir['pages']))
         typst_filename = args.output
-        typst_path = export_dir / typst_filename if not pathlib.Path(typst_filename).is_absolute() else pathlib.Path(typst_filename)
+        typst_path = (
+            export_dir / typst_filename
+            if not pathlib.Path(typst_filename).is_absolute()
+            else pathlib.Path(typst_filename)
+        )
         if args.pdf:
             pdf_out = args.pdf_output or f"{org_path.stem}.pdf"
-            pdf_path = export_dir / pdf_out if not pathlib.Path(pdf_out).is_absolute() else pathlib.Path(pdf_out)
+            pdf_path = (
+                export_dir / pdf_out
+                if not pathlib.Path(pdf_out).is_absolute()
+                else pathlib.Path(pdf_out)
+            )
             ok = _compile_with_fallback(
                 ir=ir,
                 export_dir=export_dir,
@@ -847,6 +1148,7 @@ def cmd_watch(args):
             _write(typst_path, typst_code)
             print(f"[watch] Rebuilt Typst pages={len(ir['pages'])}")
             return True
+
     while True:
         h = compute_hash(org_path)
         if h and h != last_hash:
@@ -875,82 +1177,157 @@ def cmd_watch(args):
             break
         time.sleep(args.interval)
 
+
 def cmd_fonts_list_bundled(args):
     """List bundled fonts"""
     font_info = _get_bundled_fonts()
     _print_font_info(font_info, "Bundled Fonts", args.details)
+
 
 def cmd_fonts_list_project(args):
     """List project fonts in assets/fonts"""
     font_info = _get_project_fonts()
     _print_font_info(font_info, "Project Fonts (assets/fonts/)", args.details)
 
+
 def cmd_fonts_list_all(args):
     """List all available fonts"""
     print("🔍 Font Discovery Report")
     print("=" * 40)
-    
+
     # Use cached discovery for better performance
     cached_results = _get_cached_font_discovery()
     bundled_info = cached_results['bundled']
     project_info = cached_results['project']
     font_paths = cached_results['font_paths']
-    
+
     # Show bundled fonts
     _print_font_info(bundled_info, "1. Bundled Fonts (Always Available)", args.details)
-    
-    # Show project fonts  
+
+    # Show project fonts
     _print_font_info(project_info, "2. Project Fonts (Custom Library)", args.details)
-    
+
     # Show font resolution order
     print("\n🎯 Font Resolution Order")
     print("=" * 25)
     for i, path in enumerate(font_paths, 1):
         print(f"  {i}. {path}")
-        
+
     # Summary
     bundled_families = len(bundled_info['families']) if bundled_info['exists'] else 0
     project_families = len(project_info['families']) if project_info['exists'] else 0
     total_families = bundled_families + project_families
-    
+
     print("\n📊 Summary")
     print("=" * 10)
     print(f"  Bundled families: {bundled_families}")
-    print(f"  Project families: {project_families}")  
+    print(f"  Project families: {project_families}")
     print(f"  Total families: {total_families}")
 
+
 def cmd_fonts_validate(args):
-    """Validate font availability"""
+    """Validate font availability using real font family names.
+
+    Uses fontTools to scan TTF/OTF/TTC/OTC files under known font paths and
+    matches against the requested family name (case-insensitive). Also accepts
+    underscore/space variants for convenience (e.g., "Open_Sans" == "Open Sans").
+    """
     font_name = args.font
     print(f"🔍 Validating font: '{font_name}'")
     print("=" * 40)
-    
-    # Check each font path
+
+    # Prepare query variants
+    queries = {font_name}
+    if '_' in font_name:
+        queries.add(font_name.replace('_', ' '))
+    if ' ' in font_name:
+        queries.add(font_name.replace(' ', '_'))
+    queries_lower = {q.lower() for q in queries}
+
     font_paths = _get_font_paths()
     found_locations = []
-    
+
+    def _list_matching_files(root: pathlib.Path) -> list[tuple[str, int]]:
+        matches: list[tuple[str, int]] = []
+        try:
+            from fontTools.ttLib import TTFont
+            from fontTools.ttLib.ttCollection import TTCollection
+        except Exception:
+            return matches
+        font_exts = {'.ttf', '.otf', '.ttc', '.otc'}
+        try:
+            for f in root.rglob('*'):
+                try:
+                    if not f.is_file() or f.suffix.lower() not in font_exts:
+                        continue
+                    if f.suffix.lower() in {'.ttc', '.otc'}:
+                        tc = TTCollection(str(f))
+                        hit = False
+                        for ttf in tc.fonts:
+                            nm = ttf.get('name')
+                            if not nm:
+                                continue
+                            for rec in nm.names:
+                                if rec.nameID in (1, 16):
+                                    try:
+                                        fam = rec.toUnicode().strip()
+                                        if fam and fam.lower() in queries_lower:
+                                            hit = True
+                                    except Exception:
+                                        pass
+                        if hit:
+                            try:
+                                size = f.stat().st_size
+                            except OSError:
+                                size = 0
+                            matches.append((f.name, size))
+                    else:
+                        t = TTFont(str(f), lazy=True)
+                        nm = t.get('name')
+                        fams = set()
+                        if nm:
+                            for rec in nm.names:
+                                if rec.nameID in (1, 16):
+                                    try:
+                                        fams.add(rec.toUnicode().strip().lower())
+                                    except Exception:
+                                        pass
+                        try:
+                            t.close()
+                        except Exception:
+                            pass
+                        if fams & queries_lower:
+                            try:
+                                size = f.stat().st_size
+                            except OSError:
+                                size = 0
+                            matches.append((f.name, size))
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return matches
+
     for i, font_path in enumerate(font_paths, 1):
         path_obj = pathlib.Path(font_path)
         if not path_obj.exists():
             print(f"  {i}. {font_path} - ❌ Path not found")
             continue
-            
-        # Look for font family directory
-        font_family_dir = path_obj / font_name
-        if font_family_dir.exists() and font_family_dir.is_dir():
-            font_files = list(font_family_dir.glob('*.ttf')) + list(font_family_dir.glob('*.otf'))
-            if font_files:
-                found_locations.append(font_path)
-                print(f"  {i}. {font_path} - ✅ Found {len(font_files)} files")
-                if args.details:
-                    for font_file in font_files:
-                        size = _format_size(font_file.stat().st_size)
-                        print(f"     📁 {font_file.name} ({size})")
-            else:
-                print(f"  {i}. {font_path} - ⚠️  Directory exists but no font files")
+
+        available_names = _collect_real_font_names([font_path])
+        available_lower = {n.lower() for n in available_names}
+        present = bool(available_lower & queries_lower)
+
+        if present:
+            found_locations.append(font_path)
+            print(f"  {i}. {font_path} - ✅ Found via real-name scan")
+            if args.details:
+                files = _list_matching_files(path_obj)
+                for name, size in sorted(files):
+                    print(f"     📁 {name} ({_format_size(size)})")
         else:
             print(f"  {i}. {font_path} - ❌ Font family not found")
-    
+
     # Final result
     print("\n🎯 Result")
     print("=" * 10)
@@ -961,50 +1338,88 @@ def cmd_fonts_validate(args):
             print(f"   Also available in: {', '.join(found_locations[1:])}")
     else:
         print(f"❌ Font '{font_name}' not found in any font path")
-        print("   Add font files to assets/fonts/{font_name}/ or check spelling")
+        print("   Ensure TTF/OTF/TTC files are present or check spelling")
+
 
 def cmd_fonts_search(args):
-    """Search Google Fonts"""
+    """Search Google Fonts using fontdownloader"""
     query = args.query
     limit = args.limit
-    
+
     print(f"🔍 Searching Google Fonts for: '{query}'")
     print("=" * 50)
-    
-    matches = _search_google_fonts(query, limit)
-    
+
+    try:
+        from fontdownloader import cli as fd_cli  # type: ignore
+
+        matches = fd_cli._search_google_fonts(query, limit)  # noqa: SLF001
+    except Exception:
+        # Fallback to invoking the fontdownloader CLI and returning early
+        try:
+            subprocess.run(
+                [sys.executable, '-m', 'fontdownloader.cli', 'search', query, '--limit', str(limit)]
+                + (['--details'] if args.details else []),
+                check=False,
+            )
+            return
+        except Exception as e:
+            print(f"❌ Search failed: {e}")
+            return
+
     if not matches:
         print(f"❌ No fonts found matching '{query}'")
         return
-    
+
     print(f"📊 Found {len(matches)} matching fonts:")
-    
+
     for i, font in enumerate(matches, 1):
         family = font['family']
         variants_count = font['variants']
         category = font['category'].title()
-        
+
         print(f"  {i:2d}. {family}")
         print(f"      📂 {category} • {variants_count} variants")
-        
+
         if args.details:
             variants_list = ', '.join(font['variants_list'][:8])  # Show first 8 variants
             if len(font['variants_list']) > 8:
                 variants_list += "..."
             print(f"      🔤 Variants: {variants_list}")
 
+
 def cmd_fonts_install(args):
-    """Install font from Google Fonts"""
+    """Install font using fontdownloader (full family into assets/fonts/<FontName>/)"""
     font_family = args.font
-    variants = args.variants.split(',') if args.variants else None
+    # variants are ignored; fontdownloader installs full family
     force = args.force
-    
-    print(f"📥 Installing Google Font: '{font_family}'")
+
+    print(f"📥 Installing Google Font: '{font_family}' (via fontdownloader)")
     print("=" * 50)
-    
-    success = _install_google_font(font_family, variants, force)
-    
-    if success:
+
+    ok = False
+    try:
+        from fontdownloader import cli as fd_cli  # type: ignore
+
+        fd_cli._download_full_family(font_family, force)  # noqa: SLF001
+        ok = True
+    except Exception:
+        # Fallback to CLI invocation
+        try:
+            res = subprocess.run(
+                [sys.executable, '-m', 'fontdownloader.cli', 'download', font_family]
+                + (['--force'] if force else []),
+                capture_output=True,
+                text=True,
+            )
+            ok = res.returncode == 0
+            sys.stdout.write(res.stdout)
+            if res.stderr:
+                sys.stderr.write(res.stderr)
+        except Exception as e:
+            print(f"❌ Installation failed: {e}")
+            ok = False
+
+    if ok:
         print("\n✅ Installation complete!")
         print(f"Font '{font_family}' is now available for use in your documents.")
         print("\nUsage example:")
@@ -1015,11 +1430,12 @@ def cmd_fonts_install(args):
         print(f"  pagemaker fonts search \"{font_family}\"")
         sys.exit(1)
 
+
 def cmd_fonts_cache_clear(args):
     """Clear font cache"""
     cache_dir = pathlib.Path.home() / '.pagemaker' / 'cache'
     cache_file = cache_dir / 'google_fonts.json'
-    
+
     try:
         if cache_file.exists():
             cache_file.unlink()
@@ -1030,38 +1446,39 @@ def cmd_fonts_cache_clear(args):
         print(f"❌ Failed to clear cache: {e}")
         sys.exit(1)
 
+
 def cmd_fonts_analyze(args):
     """Analyze font usage in document"""
     org_file = args.org
     print(f"🔍 Analyzing font usage in: {org_file}")
     print("=" * 50)
-    
+
     try:
         ir = parse_org(org_file)
         font_usage = _analyze_font_usage(ir)
-        
+
         if not font_usage['fonts_found']:
             print("📊 No fonts explicitly referenced in document")
             print("   Document will use system defaults or Typst fallbacks")
             return
-        
+
         print("📊 Font Usage Analysis:")
         print(f"   Referenced fonts: {len(font_usage['fonts_found'])}")
         print(f"   Available fonts: {len(font_usage['available_fonts'])}")
         print(f"   Missing fonts: {len(font_usage['missing_fonts'])}")
-        
+
         # Show referenced fonts
         print("\n🔤 Fonts Referenced in Document:")
         for font in sorted(font_usage['fonts_found']):
             status = "✅" if font in font_usage['available_fonts'] else "❌"
             print(f"   {status} {font}")
-            
+
             # Show usage locations for this font
             if args.details:
                 for usage in font_usage['usage_locations']:
                     if usage['font'] == font:
                         print(f"      └─ {usage['location']}")
-        
+
         # Show missing fonts with suggestions
         if font_usage['missing_fonts']:
             print("\n⚠️  Missing Fonts:")
@@ -1069,23 +1486,26 @@ def cmd_fonts_analyze(args):
                 print(f"   ❌ {font}")
                 print(f"      Install: pagemaker fonts install \"{font}\"")
                 print(f"      Search: pagemaker fonts search \"{font}\"")
-        
+
         # Show available alternatives
-        if font_usage['available_fonts'] and len(font_usage['available_fonts']) > len(font_usage['fonts_found']):
+        if font_usage['available_fonts'] and len(font_usage['available_fonts']) > len(
+            font_usage['fonts_found']
+        ):
             unused_fonts = font_usage['available_fonts'] - font_usage['fonts_found']
             print("\n💡 Available Alternative Fonts:")
             for font in sorted(list(unused_fonts)[:10]):  # Show first 10
                 print(f"   • {font}")
             if len(unused_fonts) > 10:
                 print(f"   ... and {len(unused_fonts) - 10} more")
-                
+
     except Exception as e:
         print(f"❌ Failed to analyze document: {e}")
         sys.exit(1)
 
+
 def _generate_font_specimen_org(fonts_info: list, specimen_type: str = 'showcase') -> str:
     """Generate org-mode content for font specimen"""
-    
+
     if specimen_type == 'showcase':
         # Beautiful showcase with various text samples
         content = '''#+TITLE: Font Specimen Showcase
@@ -1100,20 +1520,20 @@ def _generate_font_specimen_org(fonts_info: list, specimen_type: str = 'showcase
 This specimen showcases all available fonts in your pagemaker installation.
 
 '''
-        
+
         sample_texts = [
             "The quick brown fox jumps over the lazy dog",
             "TYPOGRAPHY & Design Elements 1234567890",
             "Hamburgefonstiv — A classic font testing phrase",
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
         ]
-        
+
         row = 1
         for font_info in fonts_info:
             font_name = font_info['name']
             files_count = font_info['files_count']
             size_info = font_info['size_human']
-            
+
             # Font family header
             content += f'''** {font_name}
 :PROPERTIES:
@@ -1126,7 +1546,7 @@ This specimen showcases all available fonts in your pagemaker installation.
 
 '''
             row += 1
-            
+
             # Sample text in this font
             content += f'''*** Sample Text
 :PROPERTIES:
@@ -1147,11 +1567,11 @@ This specimen showcases all available fonts in your pagemaker installation.
 
 '''
             row += 4
-            
+
             if row > 14:  # Start new page
                 content += '\n\\pagebreak\n\n'
                 row = 1
-        
+
     elif specimen_type == 'comparison':
         # Side-by-side comparison of fonts
         content = '''#+TITLE: Font Comparison Sheet
@@ -1167,21 +1587,21 @@ Direct comparison of all available fonts using identical text samples.
 
 '''
         sample_text = "The quick brown fox jumps over the lazy dog 1234567890"
-        
+
         col = 1
         row = 2
         for i, font_info in enumerate(fonts_info):
             font_name = font_info['name']
-            
+
             if col > 15:  # New row
                 col = 1
                 row += 2
-            
+
             if row > 8:  # New page
                 content += '\n\\pagebreak\n\n'
                 row = 2
                 col = 1
-            
+
             content += f'''** {font_name}
 :PROPERTIES:
 :TYPE: body
@@ -1197,7 +1617,7 @@ Direct comparison of all available fonts using identical text samples.
 
 '''
             col += 8
-    
+
     else:  # simple list
         content = '''#+TITLE: Font List
 #+CUSTOM_STYLE: #set text(font: "Inter", size: 11pt)
@@ -1211,73 +1631,78 @@ Direct comparison of all available fonts using identical text samples.
 Sample text in {font_info['name']} — {font_info['files_count']} files ({font_info['size_human']})
 
 '''
-    
+
     return content
+
 
 def cmd_fonts_specimen(args):
     """Generate font specimen document"""
     output_file = args.output or 'font-specimen.org'
     specimen_type = args.type
     build_pdf = args.pdf
-    
+
     print(f"📋 Generating font specimen: {specimen_type}")
     print("=" * 50)
-    
+
     # Collect font information
     all_fonts = []
-    
+
     # Add bundled fonts
     bundled_info = _get_bundled_fonts()
     if bundled_info['exists']:
         for family_name, family_info in bundled_info['families'].items():
-            all_fonts.append({
-                'name': family_name,
-                'files_count': len(family_info['files']),
-                'size_human': family_info['total_size_human'],
-                'source': 'bundled'
-            })
-    
+            all_fonts.append(
+                {
+                    'name': family_name,
+                    'files_count': len(family_info['files']),
+                    'size_human': family_info['total_size_human'],
+                    'source': 'bundled',
+                }
+            )
+
     # Add project fonts
     project_info = _get_project_fonts()
     if project_info['exists']:
         for family_name, family_info in project_info['families'].items():
-            all_fonts.append({
-                'name': family_name,
-                'files_count': len(family_info['files']),
-                'size_human': family_info['total_size_human'],
-                'source': 'project'
-            })
-    
+            all_fonts.append(
+                {
+                    'name': family_name,
+                    'files_count': len(family_info['files']),
+                    'size_human': family_info['total_size_human'],
+                    'source': 'project',
+                }
+            )
+
     if not all_fonts:
         print("❌ No fonts found to generate specimen")
         return
-    
+
     # Sort fonts alphabetically
     all_fonts.sort(key=lambda x: x['name'].lower())
-    
+
     print(f"📊 Found {len(all_fonts)} font families")
-    
+
     # Generate org content
     org_content = _generate_font_specimen_org(all_fonts, specimen_type)
-    
+
     # Write to file
     output_path = pathlib.Path(output_file)
     output_path.write_text(org_content, encoding='utf-8')
-    
+
     print(f"✅ Specimen written to: {output_path}")
-    
+
     # Optionally build PDF
     if build_pdf:
         print("📄 Building PDF...")
-        
+
         # Use the existing build functionality
         import subprocess
         import sys
-        
+
         try:
             cmd = [sys.executable, '-m', 'pagemaker.cli', 'pdf', str(output_path)]
             result = subprocess.run(cmd, capture_output=True, text=True)
-            
+
             if result.returncode == 0:
                 pdf_name = output_path.stem + '.pdf'
                 print(f"✅ PDF built: export/{pdf_name}")
@@ -1285,11 +1710,12 @@ def cmd_fonts_specimen(args):
                 print(f"❌ PDF build failed: {result.stderr}")
         except Exception as e:
             print(f"❌ PDF build error: {e}")
-    
+
     print("\n💡 Usage:")
     print(f"   Preview: pagemaker build {output_file}")
     print(f"   PDF: pagemaker pdf {output_file}")
     print(f"   Open: open export/{output_path.stem}.pdf")
+
 
 def build_parser():
     p = argparse.ArgumentParser(prog='pagemaker')
@@ -1297,25 +1723,41 @@ def build_parser():
 
     b = sub.add_parser('build', help='org -> typst')
     b.add_argument('org')
-    b.add_argument('-o','--output', default='deck.typ')
+    b.add_argument('-o', '--output', default='deck.typ')
     b.add_argument('--ir')
     b.add_argument('--update-html')
     b.add_argument('--export-dir', default=DEFAULT_EXPORT_DIR)
-    b.add_argument('--validate-fonts', action='store_true', help='validate all fonts are available before build')
-    b.add_argument('--strict-fonts', action='store_true', help='fail build if any fonts are missing')
+    b.add_argument(
+        '--validate-fonts',
+        action='store_true',
+        help='validate all fonts are available before build',
+    )
+    b.add_argument(
+        '--strict-fonts', action='store_true', help='fail build if any fonts are missing'
+    )
     b.set_defaults(func=cmd_build)
 
     pdf = sub.add_parser('pdf', help='org -> typst -> pdf')
     pdf.add_argument('org')
-    pdf.add_argument('-o','--output', default='deck.typ')
+    pdf.add_argument('-o', '--output', default='deck.typ')
     pdf.add_argument('--pdf-output')
     pdf.add_argument('--typst-bin', default='typst')
     pdf.add_argument('--export-dir', default=DEFAULT_EXPORT_DIR)
     pdf.add_argument('--no-clean', action='store_true')
 
-    pdf.add_argument('--validate-fonts', action='store_true', help='validate all fonts are available before build')
-    pdf.add_argument('--strict-fonts', action='store_true', help='fail build if any fonts are missing')
-    pdf.add_argument('--sanitize-pdfs', action='store_true', help='Attempt to sanitize PDFs and fallback to SVG if necessary')
+    pdf.add_argument(
+        '--validate-fonts',
+        action='store_true',
+        help='validate all fonts are available before build',
+    )
+    pdf.add_argument(
+        '--strict-fonts', action='store_true', help='fail build if any fonts are missing'
+    )
+    pdf.add_argument(
+        '--sanitize-pdfs',
+        action='store_true',
+        help='Attempt to sanitize PDFs and fallback to SVG if necessary',
+    )
     pdf.set_defaults(func=cmd_pdf)
 
     irp = sub.add_parser('ir', help='emit IR JSON')
@@ -1324,12 +1766,14 @@ def build_parser():
 
     val = sub.add_parser('validate', help='validate IR')
     val.add_argument('org')
-    val.add_argument('--strict-assets', action='store_true', help='Treat missing figure/pdf assets as errors')
+    val.add_argument(
+        '--strict-assets', action='store_true', help='Treat missing figure/pdf assets as errors'
+    )
     val.set_defaults(func=cmd_validate)
- 
+
     watch = sub.add_parser('watch', help='watch org file and rebuild on change')
     watch.add_argument('org')
-    watch.add_argument('-o','--output', default='deck.typ')
+    watch.add_argument('-o', '--output', default='deck.typ')
     watch.add_argument('--export-dir', default=DEFAULT_EXPORT_DIR)
     watch.add_argument('--interval', type=float, default=1.0)
     watch.add_argument('--pdf', action='store_true')
@@ -1337,66 +1781,94 @@ def build_parser():
     watch.add_argument('--typst-bin', default='typst')
     watch.add_argument('--no-clean', action='store_true')
     watch.add_argument('--update-html')
-    watch.add_argument('--once', action='store_true', help='Run single build then exit (for testing)')
-    watch.add_argument('--sanitize-pdfs', action='store_true', help='Attempt to sanitize PDFs and fallback to SVG if necessary')
+    watch.add_argument(
+        '--once', action='store_true', help='Run single build then exit (for testing)'
+    )
+    watch.add_argument(
+        '--sanitize-pdfs',
+        action='store_true',
+        help='Attempt to sanitize PDFs and fallback to SVG if necessary',
+    )
     watch.set_defaults(func=cmd_watch)
-    
+
     # Font management commands
     fonts = sub.add_parser('fonts', help='font discovery and management utilities')
     fonts_sub = fonts.add_subparsers(dest='fonts_command', required=True, title='font commands')
-    
+
     # fonts list-bundled
     bundled = fonts_sub.add_parser('list-bundled', help='list bundled fonts')
     bundled.add_argument('--details', action='store_true', help='show detailed file information')
     bundled.set_defaults(func=cmd_fonts_list_bundled)
-    
-    # fonts list-project  
+
+    # fonts list-project
     project = fonts_sub.add_parser('list-project', help='list project fonts in assets/fonts/')
     project.add_argument('--details', action='store_true', help='show detailed file information')
     project.set_defaults(func=cmd_fonts_list_project)
-    
+
     # fonts list-all
     all_fonts = fonts_sub.add_parser('list-all', help='list all available fonts')
     all_fonts.add_argument('--details', action='store_true', help='show detailed file information')
     all_fonts.set_defaults(func=cmd_fonts_list_all)
-    
+
     # fonts validate
     validate_font = fonts_sub.add_parser('validate', help='validate font availability')
     validate_font.add_argument('font', help='font family name to validate')
-    validate_font.add_argument('--details', action='store_true', help='show detailed file information')
+    validate_font.add_argument(
+        '--details', action='store_true', help='show detailed file information'
+    )
     validate_font.set_defaults(func=cmd_fonts_validate)
-    
+
     # fonts search
     search_font = fonts_sub.add_parser('search', help='search Google Fonts')
     search_font.add_argument('query', help='search query for font names')
-    search_font.add_argument('--limit', type=int, default=10, help='maximum number of results (default: 10)')
-    search_font.add_argument('--details', action='store_true', help='show detailed variant information')
+    search_font.add_argument(
+        '--limit', type=int, default=10, help='maximum number of results (default: 10)'
+    )
+    search_font.add_argument(
+        '--details', action='store_true', help='show detailed variant information'
+    )
     search_font.set_defaults(func=cmd_fonts_search)
-    
+
     # fonts install
     install_font = fonts_sub.add_parser('install', help='install font from Google Fonts')
     install_font.add_argument('font', help='Google Fonts family name to install')
-    install_font.add_argument('--variants', help='comma-separated list of variants (e.g., "regular,700,italic")')
-    install_font.add_argument('--force', action='store_true', help='reinstall even if font already exists')
+    install_font.add_argument(
+        '--variants', help='comma-separated list of variants (e.g., "regular,700,italic")'
+    )
+    install_font.add_argument(
+        '--force', action='store_true', help='reinstall even if font already exists'
+    )
     install_font.set_defaults(func=cmd_fonts_install)
-    
+
     # fonts cache-clear
     cache_clear = fonts_sub.add_parser('cache-clear', help='clear Google Fonts cache')
     cache_clear.set_defaults(func=cmd_fonts_cache_clear)
-    
+
     # fonts analyze
     analyze = fonts_sub.add_parser('analyze', help='analyze font usage in document')
     analyze.add_argument('org', help='org file to analyze')
     analyze.add_argument('--details', action='store_true', help='show detailed usage locations')
     analyze.set_defaults(func=cmd_fonts_analyze)
-    
-    # fonts specimen  
+
+    # fonts specimen
     specimen = fonts_sub.add_parser('specimen', help='generate font specimen/preview document')
-    specimen.add_argument('--output', '-o', default='font-specimen.org', help='output filename (default: font-specimen.org)')
-    specimen.add_argument('--type', choices=['showcase', 'comparison', 'simple'], default='showcase', help='specimen type (default: showcase)')
-    specimen.add_argument('--pdf', action='store_true', help='automatically build PDF after generating org file')
+    specimen.add_argument(
+        '--output',
+        '-o',
+        default='font-specimen.org',
+        help='output filename (default: font-specimen.org)',
+    )
+    specimen.add_argument(
+        '--type',
+        choices=['showcase', 'comparison', 'simple'],
+        default='showcase',
+        help='specimen type (default: showcase)',
+    )
+    specimen.add_argument(
+        '--pdf', action='store_true', help='automatically build PDF after generating org file'
+    )
     specimen.set_defaults(func=cmd_fonts_specimen)
- 
+
     return p
 
 
@@ -1404,6 +1876,7 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     args.func(args)
+
 
 if __name__ == '__main__':
     main()

@@ -860,6 +860,39 @@ python -m unittest discover tests -v
 
 - The suite includes an optional PDF compile test that runs `pagemaker pdf` end-to-end and compiles via Typst. It automatically skips if `typst` or the `@preview/muchpdf` package are unavailable on your system.
 
+### Code Style & Pre-commit
+
+This project uses pre-commit with Ruff for formatting and linting.
+
+Setup:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Run hooks on the entire repo:
+```bash
+pre-commit run --all-files
+```
+
+Tools:
+- Formatter: Ruff formatter (`ruff-format`)
+- Linter: Ruff check with autofix
+
+Current temporary linter ignores (to keep commits unblocked):
+- E501 (line length) — many long Typst/doc lines
+- B028, B007 — non-critical warnings
+- UP006, UP035 — typing modernization postponed
+- F841 — temporary allowance for unused variables
+
+Run Ruff manually:
+```bash
+ruff format .
+ruff check . --fix
+```
+
+We plan to remove the temporary ignores as the codebase is modernized.
+
 ### Contributing
 1. Fork the repository at https://github.com/sanderboer/typst-pagemaker
 2. Create a feature branch

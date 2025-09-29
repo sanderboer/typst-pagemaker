@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-import unittest, sys, os, subprocess, json, tempfile, pathlib
+import json
+import os
+import pathlib
+import subprocess
+import sys
+import tempfile
+import unittest
 
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
 SRC_PATH = os.path.join(PROJECT_ROOT, 'src')
+
 
 class TestCLI(unittest.TestCase):
     def setUp(self):
@@ -11,7 +18,8 @@ class TestCLI(unittest.TestCase):
 
     def _run(self, args, expect_success=True):
         cmd = [sys.executable, '-m', 'pagemaker.cli'] + args
-        env = os.environ.copy(); env['PYTHONPATH'] = SRC_PATH + os.pathsep + env.get('PYTHONPATH','')
+        env = os.environ.copy()
+        env['PYTHONPATH'] = SRC_PATH + os.pathsep + env.get('PYTHONPATH', '')
         res = subprocess.run(cmd, cwd=PROJECT_ROOT, env=env, capture_output=True, text=True)
         if expect_success and res.returncode != 0:
             self.fail(f"Command failed {cmd}\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
@@ -32,6 +40,7 @@ class TestCLI(unittest.TestCase):
     def test_validate_subcommand(self):
         res = self._run(['validate', str(self.org_basic)])
         self.assertIn('IR valid', res.stdout)
+
 
 if __name__ == '__main__':
     unittest.main()

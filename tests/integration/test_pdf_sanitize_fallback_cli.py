@@ -10,6 +10,7 @@ assets/pdf-fallbacks/<name>-p1.svg or .png, and that the fallback file exists.
 The test is skipped if neither `mutool` nor `gs` (Ghostscript) are available,
 because one of them is required to generate the fallback asset.
 """
+
 import os
 import re
 import shutil
@@ -47,21 +48,32 @@ class TestPDFSanitizeFallbackCLI(unittest.TestCase):
 
             cmd = [
                 sys.executable,
-                '-m', 'pagemaker.cli', 'pdf', str(org_path),
-                '--export-dir', td,
-                '--pdf-output', 'out.pdf',
+                '-m',
+                'pagemaker.cli',
+                'pdf',
+                str(org_path),
+                '--export-dir',
+                td,
+                '--pdf-output',
+                'out.pdf',
                 '--sanitize-pdfs',
                 '--no-clean',
-                '--typst-bin', 'typst-bogus-not-found',  # force compile failure
-                '-o', 'deck.typ',
+                '--typst-bin',
+                'typst-bogus-not-found',  # force compile failure
+                '-o',
+                'deck.typ',
             ]
             env = os.environ.copy()
             env['PYTHONPATH'] = str(SRC_PATH) + os.pathsep + env.get('PYTHONPATH', '')
-            res = subprocess.run(cmd, cwd=str(PROJECT_ROOT), env=env, capture_output=True, text=True)
+            res = subprocess.run(
+                cmd, cwd=str(PROJECT_ROOT), env=env, capture_output=True, text=True
+            )
 
             # Compile is expected to fail due to bogus typst, but the .typ should
             # still be generated on the last attempt (after fallback IR is applied).
-            self.assertNotEqual(res.returncode, 0, "Compile unexpectedly succeeded with bogus typst-bin")
+            self.assertNotEqual(
+                res.returncode, 0, "Compile unexpectedly succeeded with bogus typst-bin"
+            )
 
             typ_path = td_path / 'deck.typ'
             self.assertTrue(typ_path.exists(), "Expected typst file was not generated")
@@ -69,7 +81,10 @@ class TestPDFSanitizeFallbackCLI(unittest.TestCase):
 
             # Look for fallback asset reference in typst code
             m = re.search(r'assets/pdf-fallbacks/(test-exploded-view-p1)\.(svg|png)', typ_code)
-            self.assertIsNotNone(m, f"Expected fallback asset path not found in typst code.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
+            self.assertIsNotNone(
+                m,
+                f"Expected fallback asset path not found in typst code.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}",
+            )
 
             fallback_rel = m.group(0)  # relative path inside export dir
             fallback_abs = td_path / fallback_rel

@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-import unittest, os, sys, tempfile, pathlib
+import os
+import pathlib
+import sys
+import tempfile
+import unittest
 
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
 sys.path.insert(0, os.path.join(PROJECT_ROOT, 'src'))
 import pagemaker as pm
 
+
 class TestIgnoredOverridesWarning(unittest.TestCase):
     def test_per_page_overrides_warn(self):
-        org = ("""#+PAGESIZE: A4
+        org = """#+PAGESIZE: A4
 #+ORIENTATION: landscape
 #+GRID: 12x8
 
@@ -24,9 +29,9 @@ class TestIgnoredOverridesWarning(unittest.TestCase):
 :AREA: A1,A1
 :END:
 Hello
-""")
+"""
         with tempfile.TemporaryDirectory() as td:
-            org_path = pathlib.Path(td)/'doc.org'
+            org_path = pathlib.Path(td) / 'doc.org'
             org_path.write_text(org, encoding='utf-8')
             ir = pm.parse_org(str(org_path))
             res = pm.validate_ir(ir)
@@ -37,6 +42,7 @@ Hello
             # Should mention which keys were ignored
             self.assertIn('PAGE_SIZE', msgs)
             self.assertIn('ORIENTATION', msgs)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -74,6 +74,8 @@ ignore = [
 # Tests sometimes adjust sys.path before imports for in-repo usage
 "tests/**" = ["E402", "E501"]
 "examples/**" = ["E501"]
+# Allow concise multi-imports in __init__.py files
+"**/__init__.py" = ["I001"]
 
 [tool.ruff.format]
 # Use Ruff’s formatter

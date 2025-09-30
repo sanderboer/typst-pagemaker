@@ -41,7 +41,7 @@ class TestParagraphs(unittest.TestCase):
     def test_paragraph_style_options_and_justify_override(self):
         ir = {
             'meta': {
-                'STYLE_BODY': 'font: Manrope, justify: false, leading: 1.4em, spacing: 1em, first-line-indent: 2em, hanging-indent: 1em, linebreaks: loose',
+                'STYLE_BODY': 'font: Inter, justify: false, leading: 1.4em, spacing: 1em, first-line-indent: 2em, hanging-indent: 1em, linebreaks: loose',
             },
             'pages': [
                 {

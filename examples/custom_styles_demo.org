@@ -10,7 +10,7 @@
 #+STYLE_BODY_WHITE: font: Fauna One, size: 5mm, color: #fff, leading: 4mm, spacing: 2em
 #+STYLE_BODY: font: Fauna One, size: 5mm, color: #000, leading: 4mm, spacing:2em
 #+STYLE_TEST: font: Fauna One, size: 30pt, weight:bold, color: rgb(98%,50%,50%)
-#+STYLE_HERO: font: Manrope, weight: bold, size: 36pt, color: #123456
+#+STYLE_HERO: font: Inter, weight: bold, size: 36pt, color: #123456
 
 
 * Page 1

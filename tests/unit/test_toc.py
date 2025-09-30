@@ -72,9 +72,15 @@ Content
             ],
         }
         typst = pm.generate_typst(ir)
-        # Expect bullet marker, slide numbers, and both page titles in the TOC text
-        self.assertIn('• 1. P1', typst)
-        self.assertIn('• 2. P2', typst)
+        # Expect grid-based TOC with dot leaders, page titles, and page numbers
+        self.assertIn(
+            '#grid(columns: (auto, 1fr, auto), gutter: 4pt, [#text(font: "Inter")[P1]]', typst
+        )
+        self.assertIn(
+            '#grid(columns: (auto, 1fr, auto), gutter: 4pt, [#text(font: "Inter")[P2]]', typst
+        )
+        self.assertIn('[#text(font: "Inter")[1]])', typst)
+        self.assertIn('[#text(font: "Inter")[2]])', typst)
         # Ensure the element is placed via layer_grid
         self.assertIn('#layer_grid(gp,1,1,2,2, ', typst)
 

@@ -43,7 +43,23 @@ class TestNoNestedBracketsCLI(unittest.TestCase):
             self.assertTrue(out_typ.exists(), f"Typst was not written: {out_typ}")
             code = out_typ.read_text(encoding='utf-8')
             self.assertNotIn('[[#text', code)
-            self.assertNotIn(']]]', code)
+
+            # Check for ]]] only in page content, not in template functions
+            lines = code.split('\n')
+            in_content = False
+            content_lines = []
+            for line in lines:
+                if 'BEGIN PAGE CONTENT' in line:
+                    in_content = True
+                    continue
+                elif 'END PAGE CONTENT' in line:
+                    in_content = False
+                    continue
+                elif in_content:
+                    content_lines.append(line)
+
+            page_content = '\n'.join(content_lines)
+            self.assertNotIn(']]]', page_content)
 
 
 if __name__ == '__main__':

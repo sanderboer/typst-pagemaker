@@ -23,11 +23,11 @@ fi
 echo "✅ Debug overlay test complete!"
 echo "📄 Generated: debug_overlay.pdf ($(du -h debug_overlay.pdf | cut -f1))"
 echo "🎯 Font verification:"
-grep -c "text(font: \"Manrope\"" debug_overlay.typ | xargs echo "   - Manrope font references:"
+grep -c "text(font: \"Inter\"" debug_overlay.typ | xargs echo "   - Inter font references:"
 
 echo ""
 echo "🚀 Open debug_overlay.pdf to see:"
 echo "   - Grid debug overlay"
-echo "   - Custom Manrope typography"
+echo "   - Custom Inter typography"
 echo "   - Rectangle overlays with z-ordering"
 echo "   - Background images with text overlays"

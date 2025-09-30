@@ -6,6 +6,13 @@ PROP_BEGIN_RE = re.compile(r'^:PROPERTIES:', re.I)
 PROP_END_RE = re.compile(r'^:END:', re.I)
 LINK_IMG_RE = re.compile(r'^\[\[file:(?P<path>[^\]]+)\]\]')
 
+# List parsing regexes
+UL_RE = re.compile(r'^(\s*)[-+*]\s+(.*)$')
+OL_RE = re.compile(r'^(\s*)(\d+)[.)]\s+(.*)$')
+OL_ALPHA_RE = re.compile(r'^(\s*)([a-zA-Z]+)[.)]\s+(.*)$')
+CHECKBOX_RE = re.compile(r'^\[([ Xx-])\]\s*(.*)')
+DESC_RE = re.compile(r'^(\s*)(.+?)\s*::\s*(.*)$')
+
 PAGE_SIZES_MM = {
     'A4': (210, 297),
     'A3': (297, 420),
@@ -60,6 +67,15 @@ def parse_padding(val: Optional[str]) -> Optional[Dict[str, float]]:
     return {'top': float(t), 'right': float(r), 'bottom': float(b), 'left': float(left)}
 
 
+def parse_margin(val: Optional[str]) -> Optional[Dict[str, float]]:
+    """Parse CSS-like margin shorthand into a dict {top,right,bottom,left} in mm.
+    Accepts comma and/or whitespace separated numbers (no unit suffix expected).
+    Returns None if invalid.
+    """
+    # Reuse the same logic as padding
+    return parse_padding(val)
+
+
 def parse_bool(val: Optional[str]) -> Optional[bool]:
     if val is None:
         return None
@@ -97,6 +113,420 @@ def parse_flow(val: Optional[str]) -> Optional[str]:
     if s in ("normal", "bottom-up", "center-out"):
         return s
     return None
+
+
+def _get_list_indent(line: str) -> int:
+    """Get indentation level in spaces for list items."""
+    return len(line) - len(line.lstrip())
+
+
+def _parse_checkbox(text: str) -> tuple[Optional[str], str]:
+    """Parse checkbox from start of text. Returns (checkbox_state, remaining_text)."""
+    m = CHECKBOX_RE.match(text)
+    if not m:
+        return None, text
+
+    checkbox_char = m.group(1)
+    remaining = m.group(2)
+
+    if checkbox_char in [' ', '']:
+        return 'unchecked', remaining
+    elif checkbox_char.lower() == 'x':
+        return 'checked', remaining
+    elif checkbox_char == '-':
+        return 'partial', remaining
+    else:
+        return 'unchecked', remaining
+
+
+def _parse_ordered_marker(marker: str) -> tuple[int, str]:
+    """Parse ordered list marker. Returns (number, style)."""
+    if marker.isdigit():
+        return int(marker), '1'
+
+    # Handle alphabetic markers
+    marker_lower = marker.lower()
+    if marker_lower.isalpha():
+        if len(marker) == 1:
+            if marker.islower():
+                # a, b, c... -> 1, 2, 3...
+                return ord(marker_lower) - ord('a') + 1, 'a'
+            else:
+                # A, B, C... -> 1, 2, 3...
+                return ord(marker_lower) - ord('a') + 1, 'A'
+
+    # Fallback to numeric
+    return 1, '1'
+
+
+def _parse_content_blocks(lines: List[str]) -> List[Dict]:
+    """Parse content lines into text blocks (plain text and lists)."""
+    if not lines:
+        return []
+
+    blocks = []
+    i = 0
+
+    while i < len(lines):
+        # Try to parse a list starting at current position
+        list_block, consumed = _try_parse_list(lines, i)
+        if list_block:
+            blocks.append(list_block)
+            i += consumed
+            continue
+
+        # If we identified a list line but couldn't parse it, treat as plain text
+        line = lines[i]
+        if _is_list_line(line):
+            # Failed to parse list - treat this line as plain text and advance
+            blocks.append({'kind': 'plain', 'content': line.strip()})
+            i += 1
+            continue
+
+        # Collect non-list lines into plain text
+        plain_lines = []
+        while i < len(lines):
+            line = lines[i]
+            if _is_list_line(line):
+                break
+            plain_lines.append(line)
+            i += 1
+
+        if plain_lines:
+            content = '\n'.join(plain_lines).strip()
+            if content:
+                blocks.append({'kind': 'plain', 'content': content})
+
+    return blocks
+
+
+def _is_list_line(line: str) -> bool:
+    """Check if line starts a list item."""
+    stripped = line.strip()
+    if not stripped:
+        return False
+
+    return (
+        UL_RE.match(line) is not None
+        or OL_RE.match(line) is not None
+        or OL_ALPHA_RE.match(line) is not None
+        or DESC_RE.match(line) is not None
+    )
+
+
+def _try_parse_list(lines: List[str], start_idx: int) -> tuple[Optional[Dict], int]:
+    """Try to parse a list starting at start_idx. Returns (list_block, lines_consumed)."""
+    if start_idx >= len(lines):
+        return None, 0
+
+    first_line = lines[start_idx]
+    if not _is_list_line(first_line):
+        return None, 0
+
+    # Determine list type from first line
+    if UL_RE.match(first_line):
+        return _parse_unordered_list(lines, start_idx)
+    elif OL_RE.match(first_line) or OL_ALPHA_RE.match(first_line):
+        return _parse_ordered_list(lines, start_idx)
+    elif DESC_RE.match(first_line):
+        return _parse_description_list(lines, start_idx)
+
+    return None, 0
+
+
+def _parse_unordered_list(lines: List[str], start_idx: int) -> tuple[Optional[Dict], int]:
+    """Parse unordered list starting at start_idx."""
+    items = []
+    consumed = 0
+    tight = True
+    base_indent = None
+
+    i = start_idx
+    while i < len(lines):
+        line = lines[i]
+
+        # Check for blank line
+        if not line.strip():
+            tight = False
+            i += 1
+            consumed += 1
+            continue
+
+        # Check if this is a list item at our level
+        ul_match = UL_RE.match(line)
+        if ul_match:
+            indent = len(ul_match.group(1))
+            if base_indent is None:
+                base_indent = indent
+            elif indent < base_indent:
+                # Less indented - end of this list
+                break
+
+            if indent == base_indent:
+                # Same level item
+                text = ul_match.group(2)
+                checkbox, clean_text = _parse_checkbox(text)
+
+                # Collect item content and any nested lists
+                item_lines = [clean_text] if clean_text.strip() else []
+                item_consumed = 1
+
+                # Look ahead for continuation lines and nested content
+                j = i + 1
+                while j < len(lines):
+                    next_line = lines[j]
+                    if not next_line.strip():
+                        item_lines.append('')
+                        j += 1
+                        item_consumed += 1
+                        continue
+
+                    next_indent = _get_list_indent(next_line)
+                    if next_indent > base_indent:
+                        # Nested content - could be text or nested list
+                        if _is_list_line(next_line):
+                            # Nested list - we'll parse it later
+                            break
+                        else:
+                            # Continuation text
+                            item_lines.append(
+                                next_line[base_indent + 2 :]
+                            )  # Remove base indent + marker space
+                            j += 1
+                            item_consumed += 1
+                    else:
+                        # Same or less indent - end of this item
+                        break
+
+                # Create item
+                item_text = '\n'.join(item_lines).strip()
+                item = {'text': item_text}
+                if checkbox:
+                    item['checkbox'] = checkbox
+
+                # TODO: Parse nested lists (will implement in next iteration)
+                items.append(item)
+
+                i += item_consumed
+                consumed += item_consumed
+                continue
+            else:
+                # More indented - this is nested, end current list
+                break
+
+        # Not a list item at our level - end list
+        break
+
+    if not items:
+        return None, 0
+    return {'kind': 'list', 'type': 'ul', 'items': items, 'tight': tight}, consumed
+
+
+def _parse_ordered_list(lines: List[str], start_idx: int) -> tuple[Optional[Dict], int]:
+    """Parse ordered list starting at start_idx."""
+    items = []
+    consumed = 0
+    tight = True
+    base_indent = None
+    start_num = 1
+    style = '1'
+
+    i = start_idx
+    while i < len(lines):
+        line = lines[i]
+
+        # Check for blank line
+        if not line.strip():
+            tight = False
+            i += 1
+            consumed += 1
+            continue
+
+        # Check numeric ordered list
+        ol_match = OL_RE.match(line)
+        ol_alpha_match = OL_ALPHA_RE.match(line) if not ol_match else None
+
+        if ol_match:
+            indent = len(ol_match.group(1))
+            marker = ol_match.group(2)
+            text = ol_match.group(3)
+
+            if base_indent is None:
+                base_indent = indent
+                start_num = int(marker)
+                style = '1'
+            elif indent < base_indent:
+                # Less indented - end of this list
+                break
+
+            if indent == base_indent:
+                # Same level item
+                checkbox, clean_text = _parse_checkbox(text)
+
+                # Collect item content (similar to unordered)
+                item_lines = [clean_text] if clean_text.strip() else []
+                item_consumed = 1
+
+                # Look ahead for continuation lines
+                j = i + 1
+                while j < len(lines):
+                    next_line = lines[j]
+                    if not next_line.strip():
+                        item_lines.append('')
+                        j += 1
+                        item_consumed += 1
+                        continue
+
+                    next_indent = _get_list_indent(next_line)
+                    if next_indent > base_indent:
+                        if _is_list_line(next_line):
+                            break
+                        else:
+                            item_lines.append(
+                                next_line[base_indent + len(marker) + 2 :]
+                            )  # Remove indent + marker + space
+                            j += 1
+                            item_consumed += 1
+                    else:
+                        break
+
+                # Create item
+                item_text = '\n'.join(item_lines).strip()
+                item = {'text': item_text}
+                if checkbox:
+                    item['checkbox'] = checkbox
+
+                items.append(item)
+
+                i += item_consumed
+                consumed += item_consumed
+                continue
+            else:
+                # More indented - this is nested, end current list
+                break
+
+        elif ol_alpha_match:
+            indent = len(ol_alpha_match.group(1))
+            marker = ol_alpha_match.group(2)
+            text = ol_alpha_match.group(3)
+
+            if base_indent is None:
+                base_indent = indent
+                start_num, style = _parse_ordered_marker(marker)
+            elif indent < base_indent:
+                # Less indented - end of this list
+                break
+
+            if indent == base_indent:
+                # Same level item
+                checkbox, clean_text = _parse_checkbox(text)
+
+                # Collect item content (similar to unordered)
+                item_lines = [clean_text] if clean_text.strip() else []
+                item_consumed = 1
+
+                # Look ahead for continuation lines
+                j = i + 1
+                while j < len(lines):
+                    next_line = lines[j]
+                    if not next_line.strip():
+                        item_lines.append('')
+                        j += 1
+                        item_consumed += 1
+                        continue
+
+                    next_indent = _get_list_indent(next_line)
+                    if next_indent > base_indent:
+                        if _is_list_line(next_line):
+                            break
+                        else:
+                            item_lines.append(
+                                next_line[base_indent + len(marker) + 2 :]
+                            )  # Remove indent + marker + space
+                            j += 1
+                            item_consumed += 1
+                    else:
+                        break
+
+                # Create item
+                item_text = '\n'.join(item_lines).strip()
+                item = {'text': item_text}
+                if checkbox:
+                    item['checkbox'] = checkbox
+
+                items.append(item)
+
+                i += item_consumed
+                consumed += item_consumed
+                continue
+            else:
+                # More indented - this is nested, end current list
+                break
+
+        # Not a list item at our level - end list
+        break
+
+    if not items:
+        return None, 0
+    return {
+        'kind': 'list',
+        'type': 'ol',
+        'items': items,
+        'tight': tight,
+        'start': start_num,
+        'style': style,
+    }, consumed
+
+
+def _parse_description_list(lines: List[str], start_idx: int) -> tuple[Optional[Dict], int]:
+    """Parse description list starting at start_idx."""
+    items = []
+    consumed = 0
+    tight = True
+    base_indent = None
+
+    i = start_idx
+    while i < len(lines):
+        line = lines[i]
+
+        # Check for blank line
+        if not line.strip():
+            tight = False
+            i += 1
+            consumed += 1
+            continue
+
+        # Check for description list item
+        desc_match = DESC_RE.match(line)
+        if desc_match:
+            indent = len(desc_match.group(1))
+            if base_indent is None:
+                base_indent = indent
+            elif indent < base_indent:
+                break
+
+            if indent == base_indent:
+                term = desc_match.group(2).strip()
+                desc = desc_match.group(3).strip()
+
+                # For now, simple term/desc - no multiline support yet
+                items.append({'term': term, 'desc': desc})
+
+                i += 1
+                consumed += 1
+                continue
+            else:
+                # indent > base_indent: more indented than expected, skip this line
+                i += 1
+                consumed += 1
+                continue
+
+        # Not a description item at our level
+        break
+
+    if not items:
+        return None, 0
+    return {'kind': 'list', 'type': 'dl', 'items': items, 'tight': tight}, consumed
 
 
 class OrgElement:
@@ -144,16 +574,17 @@ class OrgElement:
         text_blocks = []
         style = None
         padding_mm = None
+        margin_mm = None
         justify = None
         align = None
         valign = None
         flow = None
         if self.type in ('header', 'subheader', 'body'):
-            content = '\n'.join(self.content_lines).strip()
-            if content:
-                text_blocks.append({'kind': 'plain', 'content': content})
+            # Parse content into mixed text blocks (plain text and lists)
+            text_blocks = _parse_content_blocks(self.content_lines)
             style = self.props.get('STYLE')
             padding_mm = parse_padding(self.props.get('PADDING'))
+            margin_mm = parse_margin(self.props.get('MARGIN'))
             if 'JUSTIFY' in self.props:
                 jval = self.props.get('JUSTIFY')
                 jparsed = parse_bool(jval)
@@ -163,10 +594,12 @@ class OrgElement:
             align = parse_align(self.props.get('ALIGN'))
             valign = parse_valign(self.props.get('VALIGN'))
             flow = parse_flow(self.props.get('FLOW'))
-        # Allow padding and alignment for figures/svg/pdf/toc too (alignment currently only used for text/toc)
+        # Allow padding, margin and alignment for figures/svg/pdf/toc too (alignment currently only used for text/toc)
         if self.type in ('figure', 'svg', 'pdf', 'toc'):
             if padding_mm is None:
                 padding_mm = parse_padding(self.props.get('PADDING'))
+            if margin_mm is None:
+                margin_mm = parse_margin(self.props.get('MARGIN'))
             if align is None:
                 align = parse_align(self.props.get('ALIGN'))
         return {
@@ -188,6 +621,7 @@ class OrgElement:
             'valign': valign,
             'flow': flow,
             'padding_mm': padding_mm,
+            'margin_mm': margin_mm,
         }
 
 
@@ -244,6 +678,7 @@ class OrgPage:
             'ignored_overrides': [
                 k for k in ('PAGE_SIZE', 'PAGESIZE', 'ORIENTATION') if k in self.props
             ],
+            'props': self.props,
             'elements': [e.to_ir() for e in self.elements],
         }
 
@@ -403,7 +838,7 @@ def parse_org(path):
                         prop_buf[key] = val
             continue
         if current_element is not None:
-            content_buf.append(line_stripped)
+            content_buf.append(line)
     close_element()
 
     ir = {'meta': meta, 'pages': [p.to_ir(meta_defaults(meta)) for p in pages]}

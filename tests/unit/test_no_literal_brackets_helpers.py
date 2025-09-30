@@ -58,15 +58,31 @@ class TestNoLiteralBracketsAroundHelpers(unittest.TestCase):
         }
         typst = pm.generate_typst(ir)
         # Core text emitters should be single-layer: #text(...)[...]
-        self.assertIn('#text(font: "Manrope")[Today is #date_yy_mm_dd]', typst)
-        self.assertIn('#text(font: "Manrope", weight: "bold", size: 24pt)[#date_iso]', typst)
+        self.assertIn('#text(font: "Inter")[Today is #date_yy_mm_dd]', typst)
+        self.assertIn('#text(font: "Inter", weight: "bold", size: 24pt)[#date_iso]', typst)
         self.assertIn(
-            '#text(font: "Manrope", weight: "semibold", size: 18pt)[Page #page_no / #page_total]',
+            '#text(font: "Inter", weight: "semibold", size: 18pt)[Page #page_no / #page_total]',
             typst,
         )
         # No nested literal content blocks like [[#text(...)[...]]]
         self.assertNotIn('[[#text', typst)
-        self.assertNotIn(']]]', typst)
+
+        # Check for ]]] only in page content, not in template functions
+        lines = typst.split('\n')
+        in_content = False
+        content_lines = []
+        for line in lines:
+            if 'BEGIN PAGE CONTENT' in line:
+                in_content = True
+                continue
+            elif 'END PAGE CONTENT' in line:
+                in_content = False
+                continue
+            elif in_content:
+                content_lines.append(line)
+
+        page_content = '\n'.join(content_lines)
+        self.assertNotIn(']]]', page_content)
 
 
 if __name__ == '__main__':

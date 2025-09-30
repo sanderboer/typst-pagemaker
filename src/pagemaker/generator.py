@@ -7,8 +7,8 @@ import warnings
 
 TYPOGRAPHY = {
     'light': {
-        'font_header': 'Manrope',
-        'font_body': 'Manrope',
+        'font_header': 'Inter',
+        'font_body': 'Inter',
         'size_header': '2.6em',
         'size_subheader': '1.6em',
         'size_body': '1.0em',
@@ -28,6 +28,20 @@ VALID_WEIGHTS = {
     'extrabold',
     'black',
 }
+
+
+def parse_bool(val):
+    """Parse a boolean value from string."""
+    if val is None:
+        return None
+    s = str(val).strip().lower()
+    if s in ("1", "true", "yes", "y", "on"):
+        return True
+    if s in ("0", "false", "no", "n", "off"):
+        return False
+    return None
+
+
 VALID_NUMERIC_WEIGHTS = {str(i) for i in range(100, 1001, 100)}  # 100, 200, ..., 900
 
 # Style property mappings for efficient lookup
@@ -54,7 +68,7 @@ TYPST_HEADER = """// Auto-generated Typst file
 
 
 def _parse_style_decl(s: str) -> dict:
-    """Parse a style declaration string like 'font: Manrope, weight: bold, size: 24pt, color: #333'.
+    """Parse a style declaration string like 'font: Inter, weight: bold, size: 24pt, color: #333'.
     Returns dict with optional keys: font, weight, size, color (strings as provided, trimmed).
     Accepts separators comma/semicolon, and key separators ':' or '='. Keys are case-insensitive.
     Aliases: font-family->font, font-weight->weight, font-size->size, fill->color.
@@ -152,18 +166,18 @@ def _parse_style_decl(s: str) -> dict:
 def _build_styles(meta: dict) -> dict:
     """Build style map from meta keys. Keys look like 'STYLE_NAME'. Case-insensitive.
     Defaults:
-      - header: Manrope bold 24pt
-      - subheader: Manrope semibold 18pt
-      - body: Manrope (no size/weight by default)
+      - header: Inter bold 24pt
+      - subheader: Inter semibold 18pt
+      - body: Inter (no size/weight by default)
     User can override by defining #+STYLE_HEADER:, #+STYLE_SUBHEADER:, #+STYLE_BODY: etc.
     Additional styles can be declared with any other suffix, e.g. #+STYLE_HERO: ...
 
     A global #+FONT: directive will override the default font for all styles unless explicitly overridden.
     """
     styles = {
-        'header': {'font': 'Manrope', 'weight': 'bold', 'size': '24pt'},
-        'subheader': {'font': 'Manrope', 'weight': 'semibold', 'size': '18pt'},
-        'body': {'font': 'Manrope'},
+        'header': {'font': 'Inter', 'weight': 'bold', 'size': '24pt'},
+        'subheader': {'font': 'Inter', 'weight': 'semibold', 'size': '18pt'},
+        'body': {'font': 'Inter'},
     }
 
     # Check for global FONT directive and apply it to all default styles
@@ -295,12 +309,253 @@ def _par_args(style: dict, justify_override: object) -> str:
     return ', '.join(parts)
 
 
+def _render_text_blocks(text_blocks: list, el: dict, styles: dict) -> str:
+    """Render a list of text blocks (plain text and lists) to Typst fragments."""
+    result_parts = []
+
+    # Get element style information
+    style_name = el.get('style') or el.get('type') or 'body'
+    style = styles.get(str(style_name).strip().lower(), styles.get(el.get('type'), styles['body']))
+    text_args = _style_args(style)
+    par_args = _par_args(style, el.get('justify'))
+
+    for block in text_blocks:
+        if block['kind'] == 'plain':
+            # Handle plain text blocks
+            content = block['content']
+            if content.strip():
+                # Check if content contains Typst directives or code blocks
+                fragments = _process_mixed_content(content)
+                has_mixed_content = any(f['type'] in ('typst', 'codeblock') for f in fragments)
+
+                if has_mixed_content:
+                    # Process mixed content
+                    for fragment in fragments:
+                        if fragment['type'] == 'typst':
+                            result_parts.append(fragment['content'])
+                        elif fragment['type'] == 'codeblock':
+                            code_content = fragment['content']
+                            lang = fragment['lang']
+                            escaped_code = (
+                                code_content.replace('\\', '\\\\')
+                                .replace('"', '\\"')
+                                .replace('\n', '\\n')
+                            )
+                            if lang and lang != 'text':
+                                result_parts.append(
+                                    f'#raw("{escaped_code}", lang: "{lang}", block: true)'
+                                )
+                            else:
+                                result_parts.append(f'#raw("{escaped_code}", block: true)')
+                        elif fragment['type'] == 'text' and fragment['content'].strip():
+                            text_content = fragment['content']
+                            paras = _split_paragraphs(text_content)
+                            if paras:
+                                # Optimization: for single paragraphs without par args, skip #par() wrapper
+                                if len(paras) == 1 and not par_args:
+                                    txt = escape_text(paras[0])
+                                    text_call = (
+                                        f"#text({text_args})[{txt}]"
+                                        if text_args
+                                        else f"#text[{txt}]"
+                                    )
+                                    result_parts.append(text_call)
+                                else:
+                                    text_pieces = []
+                                    for p in paras:
+                                        txt = escape_text(p)
+                                        text_call = (
+                                            f"#text({text_args})[{txt}]"
+                                            if text_args
+                                            else f"#text[{txt}]"
+                                        )
+                                        if par_args:
+                                            text_pieces.append(f"#par({par_args})[{text_call}]")
+                                        else:
+                                            text_pieces.append(f"#par()[{text_call}]")
+                                    result_parts.append("\n".join(text_pieces))
+                else:
+                    # Process as plain text
+                    paras = _split_paragraphs(content)
+                    if paras:
+                        # Optimization: for single paragraphs without par args, skip #par() wrapper
+                        if len(paras) == 1 and not par_args:
+                            txt = escape_text(paras[0])
+                            text_call = (
+                                f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
+                            )
+                            result_parts.append(text_call)
+                        else:
+                            text_pieces = []
+                            for p in paras:
+                                txt = escape_text(p)
+                                text_call = (
+                                    f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
+                                )
+                                if par_args:
+                                    text_pieces.append(f"#par({par_args})[{text_call}]")
+                                else:
+                                    text_pieces.append(f"#par()[{text_call}]")
+                            result_parts.append("\n".join(text_pieces))
+
+        elif block['kind'] == 'list':
+            # Handle list blocks
+            list_typst = _render_list_block(block, text_args, par_args)
+            if list_typst:
+                result_parts.append(list_typst)
+
+    return "\n".join(result_parts)
+
+
+def _render_list_block(list_block: dict, text_args: str, par_args: str) -> str:
+    """Render a list block to Typst using hanging indent approach."""
+    list_type = list_block['type']  # 'ul', 'ol', 'dl'
+    items = list_block['items']
+    tight = list_block.get('tight', True)
+
+    if not items:
+        return ""
+
+    result_parts = []
+
+    if list_type == 'ul':
+        # Unordered list with bullet points
+        for item in items:
+            text = item.get('text', '').strip()
+            checkbox = item.get('checkbox')
+
+            if checkbox:
+                # Render checkbox
+                if checkbox == 'checked':
+                    marker = "[x] "
+                elif checkbox == 'partial':
+                    marker = "[-] "
+                else:
+                    marker = "[ ] "
+            else:
+                marker = "• "  # Unicode bullet
+
+            if text:
+                # Use hanging indent to align wrapped lines with the text start
+                txt = escape_text(text)
+                text_call = f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
+
+                # Create hanging indent for list items
+                hanging_args = 'hanging-indent: 1.2em'
+                if par_args:
+                    combined_args = f'{par_args}, {hanging_args}'
+                else:
+                    combined_args = hanging_args
+
+                marker_txt = escape_text(marker)
+                marker_call = (
+                    f"#text({text_args})[{marker_txt}]" if text_args else f"#text[{marker_txt}]"
+                )
+
+                # Combine marker and text
+                combined_content = f"{marker_call}{text_call}"
+                list_item = f"#par({combined_args})[{combined_content}]"
+                result_parts.append(list_item)
+
+    elif list_type == 'ol':
+        # Ordered list with numbers
+        start = list_block.get('start', 1)
+        style = list_block.get('style', '1')
+
+        for i, item in enumerate(items):
+            text = item.get('text', '').strip()
+            checkbox = item.get('checkbox')
+
+            # Generate marker based on style
+            if style == '1':
+                marker = f"{start + i}. "
+            elif style == 'a':
+                marker = f"{chr(ord('a') + i)}. "
+            elif style == 'A':
+                marker = f"{chr(ord('A') + i)}. "
+            else:
+                marker = f"{start + i}. "
+
+            if checkbox:
+                # Append checkbox after number
+                if checkbox == 'checked':
+                    marker += "[x] "
+                elif checkbox == 'partial':
+                    marker += "[-] "
+                else:
+                    marker += "[ ] "
+
+            if text:
+                txt = escape_text(text)
+                text_call = f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
+
+                # Create hanging indent for list items
+                hanging_args = 'hanging-indent: 1.5em'
+                if par_args:
+                    combined_args = f'{par_args}, {hanging_args}'
+                else:
+                    combined_args = hanging_args
+
+                marker_txt = escape_text(marker)
+                marker_call = (
+                    f"#text({text_args})[{marker_txt}]" if text_args else f"#text[{marker_txt}]"
+                )
+
+                # Combine marker and text
+                combined_content = f"{marker_call}{text_call}"
+                list_item = f"#par({combined_args})[{combined_content}]"
+                result_parts.append(list_item)
+
+    elif list_type == 'dl':
+        # Description list
+        for item in items:
+            term = item.get('term', '').strip()
+            desc = item.get('desc', '').strip()
+
+            if term:
+                # Render term in bold using #strong to avoid weight conflicts
+                term_txt = escape_text(term, styled_wrapper=True)
+                bold_term = f"#strong[{term_txt}]"
+                term_call = (
+                    f"#text({text_args})[{bold_term}]" if text_args else f"#text[{bold_term}]"
+                )
+                term_par = f"#par({par_args})[{term_call}]" if par_args else f"#par()[{term_call}]"
+                result_parts.append(term_par)
+
+            if desc:
+                # Render description with slight indent
+                desc_txt = escape_text(desc, styled_wrapper=bool(text_args))
+                desc_call = f"#text({text_args})[{desc_txt}]" if text_args else f"#text[{desc_txt}]"
+
+                # Add left indent for description
+                desc_args = 'hanging-indent: 1em'
+                if par_args:
+                    combined_args = f'{par_args}, {desc_args}'
+                else:
+                    combined_args = desc_args
+
+                desc_par = f"#par({combined_args})[{desc_call}]"
+                result_parts.append(desc_par)
+
+    # Add spacing between list and following content if not tight
+    if not tight and result_parts:
+        result_parts.append("")  # Add blank line
+
+    return "\n".join(result_parts)
+
+
 def _render_text_element(el: dict, styles: dict) -> str:
     """Render a header/subheader/body element to a Typst fragment string.
     Handles styles, paragraph splitting, par(...) args, and justify override.
     Paragraphs are joined with newlines; no stray '+' between paragraphs.
-    Now also handles mixed content with Typst directives and code blocks.
+    Now also handles mixed content with Typst directives, code blocks, and lists.
     """
+    # Handle mixed content blocks (text, lists, etc.)
+    text_blocks = el.get('text_blocks', [])
+    if text_blocks:
+        return _render_text_blocks(text_blocks, el, styles)
+
+    # Fallback to legacy text processing
     raw = el_text(el)
 
     # Check if content contains Typst directives or code blocks
@@ -343,7 +598,7 @@ def _render_text_element(el: dict, styles: dict) -> str:
 
                     text_pieces = []
                     for p in paras:
-                        txt = escape_text(p)
+                        txt = escape_text(p, styled_wrapper=bool(text_args))
                         text_call = f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
                         if par_args:
                             text_pieces.append(f"#par({par_args})[{text_call}]")
@@ -359,13 +614,13 @@ def _render_text_element(el: dict, styles: dict) -> str:
     text_args = _style_args(style)
     par_args = _par_args(style, el.get('justify'))
     if len(paras) <= 1 and not par_args:
-        txt = escape_text(raw)
+        txt = escape_text(raw, styled_wrapper=bool(text_args))
         return f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
     if not paras:
         paras = [""]
     pieces = []
     for p in paras:
-        txt = escape_text(p)
+        txt = escape_text(p, styled_wrapper=bool(text_args))
         text_call = f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
         if par_args:
             pieces.append(f"#par({par_args})[{text_call}]")
@@ -444,7 +699,7 @@ def generate_typst(ir):
     out.append("#let page_no = context counter(page).display()\n")
     out.append("#let page_total = context counter(page).final().at(0)\n")
     out.append(
-        "#let Fig(img, caption: none) = if caption == none { \n  block(width: 100%, height: 100%, clip: true)[#img] \n} else { \n  block(width: 100%, height: 100%)[\n    #block(height: 85%, clip: true)[#img] \n    #block(height: 15%)[#text(size: 0.75em, fill: rgb(60%,60%,60%))[caption]] \n  ] \n}\n"
+        "#let Fig(img, caption: none, caption_align: left, img_align: left) = if caption == none { \n  block(width: 100%, height: 100%)[#align(img_align)[#img]] \n} else { \n  block(width: 100%, height: 100%)[\n    #block(height: 85%)[#align(img_align)[#img]] \n    #block(height: 15%)[#align(caption_align)[#text(size: 0.75em, fill: rgb(60%,60%,60%), font: theme.font_body)[#caption]]] \n  ] \n}\n"
     )
     out.append(
         "#let ColorRect(color, alpha) = {\n  block(width: 100%, height: 100%, fill: rgb(color).transparentize(100% - alpha * 100%))[]\n}\n"
@@ -527,6 +782,24 @@ def generate_typst(ir):
   if frame_h < 0mm { frame_h = 0mm }
   place(dx: dx, dy: dy, block(width: frame_w, height: frame_h, body))
 }
+#let layer_grid_margin(gp, x, y, w, h, margin_top, margin_right, margin_bottom, margin_left, body) = {
+  let dx = sum_cols(1, x - 1, gp) + margin_left
+  let dy = sum_rows(1, y - 1, gp) + margin_top
+  let frame_w = sum_cols(x, w, gp) - margin_left - margin_right
+  let frame_h = sum_rows(y, h, gp) - margin_top - margin_bottom
+  if frame_w < 0mm { frame_w = 0mm }
+  if frame_h < 0mm { frame_h = 0mm }
+  place(dx: dx, dy: dy, block(width: frame_w, height: frame_h, body))
+}
+#let layer_grid_margin_padded(gp, x, y, w, h, margin_top, margin_right, margin_bottom, margin_left, pad_top, pad_right, pad_bottom, pad_left, body) = {
+  let dx = sum_cols(1, x - 1, gp) + margin_left + pad_left
+  let dy = sum_rows(1, y - 1, gp) + margin_top + pad_top
+  let frame_w = sum_cols(x, w, gp) - margin_left - margin_right - pad_left - pad_right
+  let frame_h = sum_rows(y, h, gp) - margin_top - margin_bottom - pad_top - pad_bottom
+  if frame_w < 0mm { frame_w = 0mm }
+  if frame_h < 0mm { frame_h = 0mm }
+  place(dx: dx, dy: dy, block(width: frame_w, height: frame_h, body))
+}
 #let draw_total_grid(gp) = {
   let tot_cols = gp.lc + gp.cc + gp.rc
   let tot_rows = gp.lr + gp.cr + gp.br
@@ -576,7 +849,7 @@ def generate_typst(ir):
         right_mm = float((margins_mm or {}).get('right', 0.0))
         bottom_mm = float((margins_mm or {}).get('bottom', 0.0))
         left_mm = float((margins_mm or {}).get('left', 0.0))
-        out.append(f"// Page {page_index+1}: {page['title']}\n")
+        out.append(f"// Page {page_index + 1}: {page['title']}\n")
         # Per-page page size not supported in Typst; set once at document top.
         if margins_declared:
             # Compute content cell sizes using page minus absolute margins
@@ -636,6 +909,7 @@ def generate_typst(ir):
                 src = el['figure']['src']
                 cap = el['figure'].get('caption')
                 fit = el['figure'].get('fit', 'contain')
+                align = el.get('align') or 'left'
                 fit_map = {
                     'fill': 'cover',
                     'contain': 'contain',
@@ -643,14 +917,20 @@ def generate_typst(ir):
                     'stretch': 'stretch',
                 }
                 fit_val = fit_map.get(str(fit).lower(), str(fit))
+                # For contain fit with alignment, use different approach
+                if fit_val == "contain" and align != "center":
+                    img_call = f"image(\"{src}\")"
+                else:
+                    img_call = f"image(\"{src}\", width: 100%, height: 100%, fit: \"{fit_val}\")"
+
                 if cap:
                     cap_e = escape_text(cap)
                     content_fragments.append(
-                        f"Fig(image(\"{src}\", width: 100%, height: 100%, fit: \"{fit_val}\"), caption: \"{cap_e}\")"
+                        f"Fig({img_call}, caption: [{cap_e}], caption_align: {align}, img_align: {align})"
                     )
                 else:
                     content_fragments.append(
-                        f"Fig(image(\"{src}\", width: 100%, height: 100%, fit: \"{fit_val}\"))"
+                        f"Fig({img_call}, caption_align: {align}, img_align: {align})"
                     )
             elif el['type'] == 'svg' and el.get('svg'):
                 svg = el['svg']
@@ -671,13 +951,24 @@ def generate_typst(ir):
                 else:
                     content_fragments.append(f"PdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale})")
             elif el['type'] == 'toc':
-                # TOC with slide numbers
-                bullets = []
-                for idx, rp in enumerate(render_pages, start=1):
+                # TOC with page numbers and dot leaders
+                toc_entries = []
+                page_counter = 1
+                for rp in render_pages:
+                    # Skip pages marked with TOC_IGNORE
+                    if parse_bool(rp.get('props', {}).get('TOC_IGNORE')):
+                        page_counter += 1
+                        continue
                     title = escape_text(rp.get('title', ''))
-                    bullets.append(f"• {idx}. {title}")
-                toc_text = "\\n".join(bullets)
-                content_fragments.append(f"[#text(font: \"Manrope\")[{toc_text}]]")
+                    toc_entries.append(
+                        f"#grid(columns: (auto, 1fr, auto), gutter: 4pt, [#text(font: \"Inter\")[{title}]], [#align(center)[#text(font: \"Inter\")[#repeat[.]]]], [#text(font: \"Inter\")[{page_counter}]])"
+                    )
+                    page_counter += 1
+                if toc_entries:
+                    toc_content = "\n".join(toc_entries)
+                    content_fragments.append(f"[{toc_content}]")
+                else:
+                    content_fragments.append("[#text(font: \"Inter\")[No pages to display]]")
             frag = ' + '.join(content_fragments) if content_fragments else '""'
             # Apply ALIGN/VALIGN wrappers if present
             wrapped = frag
@@ -712,13 +1003,25 @@ def generate_typst(ir):
                 s = str(inner).strip()
                 if not (s.startswith('[') or s.startswith('#')):
                     inner = f"#{inner}"
-                wrapped = f"align({ ' + '.join(align_terms) })[{inner}]"
+                wrapped = f"align({' + '.join(align_terms)})[{inner}]"
             out.append(f"// Element {el['id']} ({el['type']})\n")
             # Emit flow hint comment when provided
             if flow:
                 out.append(f"// FLOW: {flow}\n")
-            # Place elements with padding when specified (text, figure, svg, pdf, toc)
+            # Handle margins and padding
             pad = el.get('padding_mm') if isinstance(el, dict) else None
+            margin = el.get('margin_mm') if isinstance(el, dict) else None
+
+            # Apply margins by adjusting positioning
+            if isinstance(margin, dict):
+                margin_t = float(margin.get('top', 0.0))
+                margin_r = float(margin.get('right', 0.0))
+                margin_b = float(margin.get('bottom', 0.0))
+                margin_l = float(margin.get('left', 0.0))
+            else:
+                margin_t = margin_r = margin_b = margin_l = 0.0
+
+            # Place elements with padding when specified (text, figure, svg, pdf, toc)
             if el.get('type') in (
                 'header',
                 'subheader',
@@ -734,18 +1037,43 @@ def generate_typst(ir):
                 left = float(pad.get('left', 0.0))
                 arg = wrapped
                 sarg = str(arg).lstrip()
-                if sarg.startswith('#'):
+                # Wrap all content expressions in brackets, except standalone function calls like Fig(...) or ColorRect(...)
+                if not (
+                    sarg
+                    and not sarg.startswith('#')
+                    and '(' in sarg
+                    and sarg.count('(') == sarg.count(')')
+                ):
                     arg = f"[{arg}]"
-                out.append(
-                    f"#layer_grid_padded(gp,{x_total},{y_total},{wc},{hc}, {t}mm, {r}mm, {b}mm, {left}mm, {arg})\n"
-                )
+                # Choose the appropriate layer function based on whether margins are set
+                if margin_t != 0.0 or margin_r != 0.0 or margin_b != 0.0 or margin_l != 0.0:
+                    # Use margin-padded variant when margins are non-zero
+                    out.append(
+                        f"#layer_grid_margin_padded(gp,{x_total},{y_total},{wc},{hc}, {margin_t}mm, {margin_r}mm, {margin_b}mm, {margin_l}mm, {t}mm, {r}mm, {b}mm, {left}mm, {arg})\n"
+                    )
+                else:
+                    # Use padded variant when margins are all zero
+                    out.append(
+                        f"#layer_grid_padded(gp,{x_total},{y_total},{wc},{hc}, {t}mm, {r}mm, {b}mm, {left}mm, {arg})\n"
+                    )
             else:
-                # Always place via total grid helper
+                # Apply margins without padding
                 arg = wrapped
                 sarg = str(arg).lstrip()
-                if sarg.startswith('#'):
+                # Wrap all content expressions in brackets, except standalone function calls like Fig(...) or ColorRect(...)
+                if not (
+                    sarg
+                    and not sarg.startswith('#')
+                    and '(' in sarg
+                    and sarg.count('(') == sarg.count(')')
+                ):
                     arg = f"[{arg}]"
-                out.append(f"#layer_grid(gp,{x_total},{y_total},{wc},{hc}, {arg})\n")
+                if margin_t != 0.0 or margin_r != 0.0 or margin_b != 0.0 or margin_l != 0.0:
+                    out.append(
+                        f"#layer_grid_margin(gp,{x_total},{y_total},{wc},{hc}, {margin_t}mm, {margin_r}mm, {margin_b}mm, {margin_l}mm, {arg})\n"
+                    )
+                else:
+                    out.append(f"#layer_grid(gp,{x_total},{y_total},{wc},{hc}, {arg})\n")
         if ir['meta'].get('GRID_DEBUG', 'false').lower() == 'true':
             if margins_declared:
                 out.append("#draw_total_grid(gp)\n")
@@ -765,20 +1093,121 @@ def el_text(el):
     return el.get('title', '')
 
 
-def escape_text(s):
-    """Escape text for Typst and convert org-mode markup to Typst formatting."""
+def escape_typst_chars(text: str) -> str:
+    """Handle basic Typst character escaping.
+
+    Args:
+        text: Raw text to escape
+
+    Returns:
+        Text with backslashes and quotes escaped for Typst
+    """
+    return text.replace('\\', '\\\\').replace('"', '\\"')
+
+
+def process_org_links(text: str) -> tuple[str, list]:
+    """Convert Org-mode links to Typst format.
+
+    Uses placeholder protection to prevent interference with other markup processing.
+    Supports both [[url][description]] and [[url]] formats.
+    Processes emphasis markup within descriptions during link creation.
+
+    Args:
+        text: Text containing Org-mode link syntax
+
+    Returns:
+        Tuple of (text_with_placeholders, list_of_processed_links)
+    """
     import re
 
-    # First escape backslashes and quotes
-    s = s.replace('\\', '\\\\').replace('"', '\\"')
+    # Step 1: Replace links with temporary placeholders to protect them
+    links = []
 
-    # Convert org-mode bold markup (*text*) to Typst bold weight
-    # Use explicit weight: "bold" to ensure it renders as bold
-    s = re.sub(r'\*([^*\n]+)\*', r'#text(weight: "bold")[\1]', s)
+    def link_replacer(match):
+        url = match.group(1)
+        desc = match.group(2) if match.lastindex >= 2 else None
+        if desc:
+            # Process emphasis markup in the description before storing
+            processed_desc = process_org_emphasis(desc)
+            placeholder = f"__LINK_{len(links)}__"
+            links.append(f'#link("{url}")[{processed_desc}]')
+        else:
+            placeholder = f"__LINK_{len(links)}__"
+            links.append(f'#link("{url}")')
+        return placeholder
 
-    # Convert org-mode italic markup (/text/) to Typst italic style
-    # Use explicit style: "italic" to ensure it renders as italic
-    s = re.sub(r'/([^/\n]+)/', r'#text(style: "italic")[\1]', s)
+    # Handle [[url][description]] format
+    text = re.sub(r'\[\[([^\]]+)\]\[([^\]]+)\]\]', link_replacer, text)
+    # Handle [[url]] format (plain URLs)
+    text = re.sub(r'\[\[([^\]]+)\]\]', link_replacer, text)
+
+    # Step 2: Process other markup safely (URLs are protected by placeholders)
+    # This function only handles the placeholder part - restoration happens later
+
+    return text, links
+
+
+def process_org_emphasis(text: str) -> str:
+    """Convert Org-mode emphasis markup to Typst format.
+
+    Converts *bold* to #strong[bold] and /italic/ to #emph[italic].
+    Always uses #strong and #emph to avoid weight/style conflicts.
+
+    Args:
+        text: Text containing Org-mode emphasis markup
+
+    Returns:
+        Text with emphasis markup converted to Typst format
+    """
+    import re
+
+    # Convert org-mode bold markup (*text*) to strong content
+    text = re.sub(r'\*([^*\n]+)\*', r'#strong[\1]', text)
+    # Convert org-mode italic markup (/text/) to emphasized content
+    text = re.sub(r'/([^/\n]+)/', r'#emph[\1]', text)
+
+    return text
+
+
+def restore_protected_links(text: str, links: list) -> str:
+    """Restore protected links from placeholders.
+
+    Args:
+        text: Text containing link placeholders
+        links: List of Typst link strings to restore
+
+    Returns:
+        Text with placeholders replaced by actual Typst link calls
+    """
+    for i, link in enumerate(links):
+        text = text.replace(f"__LINK_{i}__", link)
+    return text
+
+
+def escape_text(s, styled_wrapper=False):
+    """Escape text for Typst and convert org-mode markup to Typst formatting.
+
+    This function orchestrates a pipeline of text processing steps:
+    1. Escape basic Typst characters
+    2. Convert Org-mode links (with placeholder protection)
+    3. Convert Org-mode emphasis markup
+    4. Restore protected links
+
+    Args:
+        s: Text to escape
+        styled_wrapper: If True, uses #strong/#emph to avoid conflicts with outer #text styling
+    """
+    # Step 1: Escape basic Typst characters
+    s = escape_typst_chars(s)
+
+    # Step 2: Process links with protection
+    s, protected_links = process_org_links(s)
+
+    # Step 3: Process emphasis markup (links are protected)
+    s = process_org_emphasis(s)
+
+    # Step 4: Restore protected links
+    s = restore_protected_links(s, protected_links)
 
     return s
 
@@ -1065,11 +1494,20 @@ def adjust_asset_paths(ir, typst_dir: pathlib.Path):
     def resolve_rel(src: str) -> str:
         if os.path.isabs(src) or re.match(r'^[a-zA-Z]+:', src):
             return src
-        # Try project root first
+
+        # If file exists relative to current working directory,
+        # compute path relative to typst_dir (where .typ file will be)
+        cwd_path = pathlib.Path.cwd() / src
+        try:
+            if cwd_path.resolve().exists():
+                return os.path.relpath(cwd_path.resolve(), typst_dir)
+        except Exception:
+            pass
+
+        # Try other candidates if not found in cwd
         candidates = [
             (project_root / src),
             (typst_dir / src),
-            (pathlib.Path.cwd() / src),
         ]
         for cand in candidates:
             try:

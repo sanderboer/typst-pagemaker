@@ -530,13 +530,26 @@ def _parse_description_list(lines: List[str], start_idx: int) -> tuple[Optional[
 
 
 class OrgElement:
-    def __init__(self, id_, type_, title, area=None, props=None, content_lines=None):
+    def __init__(
+        self,
+        id_,
+        type_,
+        title,
+        area=None,
+        props=None,
+        content_lines=None,
+        level: Optional[int] = None,
+    ):
         self.id = id_
         self.type = type_
         self.title = title
         self.area = area
         self.props = props or {}
         self.content_lines = content_lines or []
+        self.level = level
+        # New flags for ignore semantics
+        self.ignored_self = False
+        self.ignored_by_parent = False
 
     def to_ir(self):
         area_obj = None
@@ -632,6 +645,8 @@ class OrgPage:
         self.props = props
         self.elements = []
         self.master = None
+        # New: page-level ignore
+        self.ignore_page = False
 
     def to_ir(self, global_defaults):
         # Page size and orientation are document-level settings.
@@ -758,18 +773,31 @@ def parse_org(path):
     with open(path, encoding='utf-8') as f:
         lines = f.readlines()
     meta = {}
-    pages = []
-    current_page = None
-    current_element = None
+    pages: List[OrgPage] = []
+    current_page: Optional[OrgPage] = None
+    current_element: Optional[OrgElement] = None
     prop_mode = False
-    prop_buf = {}
-    content_buf = []
+    prop_buf: Dict[str, str] = {}
+    content_buf: List[str] = []
+    # Track subtree ignore depth (headline level that activated ignore)
+    ignore_depth: Optional[int] = None
 
     def close_element():
         nonlocal current_element, content_buf, current_page
         if current_element:
             current_element.content_lines = content_buf
-            if current_page:
+            # Skip appending if element is ignored (self or by parent), or has no declared type, or TYPE: none
+            type_declared = 'TYPE' in (current_element.props or {})
+            type_is_none = (
+                str((current_element.props or {}).get('TYPE', '')).strip().lower() == 'none'
+            )
+            if (
+                current_page
+                and not current_element.ignored_self
+                and not current_element.ignored_by_parent
+                and type_declared
+                and not type_is_none
+            ):
                 current_page.elements.append(current_element)
         current_element = None
         content_buf = []
@@ -789,13 +817,19 @@ def parse_org(path):
             level = len(m.group('stars'))
             title = m.group('title').strip()
             close_element()
+            # Leaving an ignored subtree if we move to a headline at or above ignore depth
+            if ignore_depth is not None and level <= ignore_depth:
+                ignore_depth = None
             if level == 1:
                 current_page = OrgPage(id_=slugify(title), title=title, props={})
                 pages.append(current_page)
             elif level >= 2 and current_page:
                 current_element = OrgElement(
-                    id_=slugify(title), type_='body', title=title, props={}, area=None
+                    id_=slugify(title), type_='body', title=title, props={}, area=None, level=level
                 )
+                # If we are inside an ignored subtree, mark this element as ignored by parent
+                if ignore_depth is not None and level > ignore_depth:
+                    current_element.ignored_by_parent = True
             continue
         if PROP_BEGIN_RE.match(line_stripped):
             prop_mode = True
@@ -818,14 +852,31 @@ def parse_org(path):
                 ):
                     current_element.type = etype
                 else:
+                    # Legacy: infer figure from single image line, but this does NOT count as declared TYPE
                     if len(content_buf) == 1 and LINK_IMG_RE.match(content_buf[0].strip()):
                         current_element.type = 'figure'
                 if 'AREA' in prop_buf:
                     ar = parse_area(prop_buf['AREA'])
                     if ar:
                         current_element.area = ar
+                # Element-level ignore semantics
+                ig = parse_bool(prop_buf.get('IGNORE'))
+                if ig is True and current_element.level:
+                    current_element.ignored_self = True
+                    # Ignore entire subtree under this section
+                    ignore_depth = current_element.level
+                # If TYPE is explicitly 'none' or missing, ignore just this element (not its children)
+                type_declared = 'TYPE' in prop_buf
+                if (type_declared and etype == 'none') or (not type_declared):
+                    current_element.ignored_self = True
             elif current_page:
                 current_page.props.update(prop_buf)
+                # Page-level ignore: drop entire page from IR later
+                ig = parse_bool(prop_buf.get('IGNORE'))
+                if ig is True:
+                    current_page.ignore_page = True
+                    # Also ignore all subsequent sections until next page
+                    ignore_depth = 1
             prop_buf = {}
             continue
         if prop_mode:
@@ -841,5 +892,7 @@ def parse_org(path):
             content_buf.append(line)
     close_element()
 
-    ir = {'meta': meta, 'pages': [p.to_ir(meta_defaults(meta)) for p in pages]}
+    # Filter out ignored pages entirely
+    pages_ir = [p.to_ir(meta_defaults(meta)) for p in pages if not getattr(p, 'ignore_page', False)]
+    ir = {'meta': meta, 'pages': pages_ir}
     return ir

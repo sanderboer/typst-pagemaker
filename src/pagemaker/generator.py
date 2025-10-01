@@ -319,6 +319,31 @@ def _render_text_blocks(text_blocks: list, el: dict, styles: dict) -> str:
     text_args = _style_args(style)
     par_args = _par_args(style, el.get('justify'))
 
+    def _render_text_with_hardbreaks(par_text: str) -> str:
+        """Render a paragraph of text, supporting hard line breaks via trailing backslash.
+        A backslash at end of a source line forces a line break in Typst without extra spacing.
+        """
+        # Split into source lines to detect trailing backslashes
+        lines = par_text.split('\n')
+        pieces = []
+        for idx, ln in enumerate(lines):
+            # If line ends with a backslash (optional spaces after), force a break
+            if re.search(r'\\\s*$', ln):
+                # Remove the backslash and trailing spaces
+                clean = re.sub(r'\\\s*$', '', ln)
+                if clean:
+                    txt = escape_text(clean)
+                    pieces.append(f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]")
+                pieces.append('#linebreak()')
+            else:
+                txt = escape_text(ln)
+                pieces.append(f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]")
+                # Only add a space between lines when not at hard break and not last line
+                if idx < len(lines) - 1:
+                    pieces.append(' ')
+        # Join pieces; Typst will consume the literal space separators between #text calls
+        return ''.join(pieces)
+
     for block in text_blocks:
         if block['kind'] == 'plain':
             # Handle plain text blocks
@@ -353,22 +378,12 @@ def _render_text_blocks(text_blocks: list, el: dict, styles: dict) -> str:
                             if paras:
                                 # Optimization: for single paragraphs without par args, skip #par() wrapper
                                 if len(paras) == 1 and not par_args:
-                                    txt = escape_text(paras[0])
-                                    text_call = (
-                                        f"#text({text_args})[{txt}]"
-                                        if text_args
-                                        else f"#text[{txt}]"
-                                    )
+                                    text_call = _render_text_with_hardbreaks(paras[0])
                                     result_parts.append(text_call)
                                 else:
                                     text_pieces = []
                                     for p in paras:
-                                        txt = escape_text(p)
-                                        text_call = (
-                                            f"#text({text_args})[{txt}]"
-                                            if text_args
-                                            else f"#text[{txt}]"
-                                        )
+                                        text_call = _render_text_with_hardbreaks(p)
                                         if par_args:
                                             text_pieces.append(f"#par({par_args})[{text_call}]")
                                         else:
@@ -380,18 +395,12 @@ def _render_text_blocks(text_blocks: list, el: dict, styles: dict) -> str:
                     if paras:
                         # Optimization: for single paragraphs without par args, skip #par() wrapper
                         if len(paras) == 1 and not par_args:
-                            txt = escape_text(paras[0])
-                            text_call = (
-                                f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
-                            )
+                            text_call = _render_text_with_hardbreaks(paras[0])
                             result_parts.append(text_call)
                         else:
                             text_pieces = []
                             for p in paras:
-                                txt = escape_text(p)
-                                text_call = (
-                                    f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
-                                )
+                                text_call = _render_text_with_hardbreaks(p)
                                 if par_args:
                                     text_pieces.append(f"#par({par_args})[{text_call}]")
                                 else:
@@ -418,6 +427,15 @@ def _render_list_block(list_block: dict, text_args: str, par_args: str) -> str:
 
     result_parts = []
 
+    # Determine spacing between list items to match line height
+    spacing_val = None
+    if par_args:
+        m = re.search(r'(^|,\s*)leading:\s*([^,]+)', par_args)
+        if m:
+            spacing_val = m.group(2).strip()
+    if not spacing_val:
+        spacing_val = '1.2em'
+
     if list_type == 'ul':
         # Unordered list with bullet points
         for item in items:
@@ -443,9 +461,9 @@ def _render_list_block(list_block: dict, text_args: str, par_args: str) -> str:
                 # Create hanging indent for list items
                 hanging_args = 'hanging-indent: 1.2em'
                 if par_args:
-                    combined_args = f'{par_args}, {hanging_args}'
+                    combined_args = f'{par_args}, {hanging_args}, spacing: {spacing_val}'
                 else:
-                    combined_args = hanging_args
+                    combined_args = f'{hanging_args}, spacing: {spacing_val}'
 
                 marker_txt = escape_text(marker)
                 marker_call = (
@@ -492,9 +510,9 @@ def _render_list_block(list_block: dict, text_args: str, par_args: str) -> str:
                 # Create hanging indent for list items
                 hanging_args = 'hanging-indent: 1.5em'
                 if par_args:
-                    combined_args = f'{par_args}, {hanging_args}'
+                    combined_args = f'{par_args}, {hanging_args}, spacing: {spacing_val}'
                 else:
-                    combined_args = hanging_args
+                    combined_args = f'{hanging_args}, spacing: {spacing_val}'
 
                 marker_txt = escape_text(marker)
                 marker_call = (

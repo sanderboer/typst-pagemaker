@@ -1,0 +1,64 @@
+#+TITLE: Ignore Semantics Demo
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+
+* Ignored Page (should not render)
+:PROPERTIES:
+:IGNORE: true
+:END:
+
+** Title That Won't Appear
+:PROPERTIES:
+:TYPE: header
+:AREA: B2,D3
+:END:
+Hidden header
+
+* Visible Page
+:PROPERTIES:
+:END:
+
+** Title
+:PROPERTIES:
+:TYPE: header
+:AREA: B2,D3
+:END:
+This page renders
+
+** Omitted Element (TYPE none)
+:PROPERTIES:
+:TYPE: none
+:AREA: F2,H3
+:END:
+This block is omitted but children can still appear
+
+*** Child Body Visible
+:PROPERTIES:
+:TYPE: body
+:AREA: F4,H6
+:END:
+Child under TYPE none parent should render
+
+** Ignored Section (and subtree)
+:PROPERTIES:
+:TYPE: body
+:IGNORE: true
+:AREA: B5,D7
+:END:
+This section and all its children are ignored
+
+*** Child Figure Hidden
+:PROPERTIES:
+:TYPE: figure
+:AREA: E5,G8
+:END:
+[[file:assets/test-images/landscapes/landscape-1.jpg]]
+
+** Figure That Renders
+:PROPERTIES:
+:TYPE: figure
+:AREA: H1,L4
+:FIT: cover
+:END:
+[[file:assets/test-images/landscapes/landscape-2.jpg]]

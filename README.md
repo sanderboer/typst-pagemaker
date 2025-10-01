@@ -293,6 +293,7 @@ typst-pagemaker/
 | `:ALIGN:` | `left`, `center`, `right` | Horizontal alignment |
 | `:VALIGN:` | `top`, `middle`, `bottom` | Vertical alignment (text only) |
 | `:JUSTIFY:` | (bare) or `true`/`false` | Full text justification |
+| `:IGNORE:` | `true`, `false` | When `true`: drop this page (level 1) or this section and its subtree (level ≥2). If `:TYPE:` is missing or `none`, only the element is omitted; children still parse. |
 
 ### Page Setup Headers
 | Header | Example | Description |
@@ -349,6 +350,11 @@ Notes:
 - `:AREA:` always addresses the total grid (including margin tracks); there is no `:COORDS:` directive.
 
 ### Element Properties
+
+#### Ignore Semantics
+- `:IGNORE: true` on a page (level 1) removes the entire page from the IR; following sections under that page are also ignored until the next page.
+- `:IGNORE: true` on a section (level ≥2) removes that section and its entire subtree.
+- If `:TYPE:` is omitted or explicitly set to `none`, the element itself is omitted from the IR but its children are still parsed/emitted if they declare a valid `:TYPE:`.
 
 #### Validation Rules
 The `validate` subcommand parses Org -> IR, then enforces structural rules.

@@ -1,4 +1,5 @@
 #+TITLE: Custom Styles Demo
+#+COMMENT: See docs/master_styles.md for styles, paragraph options, master pages, margins/grid, and padding semantics (including zero-sum).
 #+AUTHOR: Example
 #+GRID_DEBUG: false
 

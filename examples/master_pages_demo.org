@@ -5,6 +5,7 @@
 #+ORIENTATION: landscape
 #+GRID: 12x8
 #+DEFAULT_MASTER: Base
+#+COMMENT: See docs/master_styles.md for master pages, margins/grid, and styles.
 
 * Base Master Definition (not rendered)
 :PROPERTIES:

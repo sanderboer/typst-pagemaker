@@ -453,7 +453,7 @@ def _render_table_block(table_block: dict, text_args: str) -> str:
 
     parts = []
     # Table prelude: columns and gutter, and top horizontal line
-    parts.append(f"#table(columns: {cols_tuple}, gutter: 6pt,")
+    parts.append(f"#table(columns: {cols_tuple}, gutter: 6pt, stroke: none,")
     parts.append("  table.hline(y: 0),")
 
     # Emit header rows inside table.header if present

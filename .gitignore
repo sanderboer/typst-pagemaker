@@ -63,8 +63,3 @@ test_output/
 # Ignore nested Emacs package subrepo
 pagemaker-el/
 
-# Ignore stray example images not meant for repo
-img/aesop.jpg
-img/aesop_with_debug_grid.jpg
-img/example.jpg
-img/example_with_debug_grid.jpg

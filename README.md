@@ -709,6 +709,47 @@ Notes:
 - If sanitization still fails, the first requested page is auto-converted to SVG (preferred) or PNG and embedded as an image.
 - Fallback assets are written under `export_dir/assets/pdf-fallbacks/` and linked in the generated Typst.
 
+PDF scaling modes (FIT):
+- `:FIT: contain` (default) – scale uniformly so the entire PDF page fits inside the target frame (may letterbox)
+- `:FIT: cover` – scale uniformly so the frame is fully covered (content may clip)
+- `:FIT: exact` – scale uniformly so PDF width matches frame width (height may overflow/clamp internally)
+- `:FIT: width` – scale so widths match; height scales proportionally (may letterbox vertically)
+- `:FIT: height` – scale so heights match; width scales proportionally (may overflow horizontally)
+
+Behavior & precedence:
+- When any `FIT` mode is present, explicit `:SCALE:` is ignored (a validation warning is emitted).
+- If no `:FIT:` is given, `contain` is assumed (ensuring stable behavior and intrinsic measurement based scaling).
+
+Full-page PDFs:
+- Add `:FULL_PAGE: true` inside a PDF element to cover the entire physical page, ignoring its declared `:AREA:` (origin cell still used for ordering) and any element `:PADDING:`.
+- Validation emits warnings when `FULL_PAGE` is used with padding or when the `:AREA:` size does not match the content grid.
+- Full-page PDFs still participate in z-order (`:Z:`) like other elements.
+
+Example (full-page PDF first, then overlay text):
+```org
+* Slide
+:PROPERTIES:
+:ID: bg-demo
+:END:
+
+** Background PDF
+:PROPERTIES:
+:TYPE: pdf
+:PDF: assets/technical-drawing.pdf
+:PAGE: 1
+:FULL_PAGE: true
+:Z: 0
+:END:
+
+** Overlay Title
+:PROPERTIES:
+:TYPE: header
+:AREA: A2,J3
+:Z: 10
+:END:
+Full-page background with overlay title.
+```
+
 ### SVG Embedding
 Embed SVG graphics directly:
 ```org

@@ -740,6 +740,30 @@ def generate_typst(ir):
         "#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  let pdf_data = read(path, encoding: none)\n  let pg = page - 1\n  let muchpdf_image = muchpdf(pdf_data, pages: pg, scale: scale)\n  block(width: 100%, height: 100%, clip: true)[\n    #muchpdf_image\n  ]\n}\n"
     )
     out.append(
+        "#let PdfEmbedFit(path, page: 1, fit: \"contain\", rotate: auto) = context {\n"
+        "  let pdf_data = read(path, encoding: none)\n"
+        "  let pg = page - 1\n"
+        "  // initial scale 1 for intrinsic measurement\n"
+        "  let base_img = muchpdf(pdf_data, pages: pg, scale: 1.0)\n"
+        "  let base_dims = measure(base_img)\n"
+        "  let bw = base_dims.width\n"
+        "  let bh = base_dims.height\n"
+        "  let frame_dims = measure(block(width: 100%, height: 100%)[])\n"
+        "  let pw = frame_dims.width\n"
+        "  let ph = frame_dims.height\n"
+        "  // decide rotation when requested auto\n"
+        "  let need_rotate = false\n"
+        "  if rotate == auto { if ((bw > bh and pw < ph) or (bw < bh and pw > ph)) { need_rotate = true } } else if rotate == true { need_rotate = true }\n"
+        "  let iw = if need_rotate { bh } else { bw }\n"
+        "  let ih = if need_rotate { bw } else { bh }\n"
+        "  let scale = 1.0\n"
+        "  if fit == \"exact\" { scale = pw / iw } else if fit == \"cover\" { scale = max(pw / iw, ph / ih) } else if fit == \"contain\" { scale = min(pw / iw, ph / ih) } else if fit == \"width\" { scale = pw / iw } else if fit == \"height\" { scale = ph / ih }\n"
+        "  let final_img = muchpdf(pdf_data, pages: pg, scale: scale)\n"
+        "  let placed = if need_rotate { rotate(90deg)[#final_img] } else { final_img }\n"
+        "  block(width: 100%, height: 100%, clip: true)[#placed]\n"
+        "}\n"
+    )
+    out.append(
         "#let layer(cw, ch, x, y, w, h, body) = place(\n  dx: (x - 1) * cw,\n  dy: (y - 1) * ch,\n  block(\n    width: w * cw,\n    height: h * ch,\n    body\n  )\n)\n"
     )
     out.append(
@@ -907,6 +931,7 @@ def generate_typst(ir):
             combined_elements.extend(masters[mref])
         combined_elements.extend(page.get('elements', []))
         elements = sorted(combined_elements, key=lambda e: e.get('z', 100))
+        seen_area_warnings = set()
         for el in elements:
             area = el['area'] or {'x': 1, 'y': 1, 'w': cols, 'h': 1}
             x, y, wc, hc = area['x'], area['y'], area['w'], area['h']
@@ -925,11 +950,15 @@ def generate_typst(ir):
                 or (y + hc - 1) > limit_rows
             )
             if out_of_bounds:
-                print(
-                    f"WARNING: AREA out-of-bounds for element {el['id']} on page {page['title']}: ({x},{y},{wc},{hc})",
-                    file=sys.stderr,
-                )
+                warn_key = (el.get('id'), x, y, wc, hc)
+                if warn_key not in seen_area_warnings:
+                    seen_area_warnings.add(warn_key)
+                    print(
+                        f"WARNING: AREA out-of-bounds for element {el['id']} on page {page['title']}: ({x},{y},{wc},{hc})",
+                        file=sys.stderr,
+                    )
             content_fragments = []
+            full_page_pdf = False  # track if this element should be placed full-page
             if el['type'] in ('header', 'subheader', 'body'):
                 content_fragments.append(_render_text_element(el, styles))
             elif el['type'] == 'rectangle' and el.get('rectangle'):
@@ -976,12 +1005,25 @@ def generate_typst(ir):
                 psrc = pdf['src']
                 ppage = pdf['pages'][0]
                 scale = pdf.get('scale', 1.0)
+                fit_mode = (pdf.get('fit') or 'contain').lower()
+                full_page = bool(pdf.get('full_page'))
+                full_page_pdf = full_page
+                # Non-PDF sources fallback to image rendering
                 if pathlib.Path(psrc).suffix.lower() != '.pdf':
                     content_fragments.append(
                         f"Fig(image(\"{psrc}\", width: 100%, height: 100%, fit: \"contain\"))"
                     )
                 else:
-                    content_fragments.append(f"PdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale})")
+                    # If a fit mode is declared (including default contain) OR full_page usage, prefer PdfEmbedFit helper.
+                    # PdfEmbedFit computes scale automatically; explicit SCALE is ignored when FIT is used.
+                    if fit_mode in {'contain', 'cover', 'exact', 'width', 'height'} or full_page:
+                        content_fragments.append(
+                            f"PdfEmbedFit(\"{psrc}\", page: {ppage}, fit: \"{fit_mode}\")"
+                        )
+                    else:
+                        content_fragments.append(
+                            f"PdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale})"
+                        )
             elif el['type'] == 'toc':
                 # TOC with page numbers and dot leaders
                 toc_entries = []
@@ -1040,20 +1082,24 @@ def generate_typst(ir):
             # Emit flow hint comment when provided
             if flow:
                 out.append(f"// FLOW: {flow}\n")
-            # Handle margins and padding
+            # Handle padding-only placement (element-level margins deprecated)
             pad = el.get('padding_mm') if isinstance(el, dict) else None
-            margin = el.get('margin_mm') if isinstance(el, dict) else None
-
-            # Apply margins by adjusting positioning
-            if isinstance(margin, dict):
-                margin_t = float(margin.get('top', 0.0))
-                margin_r = float(margin.get('right', 0.0))
-                margin_b = float(margin.get('bottom', 0.0))
-                margin_l = float(margin.get('left', 0.0))
-            else:
-                margin_t = margin_r = margin_b = margin_l = 0.0
-
-            # Place elements with padding when specified (text, figure, svg, pdf, toc)
+            arg = wrapped
+            sarg = str(arg).lstrip()
+            # Wrap all content expressions in brackets, except standalone function calls like Fig(...) or ColorRect(...)
+            if not (
+                sarg
+                and not sarg.startswith('#')
+                and '(' in sarg
+                and sarg.count('(') == sarg.count(')')
+            ):
+                arg = f"[{arg}]"
+            # FULL_PAGE PDF placement bypasses grid/padding and occupies entire page surface
+            if full_page_pdf:
+                out.append("// FULL_PAGE placement (AREA & PADDING ignored)\n")
+                out.append(f"#place(dx: 0mm, dy: 0mm, block(width: {w}mm, height: {h}mm, {arg}))\n")
+                continue
+            # Place elements with padding when specified (text, figure, svg, pdf, rectangle, toc)
             if el.get('type') in (
                 'header',
                 'subheader',
@@ -1061,51 +1107,18 @@ def generate_typst(ir):
                 'figure',
                 'svg',
                 'pdf',
+                'rectangle',
                 'toc',
             ) and isinstance(pad, dict):
                 t = float(pad.get('top', 0.0))
                 r = float(pad.get('right', 0.0))
                 b = float(pad.get('bottom', 0.0))
                 left = float(pad.get('left', 0.0))
-                arg = wrapped
-                sarg = str(arg).lstrip()
-                # Wrap all content expressions in brackets, except standalone function calls like Fig(...) or ColorRect(...)
-                if not (
-                    sarg
-                    and not sarg.startswith('#')
-                    and '(' in sarg
-                    and sarg.count('(') == sarg.count(')')
-                ):
-                    arg = f"[{arg}]"
-                # Choose the appropriate layer function based on whether margins are set
-                if margin_t != 0.0 or margin_r != 0.0 or margin_b != 0.0 or margin_l != 0.0:
-                    # Use margin-padded variant when margins are non-zero
-                    out.append(
-                        f"#layer_grid_margin_padded(gp,{x_total},{y_total},{wc},{hc}, {margin_t}mm, {margin_r}mm, {margin_b}mm, {margin_l}mm, {t}mm, {r}mm, {b}mm, {left}mm, {arg})\n"
-                    )
-                else:
-                    # Use padded variant when margins are all zero
-                    out.append(
-                        f"#layer_grid_padded(gp,{x_total},{y_total},{wc},{hc}, {t}mm, {r}mm, {b}mm, {left}mm, {arg})\n"
-                    )
+                out.append(
+                    f"#layer_grid_padded(gp,{x_total},{y_total},{wc},{hc}, {t}mm, {r}mm, {b}mm, {left}mm, {arg})\n"
+                )
             else:
-                # Apply margins without padding
-                arg = wrapped
-                sarg = str(arg).lstrip()
-                # Wrap all content expressions in brackets, except standalone function calls like Fig(...) or ColorRect(...)
-                if not (
-                    sarg
-                    and not sarg.startswith('#')
-                    and '(' in sarg
-                    and sarg.count('(') == sarg.count(')')
-                ):
-                    arg = f"[{arg}]"
-                if margin_t != 0.0 or margin_r != 0.0 or margin_b != 0.0 or margin_l != 0.0:
-                    out.append(
-                        f"#layer_grid_margin(gp,{x_total},{y_total},{wc},{hc}, {margin_t}mm, {margin_r}mm, {margin_b}mm, {margin_l}mm, {arg})\n"
-                    )
-                else:
-                    out.append(f"#layer_grid(gp,{x_total},{y_total},{wc},{hc}, {arg})\n")
+                out.append(f"#layer_grid(gp,{x_total},{y_total},{wc},{hc}, {arg})\n")
         if ir['meta'].get('GRID_DEBUG', 'false').lower() == 'true':
             if margins_declared:
                 out.append("#draw_total_grid(gp)\n")
@@ -1408,62 +1421,118 @@ def _discover_available_fonts() -> dict:
         # fontTools missing or failed; skip to heuristic fallback
         pass
 
-    # If nothing discovered via real-name scanning, fallback to directory heuristic
-    if not font_families:
-        try:
-            # Prefer using fonts helper to gather files grouped by top-level dir
-            from .fonts import _discover_fonts_in_path
+    # Heuristic discovery (directory-based) to complement fontTools results
+    try:
+        # Prefer using fonts helper to gather files grouped by top-level dir
+        from .fonts import _discover_fonts_in_path
 
-            for root_str in font_paths or []:
-                font_info = _discover_fonts_in_path(pathlib.Path(root_str))
-                for family_name, family_data in (font_info.get('families') or {}).items():
-                    files = []
-                    for font_file in family_data.get('files', []):
-                        files.append(
-                            {
-                                'name': font_file['name'],
-                                'path': font_file['path'],
-                                'size': font_file['size'],
-                            }
-                        )
-                    # Add with underscore/space aliases
-                    variants = {family_name}
-                    if '_' in family_name:
-                        variants.add(family_name.replace('_', ' '))
-                    if ' ' in family_name:
-                        variants.add(family_name.replace(' ', '_'))
-                    for v in variants:
-                        font_families.setdefault(v, []).extend(files)
-        except Exception:
-            # Final minimal heuristic over assets and examples
+        def _is_probable_font(path_str: str) -> bool:
             try:
-                for base in ('assets/fonts', 'examples/assets/fonts'):
-                    base_path = pathlib.Path(base)
-                    if not base_path.exists():
+                p = pathlib.Path(path_str)
+                if not p.exists() or not p.is_file():
+                    return False
+                # Quick header check for common font containers
+                with p.open('rb') as fh:
+                    header = fh.read(4)
+                return header in {
+                    b'\x00\x01\x00\x00',
+                    b'OTTO',
+                    b'ttcf',
+                    b'true',
+                    b'typ1',
+                    b'wOFF',
+                    b'wOF2',
+                }
+            except Exception:
+                return False
+
+        for root_str in font_paths or []:
+            font_info = _discover_fonts_in_path(pathlib.Path(root_str))
+            for family_name, family_data in (font_info.get('families') or {}).items():
+                files = []
+                for font_file in family_data.get('files', []):
+                    # Skip files that clearly aren't valid font containers
+                    if not _is_probable_font(font_file.get('path', '')):
                         continue
-                    for font_file in base_path.rglob('*'):
-                        if font_file.is_file() and font_file.suffix.lower() in {
+                    files.append(
+                        {
+                            'name': font_file['name'],
+                            'path': font_file['path'],
+                            'size': font_file['size'],
+                        }
+                    )
+                if not files:
+                    continue
+                # Add with underscore/space aliases
+                variants = {family_name}
+                if '_' in family_name:
+                    variants.add(family_name.replace('_', ' '))
+                if ' ' in family_name:
+                    variants.add(family_name.replace(' ', '_'))
+                for v in variants:
+                    # Merge files into existing families, avoiding duplicate paths
+                    existing = font_families.setdefault(v, [])
+                    existing_paths = {e['path'] for e in existing}
+                    for info in files:
+                        if info['path'] not in existing_paths:
+                            existing.append(info)
+                            existing_paths.add(info['path'])
+    except Exception:
+        # Final minimal heuristic over assets and examples
+        try:
+
+            def _is_probable_font_path(p: pathlib.Path) -> bool:
+                try:
+                    if not p.exists() or not p.is_file():
+                        return False
+                    with p.open('rb') as fh:
+                        header = fh.read(4)
+                    return header in {
+                        b'\x00\x01\x00\x00',
+                        b'OTTO',
+                        b'ttcf',
+                        b'true',
+                        b'typ1',
+                        b'wOFF',
+                        b'wOF2',
+                    }
+                except Exception:
+                    return False
+
+            for base in ('assets/fonts', 'examples/assets/fonts'):
+                base_path = pathlib.Path(base)
+                if not base_path.exists():
+                    continue
+                for font_file in base_path.rglob('*'):
+                    if (
+                        font_file.is_file()
+                        and font_file.suffix.lower()
+                        in {
                             '.ttf',
                             '.otf',
                             '.woff',
                             '.woff2',
-                        }:
-                            rel = font_file.relative_to(base_path)
-                            family_name = rel.parts[0] if len(rel.parts) > 1 else 'Unknown'
-                            info = {
-                                'name': font_file.name,
-                                'path': str(font_file),
-                                'size': font_file.stat().st_size,
-                            }
-                            variants = {family_name}
-                            if '_' in family_name:
-                                variants.add(family_name.replace('_', ' '))
-                            if ' ' in family_name:
-                                variants.add(family_name.replace(' ', '_'))
-                            for v in variants:
-                                font_families.setdefault(v, []).append(info)
-            except Exception:
-                pass
+                        }
+                        and _is_probable_font_path(font_file)
+                    ):
+                        rel = font_file.relative_to(base_path)
+                        family_name = rel.parts[0] if len(rel.parts) > 1 else 'Unknown'
+                        info = {
+                            'name': font_file.name,
+                            'path': str(font_file),
+                            'size': font_file.stat().st_size,
+                        }
+                        variants = {family_name}
+                        if '_' in family_name:
+                            variants.add(family_name.replace('_', ' '))
+                        if ' ' in family_name:
+                            variants.add(family_name.replace(' ', '_'))
+                        for v in variants:
+                            existing = font_families.setdefault(v, [])
+                            if info['path'] not in {e['path'] for e in existing}:
+                                existing.append(info)
+        except Exception:
+            pass
 
     return font_families
 

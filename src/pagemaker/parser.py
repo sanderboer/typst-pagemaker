@@ -1,4 +1,5 @@
 import re
+import warnings
 from typing import Dict, List, Optional
 
 HEADLINE_RE = re.compile(r'^(?P<stars>\*+)\s+(?P<title>.+)$')
@@ -641,6 +642,8 @@ class OrgElement:
                 'src': self.props.get('PDF'),
                 'pages': [int(self.props.get('PAGE', '1'))],
                 'scale': float(self.props.get('SCALE', '1.0')),
+                'fit': str(self.props.get('FIT', 'contain')).strip().lower() or 'contain',
+                'full_page': parse_bool(self.props.get('FULL_PAGE')) is True,
             }
         if self.type == 'svg':
             svg = {'src': self.props.get('SVG'), 'scale': float(self.props.get('SCALE', '1.0'))}
@@ -652,7 +655,7 @@ class OrgElement:
         text_blocks = []
         style = None
         padding_mm = None
-        margin_mm = None
+        had_margin_decl = False
         justify = None
         align = None
         valign = None
@@ -662,7 +665,15 @@ class OrgElement:
             text_blocks = _parse_content_blocks(self.content_lines)
             style = self.props.get('STYLE')
             padding_mm = parse_padding(self.props.get('PADDING'))
-            margin_mm = parse_margin(self.props.get('MARGIN'))
+            m_parsed = parse_margin(self.props.get('MARGIN'))
+            if m_parsed is not None:
+                had_margin_decl = True
+                if padding_mm is None:
+                    padding_mm = m_parsed
+                    warnings.warn(
+                        f"Element-level MARGIN is deprecated; mapped to PADDING on '{self.id}'",
+                        UserWarning,
+                    )
             if 'JUSTIFY' in self.props:
                 jval = self.props.get('JUSTIFY')
                 jparsed = parse_bool(jval)
@@ -672,12 +683,19 @@ class OrgElement:
             align = parse_align(self.props.get('ALIGN'))
             valign = parse_valign(self.props.get('VALIGN'))
             flow = parse_flow(self.props.get('FLOW'))
-        # Allow padding, margin and alignment for figures/svg/pdf/toc too (alignment currently only used for text/toc)
-        if self.type in ('figure', 'svg', 'pdf', 'toc'):
+        # Allow padding and alignment for figures/svg/pdf/rectangle/toc too (alignment currently only used for text/toc)
+        if self.type in ('figure', 'svg', 'pdf', 'rectangle', 'toc'):
             if padding_mm is None:
                 padding_mm = parse_padding(self.props.get('PADDING'))
-            if margin_mm is None:
-                margin_mm = parse_margin(self.props.get('MARGIN'))
+            m_parsed2 = parse_margin(self.props.get('MARGIN'))
+            if m_parsed2 is not None:
+                had_margin_decl = True
+                if padding_mm is None:
+                    padding_mm = m_parsed2
+                    warnings.warn(
+                        f"Element-level MARGIN is deprecated; mapped to PADDING on '{self.id}'",
+                        UserWarning,
+                    )
             if align is None:
                 align = parse_align(self.props.get('ALIGN'))
         return {
@@ -699,7 +717,7 @@ class OrgElement:
             'valign': valign,
             'flow': flow,
             'padding_mm': padding_mm,
-            'margin_mm': margin_mm,
+            'had_margin_decl': had_margin_decl,
         }
 
 
@@ -846,6 +864,12 @@ def parse_org(path):
     content_buf: List[str] = []
     # Track subtree ignore depth (headline level that activated ignore)
     ignore_depth: Optional[int] = None
+    # Inheritable padding context: map headline level -> padding string (e.g., "10,20,10,20")
+    padding_context: Dict[int, Optional[str]] = {}
+    # Inheritable AREA context: map headline level -> parsed area [x,y,w,h]
+    area_context: Dict[int, Optional[List[int]]] = {}
+    # Current page-level padding declaration string (if any)
+    current_page_padding_str: Optional[str] = None
 
     def close_element():
         nonlocal current_element, content_buf, current_page
@@ -892,6 +916,17 @@ def parse_org(path):
             # Leaving an ignored subtree if we move to a headline at or above ignore depth
             if ignore_depth is not None and level <= ignore_depth:
                 ignore_depth = None
+            # Trim contexts for new headline scope (siblings shouldn't inherit each other's context)
+            if level == 1:
+                padding_context = {}
+                area_context = {}
+                current_page_padding_str = None
+            else:
+                # Remove contexts at or below this level
+                for lv in [lv for lv in list(padding_context.keys()) if lv >= level]:
+                    padding_context.pop(lv, None)
+                for lv in [lv for lv in list(area_context.keys()) if lv >= level]:
+                    area_context.pop(lv, None)
             if level == 1:
                 current_page = OrgPage(id_=slugify(title), title=title, props={})
                 pages.append(current_page)
@@ -941,6 +976,80 @@ def parse_org(path):
                 type_declared = 'TYPE' in prop_buf
                 if (type_declared and etype == 'none') or (not type_declared):
                     current_element.ignored_self = True
+                # Inheritable PADDING is cumulative across meta -> page -> ancestors -> element
+                try:
+                    lvl = int(current_element.level or 2)
+                except Exception:
+                    lvl = 2
+
+                def _pad_to_list(s: Optional[str]) -> List[float]:
+                    d = parse_padding(s)
+                    if not d:
+                        return [0.0, 0.0, 0.0, 0.0]
+                    return [
+                        float(d['top']),
+                        float(d['right']),
+                        float(d['bottom']),
+                        float(d['left']),
+                    ]
+
+                cum: List[float] = [0.0, 0.0, 0.0, 0.0]
+                had_any_decl = False
+                # Document/meta padding
+                meta_pad_str = meta.get('PADDING')
+                if isinstance(meta_pad_str, str) and meta_pad_str.strip() != '':
+                    p = _pad_to_list(meta_pad_str)
+                    cum = [a + b for a, b in zip(cum, p)]
+                    had_any_decl = True
+                # Page padding
+                if (
+                    isinstance(current_page_padding_str, str)
+                    and current_page_padding_str.strip() != ''
+                ):
+                    p = _pad_to_list(current_page_padding_str)
+                    cum = [a + b for a, b in zip(cum, p)]
+                    had_any_decl = True
+                # Ancestors' padding (sum all declarations from level 2 up to parent)
+                for ancestor_lv in range(2, lvl):
+                    anc_str = padding_context.get(ancestor_lv)
+                    if isinstance(anc_str, str) and anc_str.strip() != '':
+                        p = _pad_to_list(anc_str)
+                        cum = [a + b for a, b in zip(cum, p)]
+                        had_any_decl = True
+                # Element-level PADDING or (deprecated) MARGIN
+                elem_pad_str = current_element.props.get('PADDING')
+                elem_margin_str = current_element.props.get('MARGIN')
+                declared_ctx = None
+                if isinstance(elem_pad_str, str) and elem_pad_str.strip() != '':
+                    p = _pad_to_list(elem_pad_str)
+                    cum = [a + b for a, b in zip(cum, p)]
+                    declared_ctx = elem_pad_str
+                    had_any_decl = True
+                elif isinstance(elem_margin_str, str) and elem_margin_str.strip() != '':
+                    p = _pad_to_list(elem_margin_str)
+                    cum = [a + b for a, b in zip(cum, p)]
+                    # Treat MARGIN as a padding source for descendants (deprecated)
+                    declared_ctx = elem_margin_str
+                    had_any_decl = True
+                # Apply cumulative padding whenever any declaration exists (even if it sums to zero)
+                if had_any_decl:
+                    current_element.props['PADDING'] = f"{cum[0]},{cum[1]},{cum[2]},{cum[3]}"
+                # Update context for this level based on this element's own declaration (not the cumulative value)
+                if declared_ctx:
+                    padding_context[lvl] = declared_ctx
+
+                # AREA inheritance: percolate from nearest ancestor that declared AREA
+                if current_element.area is None:
+                    inherited_area = None
+                    for ancestor_lv in range(lvl - 1, 1, -1):
+                        if area_context.get(ancestor_lv):
+                            inherited_area = area_context.get(ancestor_lv)
+                            break
+                    if inherited_area is not None:
+                        current_element.area = inherited_area
+                # Update AREA context only if this element explicitly declared a valid AREA
+                if 'AREA' in prop_buf and current_element.area is not None:
+                    area_context[lvl] = current_element.area
             elif current_page:
                 current_page.props.update(prop_buf)
                 # Page-level ignore: drop entire page from IR later
@@ -949,6 +1058,12 @@ def parse_org(path):
                     current_page.ignore_page = True
                     # Also ignore all subsequent sections until next page
                     ignore_depth = 1
+                # Capture page-level PADDING for inheritance
+                if (
+                    isinstance(prop_buf.get('PADDING'), str)
+                    and prop_buf.get('PADDING').strip() != ''
+                ):
+                    current_page_padding_str = prop_buf.get('PADDING')
             prop_buf = {}
             continue
         if prop_mode:

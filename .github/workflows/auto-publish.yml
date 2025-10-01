@@ -1,4 +1,4 @@
-name: Publish on Version Change
+name: Publish to PyPI on Version Change
 
 on:
   push:
@@ -95,12 +95,3 @@ jobs:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
       run: twine upload dist/*
-    
-    - name: Create GitHub release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        VERSION="${{ needs.check-version.outputs.new-version }}"
-        gh release create "v$VERSION" \
-          --title "Release v$VERSION" \
-          --generate-notes

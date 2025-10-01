@@ -411,7 +411,7 @@ The CLI automatically detects these tools. If unavailable, related stages are sk
 
 Example:
 ```org
-#+STYLE_HEADER: font: Shree714, weight: 900, size: 30pt, color: #ff00aa
+#+STYLE_HEADER: font: Inter, weight: 900, size: 30pt, color: #ff00aa
 #+STYLE_BODY: font: Inter, color: rgb(50%,50%,50%)
 #+STYLE_HERO: font: Inter, weight: bold, size: 36pt, color: #123456
 

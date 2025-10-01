@@ -9,7 +9,7 @@ from pathlib import Path
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
 SRC_PATH = os.path.join(PROJECT_ROOT, 'src')
 
-TEST_FONT = 'Zzz Test Font'
+TEST_FONT = 'Zzz Totally Missing Font'
 
 FAKE_FD_CODE = """
 # Minimal fake fontdownloader.cli for tests
@@ -47,6 +47,13 @@ class TestAutoDownloadFontsCLI(unittest.TestCase):
             pkg_dir.mkdir(parents=True, exist_ok=True)
             (pkg_dir / '__init__.py').write_text('', encoding='utf-8')
             (pkg_dir / 'cli.py').write_text(FAKE_FD_CODE, encoding='utf-8')
+
+            # Ensure target font directory is absent to trigger auto-download
+            target_dir = Path(PROJECT_ROOT) / 'assets' / 'fonts' / TEST_FONT
+            if target_dir.exists():
+                import shutil
+
+                shutil.rmtree(target_dir)
 
             # Prepare a minimal org file referencing a missing font
             org_path = td_path / 'missing_font.org'

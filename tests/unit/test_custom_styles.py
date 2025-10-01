@@ -13,7 +13,7 @@ class TestCustomStyles(unittest.TestCase):
     def test_meta_style_overrides_core_types(self):
         ir = {
             'meta': {
-                'STYLE_HEADER': 'font: Shree714, weight: 900, size: 30pt, color: #ff00aa',
+                'STYLE_HEADER': 'font: Inter, weight: 900, size: 30pt, color: #ff00aa',
                 'STYLE_BODY': 'font: Inter, color: rgb(50%,50%,50%)',
             },
             'pages': [
@@ -44,7 +44,7 @@ class TestCustomStyles(unittest.TestCase):
         }
         typst = pm.generate_typst(ir)
         self.assertIn(
-            '#text(font: "Shree714", weight: 900, size: 30pt, fill: rgb("#ff00aa"))[My Header]',
+            '#text(font: "Inter", weight: 900, size: 30pt, fill: rgb("#ff00aa"))[My Header]',
             typst,
         )
         self.assertIn('#text(font: "Inter", fill: rgb(50%,50%,50%))[Body text]', typst)

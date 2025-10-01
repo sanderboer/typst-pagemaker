@@ -36,7 +36,7 @@ This approach is ideal for creating presentations, posters, reports, and any doc
 - **Debug grid**: Optional grid lines and labels (columns 1..N, rows a..z)
 - **Custom fonts**: Integrated font management system with Google Fonts integration
 - **Text justification**: `:JUSTIFY:` for header/subheader/body (wraps Typst `par(justify: true)`)
-- **Padding**: `:PADDING:` on text, images, SVG, and PDF (CSS-like TRBL shorthand in mm)
+- **Padding**: `:PADDING:` on text, images, SVG, and PDF (CSS-like TRBL shorthand in mm; per-side padding inherits and accumulates; if totals cancel to 0mm on all sides, generator still emits padded placement).
 - **Alignment & flow**: `:ALIGN:` (left|center|right) for text/figure/svg/pdf/toc; `:VALIGN:` (top|middle|bottom) for text (note: `middle` maps to Typst `horizon`); `:FLOW:` (normal|bottom-up|center-out) — when `:VALIGN:` is not set for text, `:FLOW:` can imply vertical alignment (bottom-up -> bottom, center-out -> horizon).
 - **Custom styles**: Per-document text styles via Org meta `#+STYLE_*` and per-element `:STYLE:` name. See Custom Styles section.
 
@@ -405,6 +405,8 @@ The CLI automatically detects these tools. If unavailable, related stages are sk
 
 ## Advanced Usage
 
+See the in-depth guide: docs/master_styles.md (styles, paragraph options, master pages, margins/grid, and padding semantics including zero-sum).
+
 ### Custom Styles
 - Declare styles in document meta using `#+STYLE_<NAME>:` where `<NAME>` is case-insensitive. Built-ins: `HEADER`, `SUBHEADER`, `BODY`.
 - Supported keys (case-insensitive) with aliases:
@@ -752,6 +754,9 @@ Notes:
 - With `#+GRID_DEBUG: true`, the overlay shows the total grid (including margin tracks). Labels cover all tracks: first column is `1`, first row is `A`.
 
 ### Master Pages
+See examples/master_pages_demo.org for a runnable master page setup.
+
+
 Define reusable element sets as master pages that are not directly rendered. Apply them per slide with `:MASTER:` or globally with `#+DEFAULT_MASTER:`.
 ```org
 #+DEFAULT_MASTER: Base

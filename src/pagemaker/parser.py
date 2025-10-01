@@ -13,6 +13,10 @@ OL_ALPHA_RE = re.compile(r'^(\s*)([a-zA-Z]+)[.)]\s+(.*)$')
 CHECKBOX_RE = re.compile(r'^\[([ Xx-])\]\s*(.*)')
 DESC_RE = re.compile(r'^(\s*)(.+?)\s*::\s*(.*)$')
 
+# Table parsing regexes (Org-style simple tables)
+TABLE_LINE_RE = re.compile(r'^\s*\|.*\|\s*$')
+TABLE_SEP_RE = re.compile(r'^\s*\|[\-+:\s]+\|\s*$')
+
 PAGE_SIZES_MM = {
     'A4': (210, 297),
     'A3': (297, 420),
@@ -160,7 +164,7 @@ def _parse_ordered_marker(marker: str) -> tuple[int, str]:
 
 
 def _parse_content_blocks(lines: List[str]) -> List[Dict]:
-    """Parse content lines into text blocks (plain text and lists)."""
+    """Parse content lines into text blocks (plain text, lists, tables)."""
     if not lines:
         return []
 
@@ -175,6 +179,13 @@ def _parse_content_blocks(lines: List[str]) -> List[Dict]:
             i += consumed
             continue
 
+        # Try to parse a table starting at current position
+        table_block, t_consumed = _try_parse_table(lines, i)
+        if table_block:
+            blocks.append(table_block)
+            i += t_consumed
+            continue
+
         # If we identified a list line but couldn't parse it, treat as plain text
         line = lines[i]
         if _is_list_line(line):
@@ -183,11 +194,11 @@ def _parse_content_blocks(lines: List[str]) -> List[Dict]:
             i += 1
             continue
 
-        # Collect non-list lines into plain text
+        # Collect non-list and non-table lines into plain text
         plain_lines = []
         while i < len(lines):
             line = lines[i]
-            if _is_list_line(line):
+            if _is_list_line(line) or TABLE_LINE_RE.match(line):
                 break
             plain_lines.append(line)
             i += 1
@@ -212,6 +223,60 @@ def _is_list_line(line: str) -> bool:
         or OL_ALPHA_RE.match(line) is not None
         or DESC_RE.match(line) is not None
     )
+
+
+def _try_parse_table(lines: List[str], start_idx: int) -> tuple[Optional[Dict], int]:
+    """Try to parse an Org-mode simple table starting at start_idx.
+    Recognizes contiguous lines starting with '|' and optional separator lines like '|---+---|'.
+    Records the first separator as header/body divider and preserves all separator positions.
+    Returns (table_block, lines_consumed) or (None, 0).
+    """
+    if start_idx >= len(lines):
+        return None, 0
+
+    # First line must be a table content line (not a pure separator)
+    if not TABLE_LINE_RE.match(lines[start_idx]) or TABLE_SEP_RE.match(lines[start_idx]):
+        return None, 0
+
+    rows: List[List[str]] = []
+    header_rows = 0
+    separators: List[int] = []  # positions after the Nth parsed row
+
+    i = start_idx
+    header_candidate = None
+    seen_separator = False
+    while i < len(lines):
+        ln = lines[i]
+        if not TABLE_LINE_RE.match(ln):
+            break
+        if TABLE_SEP_RE.match(ln):
+            # Record separator position relative to parsed content rows so far
+            separators.append(len(rows))
+            # Mark potential header boundary, but only finalize when a body row follows
+            if header_candidate is None and rows:
+                header_candidate = len(rows)
+                seen_separator = True
+            i += 1
+            continue
+        # Parse a table row: split by '|' and strip cells
+        parts = [p.strip() for p in ln.strip().strip('|').split('|')]
+        rows.append(parts)
+        i += 1
+        # Finalize header_rows only after we have at least one body row
+        if header_rows == 0 and header_candidate is not None:
+            header_rows = header_candidate
+
+    if not rows:
+        return None, 0
+
+    # If there was no separator, assume no header
+    block = {
+        'kind': 'table',
+        'rows': rows,
+        'header_rows': header_rows,
+        'separators': separators,
+    }
+    return block, (i - start_idx)
 
 
 def _try_parse_list(lines: List[str], start_idx: int) -> tuple[Optional[Dict], int]:
@@ -805,10 +870,17 @@ def parse_org(path):
     for raw in lines:
         line = raw.rstrip('\n')
         line_stripped = line.lstrip()
+        if line_stripped.upper().startswith('#+TBLFM:'):
+            # Ignore Org table formula lines
+            continue
         if line_stripped.startswith('#+'):
             try:
                 k, v = line_stripped[2:].split(':', 1)
-                meta[k.strip().upper()] = v.strip()
+                key = k.strip().upper()
+                if key == 'TBLFM':
+                    # Extra guard: ignore table formulas
+                    continue
+                meta[key] = v.strip()
             except ValueError:
                 pass
             continue

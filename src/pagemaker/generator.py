@@ -310,7 +310,7 @@ def _par_args(style: dict, justify_override: object) -> str:
 
 
 def _render_text_blocks(text_blocks: list, el: dict, styles: dict) -> str:
-    """Render a list of text blocks (plain text and lists) to Typst fragments."""
+    """Render a list of text blocks (plain text, lists, tables) to Typst fragments."""
     result_parts = []
 
     # Get element style information
@@ -412,8 +412,104 @@ def _render_text_blocks(text_blocks: list, el: dict, styles: dict) -> str:
             list_typst = _render_list_block(block, text_args, par_args)
             if list_typst:
                 result_parts.append(list_typst)
+        elif block['kind'] == 'table':
+            table_typst = _render_table_block(block, text_args)
+            if table_typst:
+                result_parts.append(table_typst)
 
     return "\n".join(result_parts)
+
+
+def _render_table_block(table_block: dict, text_args: str) -> str:
+    """Render an Org-style simple table block to Typst as a single table.
+
+    - Uses Typst table with auto-sized columns (consistent across rows)
+    - Applies element text style via #text(text_args)[...]
+    - Bolds header rows using #strong[...] inside the text call
+    - Draws horizontal rulers above the header and between rows
+    - Honors parser-recorded separator positions; de-duplicates with natural boundaries
+    - Avoids a trailing hline at the very end
+    """
+    rows = table_block.get('rows') or []
+    if not rows:
+        return ""
+
+    # Normalize column count across rows
+    max_cols = max((len(r) for r in rows), default=0)
+    if max_cols == 0:
+        return ""
+    norm_rows = [list(r) + [""] * (max_cols - len(r)) for r in rows]
+
+    header_rows = int(table_block.get('header_rows') or 0)
+    # Separator positions are recorded as "after the Nth parsed row"
+    # Convert to a set for efficient lookups and de-duplication
+    try:
+        sep_positions = set(int(p) for p in (table_block.get('separators') or []))
+    except Exception:
+        sep_positions = set()
+
+    # Build Typst columns tuple like (auto, auto, ...)
+    cols_tuple = f"({', '.join(['auto'] * max_cols)})"
+
+    parts = []
+    # Table prelude: columns and gutter, and top horizontal line
+    parts.append(f"#table(columns: {cols_tuple}, gutter: 6pt,")
+    parts.append("  table.hline(y: 0),")
+
+    # Emit header rows inside table.header if present
+    if header_rows > 0:
+        header_cells = []
+        for i in range(header_rows):
+            for cell in norm_rows[i]:
+                cell_text = (cell or '').strip()
+                if not cell_text:
+                    header_cells.append("[]")
+                else:
+                    escaped = escape_text(cell_text, styled_wrapper=bool(text_args))
+                    inner = f"#strong[{escaped}]"
+                    cell_call = f"#text({text_args})[{inner}]" if text_args else f"#text[{inner}]"
+                    header_cells.append(f"[{cell_call}]")
+        parts.append(f"  table.header(\n    {', '.join(header_cells)}\n  ),")
+        # Horizontal line after header (equivalent to boundary at position == header_rows)
+        parts.append("  table.hline(),")
+
+    # Emit data rows and a horizontal line after each row boundary that requires it
+    data_rows = norm_rows[header_rows:]
+    for idx, r in enumerate(data_rows):
+        row_cells = []
+        for cell in r:
+            cell_text = (cell or '').strip()
+            if not cell_text:
+                row_cells.append("[]")
+            else:
+                escaped = escape_text(cell_text, styled_wrapper=bool(text_args))
+                cell_call = f"#text({text_args})[{escaped}]" if text_args else f"#text[{escaped}]"
+                row_cells.append(f"[{cell_call}]")
+        parts.append(f"  {', '.join(row_cells)},")
+
+        # Determine whether to draw horizontal rules after this row.
+        # Natural boundary: after each data row except the last one.
+        natural_boundary = idx < len(data_rows) - 1
+        # Separator-specified boundary after this row: global position is header_rows + idx + 1
+        global_pos_after_this_row = header_rows + idx + 1
+        has_sep_boundary = (
+            (global_pos_after_this_row in sep_positions)
+            and (
+                global_pos_after_this_row != header_rows
+            )  # not the header boundary (already drawn)
+            and (global_pos_after_this_row < len(rows))  # avoid trailing boundary at end
+        )
+        # Always draw the natural boundary, and draw an additional rule when a
+        # separator boundary is present (deduplicated vs. header/trailing).
+        if natural_boundary:
+            parts.append("  table.hline(),")
+        if has_sep_boundary:
+            parts.append("  table.hline(),")
+
+    # Close table
+    parts.append(")")
+
+    return "\n".join(parts)
 
 
 def _render_list_block(list_block: dict, text_args: str, par_args: str) -> str:
@@ -625,7 +721,7 @@ def _render_text_element(el: dict, styles: dict) -> str:
                     result_parts.append("\n".join(text_pieces))
         return "\n".join(result_parts)
 
-    # Original logic for pure text content
+    # Pure text content path
     paras = _split_paragraphs(raw)
     style_name = el.get('style') or el.get('type') or 'body'
     style = styles.get(str(style_name).strip().lower(), styles.get(el.get('type'), styles['body']))

@@ -1,0 +1,17 @@
+#+TITLE: Test Bold
+#+PAGESIZE: A4
+
+* page1
+
+** Test Text
+:PROPERTIES:
+:TYPE: body
+:area: a1, a2
+:font: Inter
+:weight: semibold
+:size: 18pt
+:END:
+
+This is *bold text* and this is /italic text/.
+
+Here is *another bold* example.

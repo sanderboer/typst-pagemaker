@@ -1,0 +1,47 @@
+#+TITLE: Link Test Document
+#+AUTHOR: Test
+#+PAGESIZE: A4
+#+MARGIN: 20
+
+* Page with Links
+:PROPERTIES:
+:END:
+
+Here are some test links:
+
+This is a link with description: [[https://example.com][Visit Example.com]]
+
+This is a plain URL link: [[https://github.com]]
+
+You can also visit [[https://typst.app][Typst Documentation]] for more info.
+
+And here's another plain link: [[mailto:test@example.com]]
+
+** Test Element
+:PROPERTIES:
+:TYPE: body
+:AREA: A1,C8
+:END:
+
+Link test in body element: [[https://sst.dev][SST Framework]]
+
+Various link types:
+- Plain URL: [[https://github.com]]  
+- With description: [[https://example.com][Visit Example.com]]
+- Email link: [[mailto:test@example.com]]
+- Documentation: [[https://typst.app][Typst Documentation]]
+
+** Another Element  
+:PROPERTIES:
+:TYPE: body
+:AREA: D1,H8
+:END:
+
+More examples:
+- Internal links work: [[https://internal.example.com]]
+- Secure sites: [[https://secure.bank.com][My Bank]]
+- Contact info: [[mailto:support@company.com][Support Team]]
+- Bold in description: [[https://example.com][Visit *Bold Site*]]
+- Italic in description: [[https://github.com][Check /GitHub/ Repository]]
+- Mixed markup: [[https://typst.app][*Typst* /Documentation/ Site]]
+- Complex URL: [[https://omgevingswet.overheid.nl/regels-op-de-kaart/documenten/NL.IMRO.0502.PH14Schollebos-4001/plekinfo?regelsandere=regels&bestuurslaag=gemeente&locatie-stelsel=RD&locatie-x=99546&locatie-y=438879][Planning Document]]

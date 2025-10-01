@@ -426,9 +426,8 @@ def _render_table_block(table_block: dict, text_args: str) -> str:
     - Uses Typst table with auto-sized columns (consistent across rows)
     - Applies element text style via #text(text_args)[...]
     - Bolds header rows using #strong[...] inside the text call
-    - Draws horizontal rulers above the header and between rows
-    - Honors parser-recorded separator positions; de-duplicates with natural boundaries
-    - Avoids a trailing hline at the very end
+    - Draws horizontal rulers only where explicit Org separator lines exist
+    - No implicit top rule and no natural between-row rules
     """
     rows = table_block.get('rows') or []
     if not rows:
@@ -448,13 +447,39 @@ def _render_table_block(table_block: dict, text_args: str) -> str:
     except Exception:
         sep_positions = set()
 
+    # If there's an explicit separator right after the last non-empty data row,
+    # drop only trailing all-empty rows that follow it. This prevents a final
+    # empty data row from shifting the trailing rule upward (overlapping text).
+    if header_rows < len(norm_rows):
+        data = norm_rows[header_rows:]
+
+        def row_is_empty(r):
+            return all((str(c).strip() == "") for c in r)
+
+        # Find last non-empty data row index
+        last_nonempty_idx = None
+        for i in range(len(data) - 1, -1, -1):
+            if not row_is_empty(data[i]):
+                last_nonempty_idx = i
+                break
+
+        if last_nonempty_idx is not None:
+            # Global position after that row
+            last_nonempty_global_pos = header_rows + last_nonempty_idx + 1
+            if last_nonempty_global_pos in sep_positions:
+                # Trim any empty rows that come after it
+                j = len(data) - 1
+                while j > last_nonempty_idx and row_is_empty(data[j]):
+                    j -= 1
+                data = data[: j + 1]
+                norm_rows = norm_rows[:header_rows] + data
+
     # Build Typst columns tuple like (auto, auto, ...)
     cols_tuple = f"({', '.join(['auto'] * max_cols)})"
 
     parts = []
-    # Table prelude: columns and gutter, and top horizontal line
+    # Table prelude: columns, gutter, and stroke disabled
     parts.append(f"#table(columns: {cols_tuple}, gutter: 6pt, stroke: none,")
-    parts.append("  table.hline(y: 0),")
 
     # Emit header rows inside table.header if present
     if header_rows > 0:
@@ -470,10 +495,11 @@ def _render_table_block(table_block: dict, text_args: str) -> str:
                     cell_call = f"#text({text_args})[{inner}]" if text_args else f"#text[{inner}]"
                     header_cells.append(f"[{cell_call}]")
         parts.append(f"  table.header(\n    {', '.join(header_cells)}\n  ),")
-        # Horizontal line after header (equivalent to boundary at position == header_rows)
-        parts.append("  table.hline(),")
+        # Draw a horizontal rule after the header only if an explicit separator exists there
+        if header_rows in sep_positions:
+            parts.append("  table.hline(),")
 
-    # Emit data rows and a horizontal line after each row boundary that requires it
+    # Emit data rows and horizontal rules only at explicit separator positions
     data_rows = norm_rows[header_rows:]
     for idx, r in enumerate(data_rows):
         row_cells = []
@@ -487,23 +513,9 @@ def _render_table_block(table_block: dict, text_args: str) -> str:
                 row_cells.append(f"[{cell_call}]")
         parts.append(f"  {', '.join(row_cells)},")
 
-        # Determine whether to draw horizontal rules after this row.
-        # Natural boundary: after each data row except the last one.
-        natural_boundary = idx < len(data_rows) - 1
         # Separator-specified boundary after this row: global position is header_rows + idx + 1
         global_pos_after_this_row = header_rows + idx + 1
-        has_sep_boundary = (
-            (global_pos_after_this_row in sep_positions)
-            and (
-                global_pos_after_this_row != header_rows
-            )  # not the header boundary (already drawn)
-            and (global_pos_after_this_row < len(rows))  # avoid trailing boundary at end
-        )
-        # Always draw the natural boundary, and draw an additional rule when a
-        # separator boundary is present (deduplicated vs. header/trailing).
-        if natural_boundary:
-            parts.append("  table.hline(),")
-        if has_sep_boundary:
+        if global_pos_after_this_row in sep_positions:
             parts.append("  table.hline(),")
 
     # Close table

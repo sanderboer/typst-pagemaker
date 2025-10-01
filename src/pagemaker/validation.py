@@ -180,6 +180,24 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                                     message="Alpha out of range 0.0-1.0",
                                 )
                             )
+                # Deprecation warning: element-level MARGIN was declared
+                if el.get('had_margin_decl') is True:
+                    issues.append(
+                        ValidationIssue(
+                            path=f"{epath}",
+                            message="Element-level MARGIN is deprecated; use PADDING instead",
+                            severity='warn',
+                        )
+                    )
+                # Legacy IR support: margin_mm present on element
+                if isinstance(el.get('margin_mm'), dict):
+                    issues.append(
+                        ValidationIssue(
+                            path=f"{epath}/margin_mm",
+                            message="Legacy margin_mm detected on element; element-level margins are deprecated",
+                            severity='warn',
+                        )
+                    )
                 # Area bounds: AREA is interpreted in the total grid.
                 # When margins are declared, validate against grid_total; otherwise, use content grid.
                 area = el.get('area')

@@ -15,46 +15,65 @@ def _format_size(size_bytes: int) -> str:
 
 
 def _get_font_paths() -> List[str]:
-    """Get font paths in order of preference: user-specified -> bundled fallback"""
+    """Get font paths in order of preference, supporting repo and installed usage.
+
+    Order:
+    1) Project-local assets/fonts (+/static)
+    2) Examples assets/fonts (+/static)
+    3) Packaged fonts next to this module (installed or repo): <module_dir>/fonts and family subdirs
+    4) Repo source fonts at src/pagemaker/fonts (when running from project root without importing package)
+    """
     font_paths: List[str] = []
 
-    # 1. Check for project-local assets/fonts (for development/user customization)
+    # 1. Project-local assets/fonts (for development/user customization)
     local_fonts = pathlib.Path('assets/fonts')
     if local_fonts.exists():
         font_paths.append(str(local_fonts))
-        # Add static subdirectory if it exists
         static_path = local_fonts / 'static'
         if static_path.exists():
             font_paths.append(str(static_path))
 
-    # 1b. Check examples/assets/fonts as fallback (example fonts)
+    # 2. Examples assets/fonts as fallback (example fonts)
     examples_fonts = pathlib.Path('examples/assets/fonts')
     if examples_fonts.exists():
         font_paths.append(str(examples_fonts))
-        # Add static subdirectory if it exists
         static_path = examples_fonts / 'static'
         if static_path.exists():
             font_paths.append(str(static_path))
 
-    # 2. Add bundled fonts as fallback
-    try:
-        # Get the path to bundled fonts in the installed package
-        import pagemaker
+    # 3. Packaged fonts next to this module (works for installed package and repo src)
+    # Avoid relying on import-time resolution; use __file__ to find the module directory
+    module_fonts_base = pathlib.Path(__file__).parent / 'fonts'
+    if module_fonts_base.exists():
+        font_paths.append(str(module_fonts_base))
+        # Add known families explicitly and any other family subdirectories
+        key_families = ['Inter', 'Crimson_Pro', 'JetBrains_Mono']
+        # Include all subdirectories under fonts for completeness
+        try:
+            for sub in module_fonts_base.iterdir():
+                if sub.is_dir() and not sub.name.startswith('.'):
+                    font_paths.append(str(sub))
+        except Exception:
+            pass
+        # Ensure key families are included even if filtered by above
+        for fam in key_families:
+            sub = module_fonts_base / fam
+            if sub.exists():
+                font_paths.append(str(sub))
 
-        package_path = pathlib.Path(pagemaker.__file__).parent
-        package_fonts_path = package_path / 'fonts'
-        if package_fonts_path.exists():
-            font_paths.append(str(package_fonts_path))
-            # Also add any font family subdirectories
-            for font_family_dir in package_fonts_path.iterdir():
-                if font_family_dir.is_dir() and not font_family_dir.name.startswith('.'):
-                    font_paths.append(str(font_family_dir))
-    except Exception:
-        # Fallback: fonts not bundled or package not found
-        pass
+    # 4. Explicit repo source path if running from project root without importing package
+    repo_src_fonts = pathlib.Path('src/pagemaker/fonts')
+    if repo_src_fonts.exists():
+        font_paths.append(str(repo_src_fonts))
+        try:
+            for sub in repo_src_fonts.iterdir():
+                if sub.is_dir() and not sub.name.startswith('.'):
+                    font_paths.append(str(sub))
+        except Exception:
+            pass
 
-    # Filter out None values and return unique paths
-    return list(dict.fromkeys(fp for fp in font_paths if fp is not None))
+    # Return unique paths, preserving order
+    return list(dict.fromkeys(fp for fp in font_paths if fp))
 
 
 def _discover_fonts_in_path(font_path: pathlib.Path) -> Dict:

@@ -1,0 +1,22 @@
+#+TITLE: Table Example
+#+AUTHOR: Example
+#+DATE: 2025-10-01
+#+PAGESIZE: A4
+#+GRID: 12x8
+
+* Page 1
+:PROPERTIES:
+:GRID: 12x8
+:END:
+** Body
+:PROPERTIES:
+:TYPE: body
+:AREA: B2,H12
+:END:
+
+| Product | Qty | Price |
+|---------+-----+-------|
+| Apples  | 10  | 1.20  |
+|---------+-----+-------|
+| Oranges | 5   | 0.90  |
+| Pears   |     | 1.10  |

@@ -45,9 +45,9 @@ Some text describing: occupies columns A..C and rows 1..4. Base contain scale us
 :TYPE: pdf
 :PDF: assets/drawing_flat.pdf
 :PAGE: 1
-:AREA: d1,f4
+:AREA: D1,F3
 :ALIGN: right
-:PADDING: 10,0,10,15
+:PADDING: 0,0,0,0
 :END:
 Padding reduces usable frame so resulting rendered PDF is smaller (still auto-contained).
 

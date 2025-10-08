@@ -264,8 +264,9 @@ def _analyze_font_usage(ir: dict) -> dict:
             )
 
     # 3) Global FONT meta override
-    if isinstance(meta.get('FONT'), str) and meta.get('FONT').strip():
-        n = meta['FONT'].strip()
+    font_meta = meta.get('FONT')
+    if isinstance(font_meta, str) and font_meta.strip():
+        n = font_meta.strip()
         font_usage['fonts_found'].add(n)
         font_usage['usage_locations'].append({'type': 'meta', 'font': n, 'location': 'meta FONT'})
 

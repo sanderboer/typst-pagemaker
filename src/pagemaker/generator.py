@@ -145,7 +145,7 @@ TYPST_HEADER = """// Auto-generated Typst file
 """
 
 
-def _parse_style_decl(s: str) -> dict:
+def _parse_style_decl_from_generator(s: str) -> dict:
     """Parse a style declaration string like 'font: Inter, weight: bold, size: 24pt, color: #333'.
     Returns dict with optional keys: font, weight, size, color (strings as provided, trimmed).
     Accepts separators comma/semicolon, and key separators ':' or '='. Keys are case-insensitive.
@@ -241,7 +241,7 @@ def _parse_style_decl(s: str) -> dict:
     return out
 
 
-def _build_styles(meta: dict) -> dict:
+def _build_styles_from_generator(meta: dict) -> dict:
     """Build style map from meta keys. Keys look like 'STYLE_NAME'. Case-insensitive.
     Defaults:
       - header: Inter bold 24pt
@@ -274,7 +274,7 @@ def _build_styles(meta: dict) -> dict:
         name = k.split('_', 1)[1].strip().lower()
         if not name:
             continue
-        decl = _parse_style_decl(v)
+        decl = _parse_style_decl_from_generator(v)
         if name in styles:
             styles[name] = {**styles[name], **decl}
         else:
@@ -282,7 +282,7 @@ def _build_styles(meta: dict) -> dict:
     return styles
 
 
-def _style_args(style: dict) -> str:
+def _style_args_from_generator(style: dict) -> str:
     """Render Typst #text argument list from a style dict.
     Order: font, weight, size, fill. Omit missing.
     Quotes font always. For weight, quote if non-numeric; keep numeric bare.
@@ -353,7 +353,7 @@ def _bool_token(val: str) -> str:
     return s  # pass-through (user may supply a Typst expression)
 
 
-def _par_args(style: dict, justify_override: object) -> str:
+def _par_args_from_generator(style: dict, justify_override: object) -> str:
     """Build Typst par(...) argument list from style and element override.
     Includes: leading, spacing, first-line-indent, hanging-indent, linebreaks, justify.
     Element-level justify overrides style value when provided.
@@ -394,8 +394,8 @@ def _render_text_blocks(text_blocks: list, el: dict, styles: dict) -> str:
     # Get element style information
     style_name = el.get('style') or el.get('type') or 'body'
     style = styles.get(str(style_name).strip().lower(), styles.get(el.get('type'), styles['body']))
-    text_args = _style_args(style)
-    par_args = _par_args(style, el.get('justify'))
+    text_args = _style_args_from_generator(style)
+    par_args = _par_args_from_generator(style, el.get('justify'))
 
     def _render_text_with_hardbreaks(par_text: str) -> str:
         """Render a paragraph of text, supporting hard line breaks via trailing backslash.
@@ -689,8 +689,8 @@ def _render_text_element(el: dict, styles: dict) -> str:
                     style = styles.get(
                         str(style_name).strip().lower(), styles.get(el.get('type'), styles['body'])
                     )
-                    text_args = _style_args(style)
-                    par_args = _par_args(style, el.get('justify'))
+                    text_args = _style_args_from_generator(style)
+                    par_args = _par_args_from_generator(style, el.get('justify'))
 
                     text_pieces = []
                     for p in paras:
@@ -704,8 +704,8 @@ def _render_text_element(el: dict, styles: dict) -> str:
     paras = _split_paragraphs(raw)
     style_name = el.get('style') or el.get('type') or 'body'
     style = styles.get(str(style_name).strip().lower(), styles.get(el.get('type'), styles['body']))
-    text_args = _style_args(style)
-    par_args = _par_args(style, el.get('justify'))
+    text_args = _style_args_from_generator(style)
+    par_args = _par_args_from_generator(style, el.get('justify'))
     if len(paras) <= 1 and not par_args:
         txt = escape_text(raw, styled_wrapper=bool(text_args))
         return f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
@@ -724,7 +724,7 @@ def generate_typst(ir):
     theme = TYPOGRAPHY.get(theme_name, TYPOGRAPHY['light'])
 
     # Build styles from document meta
-    styles = _build_styles(ir.get('meta') or {})
+    styles = _build_styles_from_generator(ir.get('meta') or {})
 
     # Discover and validate fonts
     available_fonts = _discover_available_fonts()
@@ -1044,7 +1044,7 @@ def generate_typst(ir):
                 try:
                     pad_dict = el.get('padding_mm') if isinstance(el, dict) else None
                     frame_w_mm, frame_h_mm = _compute_element_frame_size_mm(page, area, pad_dict)
-                    pdf_w_mm, pdf_h_mm = _pdf_intrinsic_size_mm(psrc)
+                    pdf_w_mm, pdf_h_mm = _pdf_intrinsic_size_mm_from_generator(psrc)
                     if pdf_w_mm <= 0 or pdf_h_mm <= 0:
                         base_scale = 1.0
                     else:
@@ -1078,7 +1078,7 @@ def generate_typst(ir):
                             frame_w_mm, frame_h_mm = _compute_element_frame_size_mm(
                                 page, area, pad_dict
                             )
-                            pdf_w_mm, pdf_h_mm = _pdf_intrinsic_size_mm(psrc)
+                            pdf_w_mm, pdf_h_mm = _pdf_intrinsic_size_mm_from_generator(psrc)
                             if pdf_w_mm > 0 and pdf_h_mm > 0:
                                 cover_scale = max(frame_w_mm / pdf_w_mm, frame_h_mm / pdf_h_mm)
                                 scale_numeric = float(f"{cover_scale:.6f}")
@@ -1827,3 +1827,55 @@ def adjust_asset_paths(ir, typst_dir: pathlib.Path):
             svg = el.get('svg')
             if svg and svg.get('src'):
                 svg['src'] = resolve_rel(svg['src'])
+
+
+# =============================================================================
+# WRAPPERS FOR EXTRACTED FUNCTIONS (Stage 3.4 - PDF Processing)
+# =============================================================================
+
+
+def _pdf_intrinsic_size_mm_from_generator(path: str) -> tuple[float, float]:
+    """Wrapper for pdf_intrinsic_size_mm from generation.pdf_processor."""
+    from .generation.pdf_processor import pdf_intrinsic_size_mm
+
+    return pdf_intrinsic_size_mm(path)
+
+
+def adjust_asset_paths_from_generator(ir, typst_dir):
+    """Wrapper for adjust_asset_paths from generation.pdf_processor."""
+    from .generation.pdf_processor import adjust_asset_paths
+
+    return adjust_asset_paths(ir, typst_dir)
+
+
+# =============================================================================
+# WRAPPERS FOR EXTRACTED FUNCTIONS (Stage 3.5 - Core/Style Processing)
+# =============================================================================
+
+
+def _build_styles_from_generator(meta: dict) -> dict:
+    """Wrapper for build_styles from generation.core."""
+    from .generation.core import build_styles
+
+    return build_styles(meta)
+
+
+def _style_args_from_generator(style: dict) -> str:
+    """Wrapper for style_args from generation.core."""
+    from .generation.core import style_args
+
+    return style_args(style)
+
+
+def _par_args_from_generator(style: dict, justify_override: object) -> str:
+    """Wrapper for par_args from generation.core."""
+    from .generation.core import par_args
+
+    return par_args(style, justify_override)
+
+
+def _parse_style_decl_from_generator(s: str) -> dict:
+    """Wrapper for parse_style_decl from generation.core."""
+    from .generation.core import parse_style_decl
+
+    return parse_style_decl(s)

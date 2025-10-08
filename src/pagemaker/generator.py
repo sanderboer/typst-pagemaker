@@ -991,10 +991,13 @@ def generate_typst(ir):
                         base_scale = min(frame_w_mm / pdf_w_mm, frame_h_mm / pdf_h_mm)
                         if base_scale <= 0 or not (base_scale == base_scale):  # NaN guard
                             base_scale = 1.0
-                    final_scale = base_scale * float(user_scale)
-                    # Enforce containment even if user multiplier > 1 by capping
-                    if final_scale > base_scale:
-                        final_scale = base_scale
+                    # Ignore user-supplied :SCALE: for now; always use containment base_scale
+                    if isinstance(user_scale, (int, float)) and abs(float(user_scale) - 1.0) > 1e-6:
+                        warnings.warn(
+                            f":SCALE: {user_scale} specified for PDF '{psrc}' is currently ignored (auto-contain scaling enforced).",
+                            UserWarning,
+                        )
+                    final_scale = base_scale
                     scale_numeric = float(f"{final_scale:.6f}")
                 except Exception:
                     scale_numeric = (
@@ -1005,8 +1008,44 @@ def generate_typst(ir):
                         f"Fig(image(\"{psrc}\", width: 100%, height: 100%, fit: \"contain\"))"
                     )
                 else:
+                    # Alignment inside frame (horizontal only for now) when leftover space exists
+                    pdf_align = (
+                        (el.get('pdf_align') or el.get('align') or 'left')
+                        if isinstance(el, dict)
+                        else 'left'
+                    )
+                    pdf_align = str(pdf_align).strip().lower()
+                    if pdf_align not in ('left', 'center', 'right'):
+                        pdf_align = 'left'
+                    scale_mode = (pdf.get('scale_mode') or 'contain').strip().lower()
+                    if scale_mode not in ('contain', 'cover'):
+                        scale_mode = 'contain'
+                    # For cover, recompute scale to fill and possibly crop
+                    if scale_mode == 'cover':
+                        try:
+                            pad_dict = el.get('padding_mm') if isinstance(el, dict) else None
+                            frame_w_mm, frame_h_mm = _compute_element_frame_size_mm(
+                                page, area, pad_dict
+                            )
+                            pdf_w_mm, pdf_h_mm = _pdf_intrinsic_size_mm(psrc)
+                            if pdf_w_mm > 0 and pdf_h_mm > 0:
+                                cover_scale = max(frame_w_mm / pdf_w_mm, frame_h_mm / pdf_h_mm)
+                                scale_numeric = float(f"{cover_scale:.6f}")
+                        except Exception:
+                            pass
+                    # Emit wrapper that handles horizontal centering or right aligning when needed
+                    align_wrapper_begin = ""
+                    align_wrapper_end = ""
+                    if pdf_align in ('center', 'right'):
+                        # Use Typst alignment by wrapping PdfEmbed in align()
+                        if pdf_align == 'center':
+                            align_wrapper_begin = "align(center)["
+                        else:
+                            align_wrapper_begin = "align(right)["
+                        align_wrapper_end = "]"
+                    mode_comment = "contain" if scale_mode == 'contain' else 'cover (may crop)'
                     content_fragments.append(
-                        f"// auto pdf scale base (contain) applied\nPdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale_numeric})"
+                        f"// auto pdf scale base {mode_comment} applied\n{align_wrapper_begin}PdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale_numeric}){align_wrapper_end}"
                     )
             elif el['type'] == 'toc':
                 # TOC with page numbers and dot leaders
@@ -1366,7 +1405,12 @@ def _pdf_intrinsic_size_mm(path: str) -> tuple[float, float]:
     except Exception:
         pass
     # Convert points (1/72") to mm
-    mm_per_pt = 25.4 / 72.0
+    # Empirical correction: muchpdf appears to render PDF user units ~90 per inch
+    # rather than the traditional 72 pt/in. Observed embedded PDFs were ~0.8x
+    # expected size (scale deficit of 1/1.25). Adjust conversion so intrinsic
+    # size is smaller, yielding a larger auto-contain scale that fills frames.
+    # When muchpdf clarifies its internal DPI, revisit this (possibly 96/in etc.).
+    mm_per_pt = 25.4 / 90.0
     width_mm = width_pt * mm_per_pt
     height_mm = height_pt * mm_per_pt
     _pdf_size_cache[path] = (width_mm, height_mm)

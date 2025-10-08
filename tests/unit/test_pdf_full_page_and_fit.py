@@ -219,8 +219,8 @@ def test_validation_errors_for_invalid_pdf_scale():
     assert ('/pages/0/elements/2/pdf/scale', 'PDF scale must be a number') in msgs
 
 
-def test_pdf_scale_with_subunit_multiplier_reduces_scale():
-    # Two identical frames; second has user multiplier 0.5 -> final scale roughly half
+def test_pdf_scale_with_subunit_multiplier_is_ignored():
+    # Two identical frames; second has user multiplier 0.5 but scaling is auto-contained and ignores user multiplier.
     ir = {
         'meta': {},
         'pages': [
@@ -249,9 +249,8 @@ def test_pdf_scale_with_subunit_multiplier_reduces_scale():
     scales = re.findall(r'PdfEmbed\("dummy.pdf", page: 1, scale: ([0-9.]+)\)', typ)
     assert len(scales) == 2
     s_full, s_half = (float(s) for s in scales)
-    assert s_half < s_full
-    # Ratio should be ~0.5 (allow small rounding difference due to formatting to 6 decimals)
-    assert abs((s_half * 2) - s_full) < 1e-5
+    # User multiplier 0.5 ignored => scales equal (allow tiny formatting diff)
+    assert abs(s_full - s_half) < 1e-9
 
 
 def test_pdf_scale_with_margins_and_padding_combined():

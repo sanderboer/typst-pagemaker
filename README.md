@@ -23,12 +23,12 @@ This approach is ideal for creating presentations, posters, reports, and any doc
 ## Features
 
 ### Migration Notice (Breaking Change)
-PDF embedding semantics changed to an automatic contain + optional multiplier model. Legacy `:FIT:` modes and the `:FULL_PAGE:` flag for `pdf` elements were removed.
+PDF embedding now always uses automatic contain scaling (legacy `:FIT:` modes and the `:FULL_PAGE:` flag for `pdf` elements were removed). A previously documented optional `:SCALE:` multiplier is currently ignored and will emit a warning when specified.
 
 New behavior (pdf elements only):
-- The system first computes a base auto-contain scale so the intrinsic PDF page fits entirely within the element's padded frame (respecting margins + element `:PADDING:`).
-- A user-supplied `:SCALE:` acts as a multiplier on that base (default 1.0). The final scale is `min(base_scale, base_scale * user_multiplier)` so PDFs never overflow their frame via scale.
-- Omitting `:SCALE:` keeps the auto-contain result.
+- The system computes a base auto-contain scale so the intrinsic PDF page fits entirely within the element's padded frame (respecting margins + element `:PADDING:`).
+- User `:SCALE:` values (if present in older documents) are ignored for now (warning emitted). Future releases may reintroduce controlled fit modes.
+- Result: PDFs never overflow their frame via scale; enlarge the `:AREA:` to show more context.
 
 Migration:
 - Remove any `:FIT:` / `:FULL_PAGE:` properties on `pdf` elements (ignored if still present).
@@ -714,7 +714,7 @@ Include high-quality PDF pages with fallback support:
 :TYPE: pdf
 :PDF: assets/technical-drawing.pdf
 :PAGE: 2
-:SCALE: 1.2
+# (Deprecated) :SCALE: 1.2  -> ignored; auto-contain applied
 :AREA: D2,I5
 :Z: 50
 :END:
@@ -727,15 +727,11 @@ Notes:
 PDF scaling semantics (automatic contain + multiplier):
 - Intrinsic PDF size is parsed (MediaBox) to obtain its natural width/height in mm.
 - The usable element frame is the declared `:AREA:` cell span minus element `:PADDING:` (and respects page `#+MARGINS:` when present).
-- Base contain scale: `base_scale = min(frame_w_mm / pdf_w_mm, frame_h_mm / pdf_h_mm)` (clamped to 1.0 when intrinsic probing fails).
-- User multiplier: `:SCALE:` (float > 0, default 1.0) produces `candidate = base_scale * SCALE`.
-- Final applied scale: `final_scale = min(base_scale, candidate)` ensuring the PDF never exceeds its contain size via scale alone.
-- Omitting `:SCALE:` uses pure auto-contain behavior.
+- Applied scale: `base_scale = min(frame_w_mm / pdf_w_mm, frame_h_mm / pdf_h_mm)` (falls back to 1.0 when intrinsic probing fails).
+- Any legacy `:SCALE:` property (from earlier docs) is currently ignored with a warning; only containment is applied.
 - Element `:PADDING:` reduces the frame before base scale calculation (shrinking resulting size).
 
-Validation errors:
-- `PDF scale must be a number` (when `:SCALE:` non-numeric)
-- `PDF scale must be > 0` (when zero or negative)
+Legacy validation errors related to `:SCALE:` are currently dormant because `:SCALE:` is ignored; future fit/scale options may restore stricter validation.
 
 Migration from older versions:
 - Remove any `:FIT:` or `:FULL_PAGE:` on pdf elements (ignored if present).
@@ -743,7 +739,7 @@ Migration from older versions:
 - If you previously used `:FIT: fill` to overshoot, enlarge the `:AREA:` instead; scale is capped at containment.
 - To simulate a full-page background, span the entire (including margin tracks) grid with `:AREA:` and keep default scale.
 
-Planned (optional) debug: A future `:PDF_DEBUG_SCALE:` flag may emit computed `pdf_w_mm`, `pdf_h_mm`, `frame_w_mm`, `frame_h_mm`, `base_scale`, `user_scale`, `final_scale` as Typst comments for troubleshooting.
+Planned (optional) debug: A future `:PDF_DEBUG_SCALE:` flag may emit computed `pdf_w_mm`, `pdf_h_mm`, `frame_w_mm`, `frame_h_mm`, `base_scale` as Typst comments for troubleshooting (user scale currently unused).
 
 ### SVG Embedding
 Embed SVG graphics directly:

@@ -642,6 +642,8 @@ class OrgElement:
                 'src': self.props.get('PDF'),
                 'pages': [int(self.props.get('PAGE', '1'))],
                 'scale': float(self.props.get('SCALE', '1.0')),
+                # New: scale mode (contain | cover) for auto scaling strategy
+                'scale_mode': (self.props.get('PDF_SCALE_MODE') or 'contain').strip().lower(),
             }
         if self.type == 'svg':
             svg = {'src': self.props.get('SVG'), 'scale': float(self.props.get('SCALE', '1.0'))}
@@ -715,6 +717,9 @@ class OrgElement:
             'valign': valign,
             'flow': flow,
             'padding_mm': padding_mm,
+            'pdf_align': (self.props.get('PDF_ALIGN') or '').strip().lower()
+            if self.type == 'pdf'
+            else None,
             'had_margin_decl': had_margin_decl,
         }
 

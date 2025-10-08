@@ -32,6 +32,82 @@ VALID_WEIGHTS = {
 }
 
 
+# Alignment utility functions
+def _get_alignment_wrapper(element):
+    """Create alignment wrapper from element properties.
+
+    This is a simplified version of the utils.alignment.AlignmentWrapper
+    integrated directly into generator.py to avoid import complexity.
+    """
+    align = element.get('align')
+    valign = element.get('valign')
+
+    # Normalize alignment values
+    if align:
+        align = str(align).strip().lower()
+        if align not in ('left', 'center', 'right'):
+            align = None
+
+    if valign:
+        valign = str(valign).strip().lower()
+        # Map 'middle' to Typst's 'horizon'
+        if valign == 'middle':
+            valign = 'horizon'
+        elif valign not in ('top', 'horizon', 'bottom'):
+            valign = None
+
+    return align, valign
+
+
+def _apply_alignment_wrapper(content, align, valign):
+    """Apply Typst alignment wrapper to content."""
+    if not align and not valign:
+        return content
+
+    align_terms = []
+    if align:
+        align_terms.append(align)
+    if valign:
+        align_terms.append(valign)
+
+    if align_terms:
+        inner = content
+        # If inner is not a content block, inject as code inside markup block
+        s = str(inner).strip()
+        if not (s.startswith('[') or s.startswith('#')):
+            inner = f"#{inner}"
+        return f"align({' + '.join(align_terms)})[{inner}]"
+
+    return content
+
+
+# Typst generation helper functions
+def _typst_text(content, text_args=None):
+    """Generate Typst text command with optional styling arguments."""
+    if text_args:
+        return f"#text({text_args})[{content}]"
+    else:
+        return f"#text[{content}]"
+
+
+def _typst_par(content, par_args=None):
+    """Generate Typst paragraph command with optional arguments."""
+    if par_args:
+        return f"#par({par_args})[{content}]"
+    else:
+        return f"#par()[{content}]"
+
+
+def _typst_grid_toc_entry(title, page_num):
+    """Generate a table of contents entry using grid layout."""
+    return (
+        f"#grid(columns: (auto, 1fr, auto), gutter: 4pt, "
+        f"[#text(font: \"Inter\")[{title}]], "
+        f"[#align(center)[#text(font: \"Inter\")[#repeat[.]]]], "
+        f"[#text(font: \"Inter\")[{page_num}]])"
+    )
+
+
 def parse_bool(val):
     """Parse a boolean value from string."""
     if val is None:
@@ -335,11 +411,11 @@ def _render_text_blocks(text_blocks: list, el: dict, styles: dict) -> str:
                 clean = re.sub(r'\\\s*$', '', ln)
                 if clean:
                     txt = escape_text(clean)
-                    pieces.append(f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]")
+                    pieces.append(_typst_text(txt, text_args))
                 pieces.append('#linebreak()')
             else:
                 txt = escape_text(ln)
-                pieces.append(f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]")
+                pieces.append(_typst_text(txt, text_args))
                 # Only add a space between lines when not at hard break and not last line
                 if idx < len(lines) - 1:
                     pieces.append(' ')
@@ -386,10 +462,7 @@ def _render_text_blocks(text_blocks: list, el: dict, styles: dict) -> str:
                                     text_pieces = []
                                     for p in paras:
                                         text_call = _render_text_with_hardbreaks(p)
-                                        if par_args:
-                                            text_pieces.append(f"#par({par_args})[{text_call}]")
-                                        else:
-                                            text_pieces.append(f"#par()[{text_call}]")
+                                        text_pieces.append(_typst_par(text_call, par_args))
                                     result_parts.append("\n".join(text_pieces))
                 else:
                     # Process as plain text
@@ -403,10 +476,7 @@ def _render_text_blocks(text_blocks: list, el: dict, styles: dict) -> str:
                             text_pieces = []
                             for p in paras:
                                 text_call = _render_text_with_hardbreaks(p)
-                                if par_args:
-                                    text_pieces.append(f"#par({par_args})[{text_call}]")
-                                else:
-                                    text_pieces.append(f"#par()[{text_call}]")
+                                text_pieces.append(_typst_par(text_call, par_args))
                             result_parts.append("\n".join(text_pieces))
 
         elif block['kind'] == 'list':
@@ -470,7 +540,7 @@ def _render_list_block(list_block: dict, text_args: str, par_args: str) -> str:
             if text:
                 # Use hanging indent to align wrapped lines with the text start
                 txt = escape_text(text)
-                text_call = f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
+                text_call = _typst_text(txt, text_args)
 
                 # Create hanging indent for list items
                 hanging_args = 'hanging-indent: 1.2em'
@@ -480,13 +550,11 @@ def _render_list_block(list_block: dict, text_args: str, par_args: str) -> str:
                     combined_args = f'{hanging_args}, spacing: {spacing_val}'
 
                 marker_txt = escape_text(marker)
-                marker_call = (
-                    f"#text({text_args})[{marker_txt}]" if text_args else f"#text[{marker_txt}]"
-                )
+                marker_call = _typst_text(marker_txt, text_args)
 
                 # Combine marker and text
                 combined_content = f"{marker_call}{text_call}"
-                list_item = f"#par({combined_args})[{combined_content}]"
+                list_item = _typst_par(combined_content, combined_args)
                 result_parts.append(list_item)
 
     elif list_type == 'ol':
@@ -519,7 +587,7 @@ def _render_list_block(list_block: dict, text_args: str, par_args: str) -> str:
 
             if text:
                 txt = escape_text(text)
-                text_call = f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
+                text_call = _typst_text(txt, text_args)
 
                 # Create hanging indent for list items
                 hanging_args = 'hanging-indent: 1.5em'
@@ -529,13 +597,11 @@ def _render_list_block(list_block: dict, text_args: str, par_args: str) -> str:
                     combined_args = f'{hanging_args}, spacing: {spacing_val}'
 
                 marker_txt = escape_text(marker)
-                marker_call = (
-                    f"#text({text_args})[{marker_txt}]" if text_args else f"#text[{marker_txt}]"
-                )
+                marker_call = _typst_text(marker_txt, text_args)
 
                 # Combine marker and text
                 combined_content = f"{marker_call}{text_call}"
-                list_item = f"#par({combined_args})[{combined_content}]"
+                list_item = _typst_par(combined_content, combined_args)
                 result_parts.append(list_item)
 
     elif list_type == 'dl':
@@ -548,16 +614,14 @@ def _render_list_block(list_block: dict, text_args: str, par_args: str) -> str:
                 # Render term in bold using #strong to avoid weight conflicts
                 term_txt = escape_text(term, styled_wrapper=True)
                 bold_term = f"#strong[{term_txt}]"
-                term_call = (
-                    f"#text({text_args})[{bold_term}]" if text_args else f"#text[{bold_term}]"
-                )
-                term_par = f"#par({par_args})[{term_call}]" if par_args else f"#par()[{term_call}]"
+                term_call = _typst_text(bold_term, text_args)
+                term_par = _typst_par(term_call, par_args)
                 result_parts.append(term_par)
 
             if desc:
                 # Render description with slight indent
                 desc_txt = escape_text(desc, styled_wrapper=bool(text_args))
-                desc_call = f"#text({text_args})[{desc_txt}]" if text_args else f"#text[{desc_txt}]"
+                desc_call = _typst_text(desc_txt, text_args)
 
                 # Add left indent for description
                 desc_args = 'hanging-indent: 1em'
@@ -566,7 +630,7 @@ def _render_list_block(list_block: dict, text_args: str, par_args: str) -> str:
                 else:
                     combined_args = desc_args
 
-                desc_par = f"#par({combined_args})[{desc_call}]"
+                desc_par = _typst_par(desc_call, combined_args)
                 result_parts.append(desc_par)
 
     # Add spacing between list and following content if not tight
@@ -631,11 +695,8 @@ def _render_text_element(el: dict, styles: dict) -> str:
                     text_pieces = []
                     for p in paras:
                         txt = escape_text(p, styled_wrapper=bool(text_args))
-                        text_call = f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
-                        if par_args:
-                            text_pieces.append(f"#par({par_args})[{text_call}]")
-                        else:
-                            text_pieces.append(f"#par()[{text_call}]")
+                        text_call = _typst_text(txt, text_args)
+                        text_pieces.append(_typst_par(text_call, par_args))
                     result_parts.append("\n".join(text_pieces))
         return "\n".join(result_parts)
 
@@ -653,11 +714,8 @@ def _render_text_element(el: dict, styles: dict) -> str:
     pieces = []
     for p in paras:
         txt = escape_text(p, styled_wrapper=bool(text_args))
-        text_call = f"#text({text_args})[{txt}]" if text_args else f"#text[{txt}]"
-        if par_args:
-            pieces.append(f"#par({par_args})[{text_call}]")
-        else:
-            pieces.append(f"#par()[{text_call}]")
+        text_call = _typst_text(txt, text_args)
+        pieces.append(_typst_par(text_call, par_args))
     return "\n".join(pieces)
 
 
@@ -946,7 +1004,8 @@ def generate_typst(ir):
                 src = el['figure']['src']
                 cap = el['figure'].get('caption')
                 fit = el['figure'].get('fit', 'contain')
-                align = el.get('align') or 'left'
+                align, _ = _get_alignment_wrapper(el)
+                align = align or 'left'  # Default to left for figures
                 fit_map = {
                     'fill': 'cover',
                     'contain': 'contain',
@@ -1041,9 +1100,7 @@ def generate_typst(ir):
                         page_counter += 1
                         continue
                     title = escape_text(rp.get('title', ''))
-                    toc_entries.append(
-                        f"#grid(columns: (auto, 1fr, auto), gutter: 4pt, [#text(font: \"Inter\")[{title}]], [#align(center)[#text(font: \"Inter\")[#repeat[.]]]], [#text(font: \"Inter\")[{page_counter}]])"
-                    )
+                    toc_entries.append(_typst_grid_toc_entry(title, page_counter))
                     page_counter += 1
                 if toc_entries:
                     toc_content = "\n".join(toc_entries)
@@ -1051,40 +1108,21 @@ def generate_typst(ir):
                 else:
                     content_fragments.append("[#text(font: \"Inter\")[No pages to display]]")
             frag = ' + '.join(content_fragments) if content_fragments else '""'
-            # Apply ALIGN/VALIGN wrappers if present
+            # Apply ALIGN/VALIGN wrappers if present using helper functions
             wrapped = frag
-            align_terms = []
-            h_align = (
-                (el.get('align') or '').strip().lower()
-                if isinstance(el.get('align'), str)
-                else None
-            )
-            v = (
-                (el.get('valign') or '').strip().lower()
-                if isinstance(el.get('valign'), str)
-                else None
-            )
+            align, valign = _get_alignment_wrapper(el)
+
+            # Handle FLOW as vertical alignment fallback
             flow = (
                 (el.get('flow') or '').strip().lower() if isinstance(el.get('flow'), str) else None
             )
-            if h_align in ('left', 'center', 'right'):
-                align_terms.append(h_align)
-            if v in ('top', 'middle', 'bottom'):
-                # Map 'middle' to Typst's vertical center token 'horizon'
-                align_terms.append('horizon' if v == 'middle' else v)
-            else:
-                # No explicit vertical alignment; use FLOW if provided
+            if not valign and flow:
                 if flow == 'bottom-up':
-                    align_terms.append('bottom')
+                    valign = 'bottom'
                 elif flow == 'center-out':
-                    align_terms.append('horizon')
-            if align_terms:
-                inner = wrapped
-                # If inner is not a content block, inject as code inside markup block
-                s = str(inner).strip()
-                if not (s.startswith('[') or s.startswith('#')):
-                    inner = f"#{inner}"
-                wrapped = f"align({' + '.join(align_terms)})[{inner}]"
+                    valign = 'horizon'
+
+            wrapped = _apply_alignment_wrapper(wrapped, align, valign)
             # Emit any pre-comments collected (e.g., pdf scaling mode)
             for c in pre_comments:
                 out.append(f"{c}\n")

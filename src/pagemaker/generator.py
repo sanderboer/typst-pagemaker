@@ -757,7 +757,7 @@ def generate_typst(ir):
         "  let iw = if need_rotate { bh } else { bw }\n"
         "  let ih = if need_rotate { bw } else { bh }\n"
         "  let scale = 1.0\n"
-        "  if fit == \"exact\" { scale = pw / iw } else if fit == \"cover\" { scale = max(pw / iw, ph / ih) } else if fit == \"contain\" { scale = min(pw / iw, ph / ih) } else if fit == \"width\" { scale = pw / iw } else if fit == \"height\" { scale = ph / ih }\n"
+        "  if fit == \"exact\" { scale = pw / iw } else if fit == \"cover\" { scale = if (pw / iw) > (ph / ih) { pw / iw } else { ph / ih } } else if fit == \"contain\" { scale = if (pw / iw) < (ph / ih) { pw / iw } else { ph / ih } } else if fit == \"width\" { scale = pw / iw } else if fit == \"height\" { scale = ph / ih }\n"
         "  let final_img = muchpdf(pdf_data, pages: pg, scale: scale)\n"
         "  let placed = if need_rotate { rotate(90deg)[#final_img] } else { final_img }\n"
         "  block(width: 100%, height: 100%, clip: true)[#placed]\n"

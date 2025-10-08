@@ -934,6 +934,7 @@ def generate_typst(ir):
                         file=sys.stderr,
                     )
             content_fragments = []
+            pre_comments = []
             if el['type'] in ('header', 'subheader', 'body'):
                 content_fragments.append(_render_text_element(el, styles))
             elif el['type'] == 'rectangle' and el.get('rectangle'):
@@ -1008,15 +1009,6 @@ def generate_typst(ir):
                         f"Fig(image(\"{psrc}\", width: 100%, height: 100%, fit: \"contain\"))"
                     )
                 else:
-                    # Alignment inside frame (horizontal only for now) when leftover space exists
-                    pdf_align = (
-                        (el.get('pdf_align') or el.get('align') or 'left')
-                        if isinstance(el, dict)
-                        else 'left'
-                    )
-                    pdf_align = str(pdf_align).strip().lower()
-                    if pdf_align not in ('left', 'center', 'right'):
-                        pdf_align = 'left'
                     scale_mode = (pdf.get('scale_mode') or 'contain').strip().lower()
                     if scale_mode not in ('contain', 'cover'):
                         scale_mode = 'contain'
@@ -1033,19 +1025,11 @@ def generate_typst(ir):
                                 scale_numeric = float(f"{cover_scale:.6f}")
                         except Exception:
                             pass
-                    # Emit wrapper that handles horizontal centering or right aligning when needed
-                    align_wrapper_begin = ""
-                    align_wrapper_end = ""
-                    if pdf_align in ('center', 'right'):
-                        # Use Typst alignment by wrapping PdfEmbed in align()
-                        if pdf_align == 'center':
-                            align_wrapper_begin = "align(center)["
-                        else:
-                            align_wrapper_begin = "align(right)["
-                        align_wrapper_end = "]"
                     mode_comment = "contain" if scale_mode == 'contain' else 'cover (may crop)'
+                    # Add comment separate from expression to avoid syntax issues inside layer_grid_padded
+                    pre_comments.append(f"// auto pdf scale base {mode_comment} applied")
                     content_fragments.append(
-                        f"// auto pdf scale base {mode_comment} applied\n{align_wrapper_begin}PdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale_numeric}){align_wrapper_end}"
+                        f"PdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale_numeric})"
                     )
             elif el['type'] == 'toc':
                 # TOC with page numbers and dot leaders
@@ -1101,6 +1085,9 @@ def generate_typst(ir):
                 if not (s.startswith('[') or s.startswith('#')):
                     inner = f"#{inner}"
                 wrapped = f"align({' + '.join(align_terms)})[{inner}]"
+            # Emit any pre-comments collected (e.g., pdf scaling mode)
+            for c in pre_comments:
+                out.append(f"{c}\n")
             out.append(f"// Element {el['id']} ({el['type']})\n")
             # Emit flow hint comment when provided
             if flow:

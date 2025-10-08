@@ -34,6 +34,7 @@ Migration:
 - Remove any `:FIT:` / `:FULL_PAGE:` properties on `pdf` elements (ignored if still present).
 - If you previously relied on `:FIT: contain` just delete it (behavior now default). If you relied on oversizing via `:FIT: fill` or manual big areas, you may enlarge the `:AREA:` instead; scale no longer exceeds containment.
 - Image `figure` elements still support `:FIT:` (contain|cover|fill) unchanged.
+- Legacy per-PDF alignment property (`pdf_align` / `:PDF_ALIGN:`) has been removed; use the standard `:ALIGN:` / `:VALIGN:` properties on `pdf` elements.
 
 See the Vector PDF Embedding section below for details and examples.
 
@@ -52,7 +53,7 @@ See the Vector PDF Embedding section below for details and examples.
 - **Custom fonts**: Integrated font management system with Google Fonts integration
 - **Text justification**: `:JUSTIFY:` for header/subheader/body (wraps Typst `par(justify: true)`)
 - **Padding**: `:PADDING:` on text, images, SVG, and PDF (CSS-like TRBL shorthand in mm; per-side padding inherits and accumulates; if totals cancel to 0mm on all sides, generator still emits padded placement).
-- **Alignment & flow**: `:ALIGN:` (left|center|right) for text/figure/svg/pdf/toc; `:VALIGN:` (top|middle|bottom) for text (note: `middle` maps to Typst `horizon`); `:FLOW:` (normal|bottom-up|center-out) — when `:VALIGN:` is not set for text, `:FLOW:` can imply vertical alignment (bottom-up -> bottom, center-out -> horizon).
+- **Alignment & flow**: `:ALIGN:` (left|center|right) for text/figure/svg/pdf/toc; `:VALIGN:` (top|middle|bottom) for text and pdf elements (note: `middle` maps to Typst `horizon`); `:FLOW:` (normal|bottom-up|center-out) — when `:VALIGN:` is not set for text, `:FLOW:` can imply vertical alignment (bottom-up -> bottom, center-out -> horizon).
 - **Custom styles**: Per-document text styles via Org meta `#+STYLE_*` and per-element `:STYLE:` name. See Custom Styles section.
 
 ### Supported Elements
@@ -306,7 +307,7 @@ typst-pagemaker/
 | `:Z:` | `10`, `100` | Stacking order (higher on top) |
 | `:PADDING:` | `4`, `2,4`, `2,4,6,8` | Margin in mm (CSS TRBL) |
 | `:ALIGN:` | `left`, `center`, `right` | Horizontal alignment |
-| `:VALIGN:` | `top`, `middle`, `bottom` | Vertical alignment (text only) |
+| `:VALIGN:` | `top`, `middle`, `bottom` | Vertical alignment (text + pdf elements) |
 | `:JUSTIFY:` | (bare) or `true`/`false` | Full text justification |
 | `:IGNORE:` | `true`, `false` | When `true`: drop this page (level 1) or this section and its subtree (level ≥2). If `:TYPE:` is missing or `none`, only the element is omitted; children still parse. |
 

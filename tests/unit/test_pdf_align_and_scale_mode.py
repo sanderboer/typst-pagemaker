@@ -11,7 +11,7 @@ def _page():
     }
 
 
-def test_pdf_align_center_and_right_emits_align_wrapper():
+def test_pdf_align_center_right_and_valign_middle_emits_align_wrapper():
     base = _page()
     base['elements'] = [
         {
@@ -19,21 +19,30 @@ def test_pdf_align_center_and_right_emits_align_wrapper():
             'type': 'pdf',
             'area': {'x': 1, 'y': 1, 'w': 2, 'h': 2},
             'pdf': {'src': 'dummy.pdf', 'pages': [1], 'scale_mode': 'contain'},
-            'pdf_align': 'center',
+            'align': 'center',
         },
         {
             'id': 'pdf_right',
             'type': 'pdf',
             'area': {'x': 1, 'y': 1, 'w': 2, 'h': 2},
             'pdf': {'src': 'dummy.pdf', 'pages': [1], 'scale_mode': 'contain'},
-            'pdf_align': 'right',
+            'align': 'right',
+        },
+        {
+            'id': 'pdf_middle',
+            'type': 'pdf',
+            'area': {'x': 1, 'y': 1, 'w': 2, 'h': 2},
+            'pdf': {'src': 'dummy.pdf', 'pages': [1], 'scale_mode': 'contain'},
+            'valign': 'middle',
         },
     ]
     ir = {'meta': {}, 'pages': [base]}
     typ = generate_typst(ir)
     # Expect align wrappers present
-    assert 'align(center)[PdfEmbed("dummy.pdf", page: 1, scale:' in typ
-    assert 'align(right)[PdfEmbed("dummy.pdf", page: 1, scale:' in typ
+    assert 'align(center)[#PdfEmbed("dummy.pdf", page: 1, scale:' in typ
+    assert 'align(right)[#PdfEmbed("dummy.pdf", page: 1, scale:' in typ
+    # Middle vertical alignment maps to horizon token
+    assert 'align(horizon)[#PdfEmbed("dummy.pdf", page: 1, scale:' in typ
 
 
 def test_pdf_scale_mode_cover_uses_larger_scale():

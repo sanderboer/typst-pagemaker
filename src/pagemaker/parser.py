@@ -698,6 +698,8 @@ class OrgElement:
                     )
             if align is None:
                 align = parse_align(self.props.get('ALIGN'))
+            if valign is None:
+                valign = parse_valign(self.props.get('VALIGN'))
         return {
             'id': self.id,
             'type': self.type,
@@ -717,9 +719,6 @@ class OrgElement:
             'valign': valign,
             'flow': flow,
             'padding_mm': padding_mm,
-            'pdf_align': (self.props.get('PDF_ALIGN') or '').strip().lower()
-            if self.type == 'pdf'
-            else None,
             'had_margin_decl': had_margin_decl,
         }
 

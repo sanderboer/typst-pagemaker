@@ -12,7 +12,7 @@ def _base_page():
     }
 
 
-def test_full_page_pdf_generates_full_page_place():
+def test_pdf_scale_explicit_embeds_scale_only():
     ir = {
         'meta': {},
         'pages': [
@@ -22,17 +22,13 @@ def test_full_page_pdf_generates_full_page_place():
                     {
                         'id': 'pdf1',
                         'type': 'pdf',
-                        'area': {
-                            'x': 1,
-                            'y': 1,
-                            'w': 2,
-                            'h': 2,
-                        },  # Smaller than grid to trigger warning semantics
-                        'padding_mm': {'top': 5, 'right': 5, 'bottom': 5, 'left': 5},
+                        'area': {'x': 1, 'y': 1, 'w': 2, 'h': 2},
                         'pdf': {
                             'src': 'dummy.pdf',
                             'pages': [1],
-                            'fit': 'contain',  # fit provided
+                            'scale': 2.0,
+                            # Legacy keys (ignored) should not affect output
+                            'fit': 'contain',
                             'full_page': True,
                         },
                     }
@@ -41,15 +37,14 @@ def test_full_page_pdf_generates_full_page_place():
         ],
     }
     typ = generate_typst(ir)
-    # Expect full page placement comment and a place covering entire page
-    assert 'FULL_PAGE placement' in typ
-    # Since page size 210x297mm set at top; placement block should use that
-    assert '#place(dx: 0mm, dy: 0mm' in typ
-    # Ensure PdfEmbedFit helper used (fit / full_page path)
-    assert 'PdfEmbedFit("dummy.pdf"' in typ
+    # Should not contain legacy helper or comments
+    assert 'PdfEmbedFit(' not in typ
+    assert 'FULL_PAGE placement' not in typ
+    # Should contain PdfEmbed with explicit scale 2.0
+    assert 'PdfEmbed("dummy.pdf", page: 1, scale: 2.0)' in typ
 
 
-def test_pdf_fit_ignores_scale_and_uses_pdfembedfit():
+def test_pdf_scale_default_is_one():
     ir = {
         'meta': {},
         'pages': [
@@ -63,9 +58,7 @@ def test_pdf_fit_ignores_scale_and_uses_pdfembedfit():
                         'pdf': {
                             'src': 'dummy.pdf',
                             'pages': [1],
-                            'fit': 'contain',
-                            'scale': 2.0,  # Should be ignored when fit present
-                            'full_page': False,
+                            # No scale provided => default 1.0
                         },
                     }
                 ],
@@ -73,16 +66,11 @@ def test_pdf_fit_ignores_scale_and_uses_pdfembedfit():
         ],
     }
     typ = generate_typst(ir)
-    # Should use PdfEmbedFit (auto scaling)
-    assert 'PdfEmbedFit("dummy.pdf"' in typ
-    # PdfEmbedFit signature does not include scale parameter; ensure no explicit scale with dummy.pdf line
-    lines = [line for line in typ.splitlines() if 'PdfEmbedFit("dummy.pdf"' in line]
-    assert lines, 'Expected a line containing PdfEmbedFit call'
-    for line in lines:
-        assert 'scale:' not in line
+    # Expect PdfEmbed with scale 1.0 (default)
+    assert 'PdfEmbed("dummy.pdf", page: 1, scale: 1.0)' in typ
 
 
-def test_validation_warnings_for_full_page_and_scale_ignored():
+def test_validation_errors_for_invalid_pdf_scale():
     ir = {
         'meta': {},
         'pages': [
@@ -93,12 +81,10 @@ def test_validation_warnings_for_full_page_and_scale_ignored():
                         'id': 'pdf3',
                         'type': 'pdf',
                         'area': {'x': 1, 'y': 1, 'w': 2, 'h': 2},
-                        'padding_mm': {'top': 1, 'right': 0, 'bottom': 0, 'left': 0},
                         'pdf': {
                             'src': 'dummy.pdf',
                             'pages': [1],
-                            'fit': 'contain',
-                            'full_page': True,
+                            'scale': 0,  # invalid
                         },
                     },
                     {
@@ -108,8 +94,17 @@ def test_validation_warnings_for_full_page_and_scale_ignored():
                         'pdf': {
                             'src': 'dummy.pdf',
                             'pages': [1],
-                            'fit': 'cover',
-                            'scale': 1.5,
+                            'scale': -1,  # invalid
+                        },
+                    },
+                    {
+                        'id': 'pdf5',
+                        'type': 'pdf',
+                        'area': {'x': 1, 'y': 3, 'w': 4, 'h': 1},
+                        'pdf': {
+                            'src': 'dummy.pdf',
+                            'pages': [1],
+                            'scale': 'big',  # not numeric
                         },
                     },
                 ],
@@ -117,10 +112,7 @@ def test_validation_warnings_for_full_page_and_scale_ignored():
         ],
     }
     result = validate_ir(ir)
-    msgs = {(iss.path, iss.message, iss.severity) for iss in result.issues}
-    # full_page padding warning
-    assert any('full_page PDF ignores element padding' in m for _, m, _ in msgs)
-    # full_page area dimension ignore warning
-    assert any('full_page PDF ignores AREA dimensions' in m for _, m, _ in msgs)
-    # scale ignored when fit specified
-    assert any('scale ignored when fit specified for PDF' in m for _, m, _ in msgs)
+    msgs = {(iss.path, iss.message) for iss in result.issues}
+    assert ('/pages/0/elements/0/pdf/scale', 'PDF scale must be > 0') in msgs
+    assert ('/pages/0/elements/1/pdf/scale', 'PDF scale must be > 0') in msgs
+    assert ('/pages/0/elements/2/pdf/scale', 'PDF scale must be a number') in msgs

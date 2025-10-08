@@ -642,8 +642,6 @@ class OrgElement:
                 'src': self.props.get('PDF'),
                 'pages': [int(self.props.get('PAGE', '1'))],
                 'scale': float(self.props.get('SCALE', '1.0')),
-                'fit': str(self.props.get('FIT', 'contain')).strip().lower() or 'contain',
-                'full_page': parse_bool(self.props.get('FULL_PAGE')) is True,
             }
         if self.type == 'svg':
             svg = {'src': self.props.get('SVG'), 'scale': float(self.props.get('SCALE', '1.0'))}

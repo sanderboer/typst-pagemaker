@@ -150,47 +150,24 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                                     severity=sev,
                                 )
                             )
-                        # Warning: full_page ignores AREA (except origin) and padding
-                        full_page = bool(pdf.get('full_page'))
-                        if full_page:
-                            pad = el.get('padding_mm') if isinstance(el, dict) else None
-                            if isinstance(pad, dict) and any(
-                                float(pad.get(k, 0.0)) > 0
-                                for k in ('top', 'right', 'bottom', 'left')
-                            ):
+                        # Enforce positive PDF scale when provided
+                        scale = pdf.get('scale')
+                        if scale is not None:
+                            if not isinstance(scale, (int, float)):
                                 issues.append(
                                     ValidationIssue(
-                                        path=f"{epath}/pdf/full_page",
-                                        message="full_page PDF ignores element padding",
-                                        severity='warn',
+                                        path=f"{epath}/pdf/scale",
+                                        message="PDF scale must be a number",
                                     )
                                 )
-                            area = el.get('area') or {}
-                            if isinstance(area, dict):
-                                # If AREA doesn't cover the entire grid we warn (cannot infer total grid precisely here)
-                                # Heuristic: if w or h less than cols/rows when available
-                                if isinstance(cols, int) and isinstance(rows, int):
-                                    aw = area.get('w')
-                                    ah = area.get('h')
-                                    if isinstance(aw, int) and isinstance(ah, int):
-                                        if aw != cols or ah != rows:
-                                            issues.append(
-                                                ValidationIssue(
-                                                    path=f"{epath}/pdf/full_page",
-                                                    message="full_page PDF ignores AREA dimensions (will cover entire page)",
-                                                    severity='warn',
-                                                )
-                                            )
-                        # Warning: scale ignored when fit present
-                        fit_mode = pdf.get('fit')
-                        if fit_mode is not None and pdf.get('scale') not in (None, 1, 1.0):
-                            issues.append(
-                                ValidationIssue(
-                                    path=f"{epath}/pdf/scale",
-                                    message="scale ignored when fit specified for PDF",
-                                    severity='warn',
-                                )
-                            )
+                            else:
+                                if scale <= 0:
+                                    issues.append(
+                                        ValidationIssue(
+                                            path=f"{epath}/pdf/scale",
+                                            message="PDF scale must be > 0",
+                                        )
+                                    )
                 # SVG asset
                 if el.get('type') == 'svg':
                     svg = el.get('svg')

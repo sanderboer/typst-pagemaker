@@ -737,31 +737,7 @@ def generate_typst(ir):
         "#let ColorRect(color, alpha) = {\n  block(width: 100%, height: 100%, fill: rgb(color).transparentize(100% - alpha * 100%))[]\n}\n"
     )
     out.append(
-        "#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  let pdf_data = read(path, encoding: none)\n  let pg = page - 1\n  let muchpdf_image = muchpdf(pdf_data, pages: pg, scale: scale)\n  block(width: 100%, height: 100%, clip: true)[\n    #muchpdf_image\n  ]\n}\n"
-    )
-    out.append(
-        "#let PdfEmbedFit(path, page: 1, fit: \"contain\", rotate: auto) = context {\n"
-        "  let pdf_data = read(path, encoding: none)\n"
-        "  let pg = page - 1\n"
-        "  // initial scale 1 for intrinsic measurement\n"
-        "  let base_img = muchpdf(pdf_data, pages: pg, scale: 1.0)\n"
-        "  let base_dims = measure(base_img)\n"
-        "  let bw = base_dims.width\n"
-        "  let bh = base_dims.height\n"
-        "  let frame_dims = measure(block(width: 100%, height: 100%)[])\n"
-        "  let pw = frame_dims.width\n"
-        "  let ph = frame_dims.height\n"
-        "  // decide rotation when requested auto\n"
-        "  let need_rotate = false\n"
-        "  if rotate == auto { if ((bw > bh and pw < ph) or (bw < bh and pw > ph)) { need_rotate = true } } else if rotate == true { need_rotate = true }\n"
-        "  let iw = if need_rotate { bh } else { bw }\n"
-        "  let ih = if need_rotate { bw } else { bh }\n"
-        "  let scale = 1.0\n"
-        "  if fit == \"exact\" { scale = pw / iw } else if fit == \"cover\" { scale = if (pw / iw) > (ph / ih) { pw / iw } else { ph / ih } } else if fit == \"contain\" { scale = if (pw / iw) < (ph / ih) { pw / iw } else { ph / ih } } else if fit == \"width\" { scale = pw / iw } else if fit == \"height\" { scale = ph / ih }\n"
-        "  let final_img = muchpdf(pdf_data, pages: pg, scale: scale)\n"
-        "  let placed = if need_rotate { rotate(90deg)[#final_img] } else { final_img }\n"
-        "  block(width: 100%, height: 100%, clip: true)[#placed]\n"
-        "}\n"
+        "#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  let pdf_data = read(path, encoding: none)\n  let pg = page - 1\n  let pdf_img = muchpdf(pdf_data, pages: pg, scale: scale)\n  // Allow overflow so explicit scale can extend beyond frame intentionally\n  block(width: 100%, height: 100%)[\n    #pdf_img\n  ]\n}\n"
     )
     out.append(
         "#let layer(cw, ch, x, y, w, h, body) = place(\n  dx: (x - 1) * cw,\n  dy: (y - 1) * ch,\n  block(\n    width: w * cw,\n    height: h * ch,\n    body\n  )\n)\n"
@@ -958,7 +934,6 @@ def generate_typst(ir):
                         file=sys.stderr,
                     )
             content_fragments = []
-            full_page_pdf = False  # track if this element should be placed full-page
             if el['type'] in ('header', 'subheader', 'body'):
                 content_fragments.append(_render_text_element(el, styles))
             elif el['type'] == 'rectangle' and el.get('rectangle'):
@@ -1005,25 +980,12 @@ def generate_typst(ir):
                 psrc = pdf['src']
                 ppage = pdf['pages'][0]
                 scale = pdf.get('scale', 1.0)
-                fit_mode = (pdf.get('fit') or 'contain').lower()
-                full_page = bool(pdf.get('full_page'))
-                full_page_pdf = full_page
-                # Non-PDF sources fallback to image rendering
                 if pathlib.Path(psrc).suffix.lower() != '.pdf':
                     content_fragments.append(
                         f"Fig(image(\"{psrc}\", width: 100%, height: 100%, fit: \"contain\"))"
                     )
                 else:
-                    # If a fit mode is declared (including default contain) OR full_page usage, prefer PdfEmbedFit helper.
-                    # PdfEmbedFit computes scale automatically; explicit SCALE is ignored when FIT is used.
-                    if fit_mode in {'contain', 'cover', 'exact', 'width', 'height'} or full_page:
-                        content_fragments.append(
-                            f"PdfEmbedFit(\"{psrc}\", page: {ppage}, fit: \"{fit_mode}\")"
-                        )
-                    else:
-                        content_fragments.append(
-                            f"PdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale})"
-                        )
+                    content_fragments.append(f"PdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale})")
             elif el['type'] == 'toc':
                 # TOC with page numbers and dot leaders
                 toc_entries = []
@@ -1047,7 +1009,7 @@ def generate_typst(ir):
             # Apply ALIGN/VALIGN wrappers if present
             wrapped = frag
             align_terms = []
-            h = (
+            h_align = (
                 (el.get('align') or '').strip().lower()
                 if isinstance(el.get('align'), str)
                 else None
@@ -1060,8 +1022,8 @@ def generate_typst(ir):
             flow = (
                 (el.get('flow') or '').strip().lower() if isinstance(el.get('flow'), str) else None
             )
-            if h in ('left', 'center', 'right'):
-                align_terms.append(h)
+            if h_align in ('left', 'center', 'right'):
+                align_terms.append(h_align)
             if v in ('top', 'middle', 'bottom'):
                 # Map 'middle' to Typst's vertical center token 'horizon'
                 align_terms.append('horizon' if v == 'middle' else v)
@@ -1094,11 +1056,6 @@ def generate_typst(ir):
                 and sarg.count('(') == sarg.count(')')
             ):
                 arg = f"[{arg}]"
-            # FULL_PAGE PDF placement bypasses grid/padding and occupies entire page surface
-            if full_page_pdf:
-                out.append("// FULL_PAGE placement (AREA & PADDING ignored)\n")
-                out.append(f"#place(dx: 0mm, dy: 0mm, block(width: {w}mm, height: {h}mm, {arg}))\n")
-                continue
             # Place elements with padding when specified (text, figure, svg, pdf, rectangle, toc)
             if el.get('type') in (
                 'header',
@@ -1478,7 +1435,7 @@ def _discover_available_fonts() -> dict:
                             existing.append(info)
                             existing_paths.add(info['path'])
     except Exception:
-        # Final minimal heuristic over assets and examples
+        # Final minimal heuristic over assets and examples (very approximate)
         try:
 
             def _is_probable_font_path(p: pathlib.Path) -> bool:
@@ -1504,33 +1461,25 @@ def _discover_available_fonts() -> dict:
                 if not base_path.exists():
                     continue
                 for font_file in base_path.rglob('*'):
-                    if (
-                        font_file.is_file()
-                        and font_file.suffix.lower()
-                        in {
-                            '.ttf',
-                            '.otf',
-                            '.woff',
-                            '.woff2',
-                        }
-                        and _is_probable_font_path(font_file)
-                    ):
-                        rel = font_file.relative_to(base_path)
-                        family_name = rel.parts[0] if len(rel.parts) > 1 else 'Unknown'
-                        info = {
-                            'name': font_file.name,
-                            'path': str(font_file),
-                            'size': font_file.stat().st_size,
-                        }
-                        variants = {family_name}
-                        if '_' in family_name:
-                            variants.add(family_name.replace('_', ' '))
-                        if ' ' in family_name:
-                            variants.add(family_name.replace(' ', '_'))
-                        for v in variants:
-                            existing = font_families.setdefault(v, [])
-                            if info['path'] not in {e['path'] for e in existing}:
-                                existing.append(info)
+                    if not font_file.is_file():
+                        continue
+                    if not _is_probable_font_path(font_file):
+                        continue
+                    family_name = font_file.parent.name
+                    info = {
+                        'name': font_file.name,
+                        'path': str(font_file),
+                        'size': font_file.stat().st_size if font_file.exists() else 0,
+                    }
+                    variants = {family_name}
+                    if '_' in family_name:
+                        variants.add(family_name.replace('_', ' '))
+                    if ' ' in family_name:
+                        variants.add(family_name.replace(' ', '_'))
+                    for fam in variants:
+                        existing = font_families.setdefault(fam, [])
+                        if all(e['path'] != info['path'] for e in existing):
+                            existing.append(info)
         except Exception:
             pass
 
@@ -1538,27 +1487,21 @@ def _discover_available_fonts() -> dict:
 
 
 def _validate_font_availability(styles: dict, available_fonts: dict) -> list:
-    """Validate that fonts referenced in styles are available.
-    Returns list of warnings for missing fonts.
+    """Validate that fonts referenced in styles exist in discovered fonts.
+
+    Returns list of warning strings for missing font families or empty families.
     """
-    warnings_list = []
-    used_fonts = set()
-
-    # Collect all fonts used in styles
-    for style_name, style_data in styles.items():
-        font = style_data.get('font')
-        if font:
-            used_fonts.add(font)
-
-    # Check if used fonts are available
-    for font in used_fonts:
+    warnings_list: list[str] = []
+    for style_name, style in (styles or {}).items():
+        font = style.get('font') if isinstance(style, dict) else None
+        if not font:
+            continue
         if font not in available_fonts:
             warnings_list.append(
-                f"Font '{font}' used in styles but not found in available font paths"
+                f"Font family '{font}' referenced by style '{style_name}' not found; Typst may fallback"
             )
-        elif not available_fonts[font]:
+        elif not available_fonts.get(font):
             warnings_list.append(f"Font family '{font}' found but contains no font files")
-
     return warnings_list
 
 
@@ -1621,6 +1564,19 @@ def adjust_asset_paths(ir, typst_dir: pathlib.Path):
                     return os.path.relpath(c, typst_dir)
                 except Exception:
                     continue
+
+        # Special fallback: if user referenced 'assets/...', also look under examples/assets
+        if src.startswith('assets/'):
+            alt = project_root / 'examples' / src
+            try:
+                alt_res = alt.resolve()
+                if alt_res.exists():
+                    try:
+                        return os.path.relpath(alt_res, typst_dir)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
         # If no file found but src is relative, try best-effort path adjustment
         # relative to project root (common case for assets)

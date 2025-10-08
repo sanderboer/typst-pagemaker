@@ -22,6 +22,9 @@ This approach is ideal for creating presentations, posters, reports, and any doc
 
 ## Features
 
+### Migration Notice (Breaking Change)
+PDF embedding semantics were simplified. Legacy `:FIT:` modes and the `:FULL_PAGE:` flag for `pdf` elements were removed. Use a single numeric `:SCALE:` (> 0, defaults to 1.0) to control size. Remove any old `:FIT:`/`:FULL_PAGE:` properties—they are ignored if still present. Image `figure` elements continue to support `:FIT:` (contain|cover|fill). See the Vector PDF Embedding section below for details and migration guidance.
+
 ### Core Functionality
 - **Org-mode to Typst conversion (optional)**: Converts Org documents to Typst
 - **Grid-based positioning**: Grid layout (e.g., 12x8) with A1-style areas
@@ -709,46 +712,18 @@ Notes:
 - If sanitization still fails, the first requested page is auto-converted to SVG (preferred) or PNG and embedded as an image.
 - Fallback assets are written under `export_dir/assets/pdf-fallbacks/` and linked in the generated Typst.
 
-PDF scaling modes (FIT):
-- `:FIT: contain` (default) – scale uniformly so the entire PDF page fits inside the target frame (may letterbox)
-- `:FIT: cover` – scale uniformly so the frame is fully covered (content may clip)
-- `:FIT: exact` – scale uniformly so PDF width matches frame width (height may overflow/clamp internally)
-- `:FIT: width` – scale so widths match; height scales proportionally (may letterbox vertically)
-- `:FIT: height` – scale so heights match; width scales proportionally (may overflow horizontally)
+PDF scaling semantics (simplified):
+- A single explicit `:SCALE:` (float > 0) controls rendered size within the element frame.
+- If `:SCALE:` is omitted, a default scale of `1.0` is used.
+- There are no `:FIT:` modes and no `:FULL_PAGE:` flag anymore; remove those legacy properties if present.
+- Validation errors:
+  - `PDF scale must be a number` (when non-numeric)
+  - `PDF scale must be > 0` (when zero or negative)
+- Element `:PADDING:` still insets the placement frame before scaling applies.
 
-Behavior & precedence:
-- When any `FIT` mode is present, explicit `:SCALE:` is ignored (a validation warning is emitted).
-- If no `:FIT:` is given, `contain` is assumed (ensuring stable behavior and intrinsic measurement based scaling).
-
-Full-page PDFs:
-- Add `:FULL_PAGE: true` inside a PDF element to cover the entire physical page, ignoring its declared `:AREA:` (origin cell still used for ordering) and any element `:PADDING:`.
-- Validation emits warnings when `FULL_PAGE` is used with padding or when the `:AREA:` size does not match the content grid.
-- Full-page PDFs still participate in z-order (`:Z:`) like other elements.
-
-Example (full-page PDF first, then overlay text):
-```org
-* Slide
-:PROPERTIES:
-:ID: bg-demo
-:END:
-
-** Background PDF
-:PROPERTIES:
-:TYPE: pdf
-:PDF: assets/technical-drawing.pdf
-:PAGE: 1
-:FULL_PAGE: true
-:Z: 0
-:END:
-
-** Overlay Title
-:PROPERTIES:
-:TYPE: header
-:AREA: A2,J3
-:Z: 10
-:END:
-Full-page background with overlay title.
-```
+Migration from older versions:
+- Replace any `:FIT:` usage with an explicit numeric `:SCALE:` if you relied on automatic containment.
+- Remove any `:FULL_PAGE:` usage; to approximate a full-page background PDF, set the element `:AREA:` to span the full content (and/or margin) grid and adjust `:SCALE:` as desired.
 
 ### SVG Embedding
 Embed SVG graphics directly:

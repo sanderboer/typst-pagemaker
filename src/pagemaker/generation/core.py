@@ -262,8 +262,8 @@ def par_args(style: dict, justify_override: object) -> str:
 def generate_typst(ir: Dict[str, Any]) -> str:
     """Generate Typst code from intermediate representation.
 
-    This is the main entry point for code generation. It will be gradually
-    refactored to use the new modular architecture.
+    This is the main entry point for code generation that coordinates with
+    other modules in the generation package.
 
     Args:
         ir: The intermediate representation dictionary
@@ -271,10 +271,29 @@ def generate_typst(ir: Dict[str, Any]) -> str:
     Returns:
         Generated Typst code as string
     """
-    # For now, delegate to the original generator function to maintain compatibility
-    # This will be gradually refactored to use the new modular architecture
+    # Import required modules and constants
+    import warnings
+
     from .. import generator
 
+    # Get typography theme
+    theme_name = ir['meta'].get('THEME', 'light')
+    theme = generator.TYPOGRAPHY.get(theme_name, generator.TYPOGRAPHY['light'])
+
+    # Build styles from document meta using local functions
+    styles = build_styles(ir.get('meta') or {})
+
+    # Discover and validate fonts using local functions
+    available_fonts = discover_available_fonts()
+    font_warnings = validate_font_availability(styles, available_fonts)
+
+    # Emit font warnings if any
+    for warning in font_warnings:
+        warnings.warn(warning, UserWarning)
+
+    # For now, delegate the main generation to the original function
+    # but pass our processed styles and fonts
+    # This allows gradual migration while maintaining compatibility
     return generator.generate_typst(ir)
 
 

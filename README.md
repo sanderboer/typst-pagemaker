@@ -23,7 +23,19 @@ This approach is ideal for creating presentations, posters, reports, and any doc
 ## Features
 
 ### Migration Notice (Breaking Change)
-PDF embedding semantics were simplified. Legacy `:FIT:` modes and the `:FULL_PAGE:` flag for `pdf` elements were removed. Use a single numeric `:SCALE:` (> 0, defaults to 1.0) to control size. Remove any old `:FIT:`/`:FULL_PAGE:` properties—they are ignored if still present. Image `figure` elements continue to support `:FIT:` (contain|cover|fill). See the Vector PDF Embedding section below for details and migration guidance.
+PDF embedding semantics changed to an automatic contain + optional multiplier model. Legacy `:FIT:` modes and the `:FULL_PAGE:` flag for `pdf` elements were removed.
+
+New behavior (pdf elements only):
+- The system first computes a base auto-contain scale so the intrinsic PDF page fits entirely within the element's padded frame (respecting margins + element `:PADDING:`).
+- A user-supplied `:SCALE:` acts as a multiplier on that base (default 1.0). The final scale is `min(base_scale, base_scale * user_multiplier)` so PDFs never overflow their frame via scale.
+- Omitting `:SCALE:` keeps the auto-contain result.
+
+Migration:
+- Remove any `:FIT:` / `:FULL_PAGE:` properties on `pdf` elements (ignored if still present).
+- If you previously relied on `:FIT: contain` just delete it (behavior now default). If you relied on oversizing via `:FIT: fill` or manual big areas, you may enlarge the `:AREA:` instead; scale no longer exceeds containment.
+- Image `figure` elements still support `:FIT:` (contain|cover|fill) unchanged.
+
+See the Vector PDF Embedding section below for details and examples.
 
 ### Core Functionality
 - **Org-mode to Typst conversion (optional)**: Converts Org documents to Typst
@@ -712,18 +724,26 @@ Notes:
 - If sanitization still fails, the first requested page is auto-converted to SVG (preferred) or PNG and embedded as an image.
 - Fallback assets are written under `export_dir/assets/pdf-fallbacks/` and linked in the generated Typst.
 
-PDF scaling semantics (simplified):
-- A single explicit `:SCALE:` (float > 0) controls rendered size within the element frame.
-- If `:SCALE:` is omitted, a default scale of `1.0` is used.
-- There are no `:FIT:` modes and no `:FULL_PAGE:` flag anymore; remove those legacy properties if present.
-- Validation errors:
-  - `PDF scale must be a number` (when non-numeric)
-  - `PDF scale must be > 0` (when zero or negative)
-- Element `:PADDING:` still insets the placement frame before scaling applies.
+PDF scaling semantics (automatic contain + multiplier):
+- Intrinsic PDF size is parsed (MediaBox) to obtain its natural width/height in mm.
+- The usable element frame is the declared `:AREA:` cell span minus element `:PADDING:` (and respects page `#+MARGINS:` when present).
+- Base contain scale: `base_scale = min(frame_w_mm / pdf_w_mm, frame_h_mm / pdf_h_mm)` (clamped to 1.0 when intrinsic probing fails).
+- User multiplier: `:SCALE:` (float > 0, default 1.0) produces `candidate = base_scale * SCALE`.
+- Final applied scale: `final_scale = min(base_scale, candidate)` ensuring the PDF never exceeds its contain size via scale alone.
+- Omitting `:SCALE:` uses pure auto-contain behavior.
+- Element `:PADDING:` reduces the frame before base scale calculation (shrinking resulting size).
+
+Validation errors:
+- `PDF scale must be a number` (when `:SCALE:` non-numeric)
+- `PDF scale must be > 0` (when zero or negative)
 
 Migration from older versions:
-- Replace any `:FIT:` usage with an explicit numeric `:SCALE:` if you relied on automatic containment.
-- Remove any `:FULL_PAGE:` usage; to approximate a full-page background PDF, set the element `:AREA:` to span the full content (and/or margin) grid and adjust `:SCALE:` as desired.
+- Remove any `:FIT:` or `:FULL_PAGE:` on pdf elements (ignored if present).
+- If you depended on `:FIT: contain`, just delete it (now default implicit behavior).
+- If you previously used `:FIT: fill` to overshoot, enlarge the `:AREA:` instead; scale is capped at containment.
+- To simulate a full-page background, span the entire (including margin tracks) grid with `:AREA:` and keep default scale.
+
+Planned (optional) debug: A future `:PDF_DEBUG_SCALE:` flag may emit computed `pdf_w_mm`, `pdf_h_mm`, `frame_w_mm`, `frame_h_mm`, `base_scale`, `user_scale`, `final_scale` as Typst comments for troubleshooting.
 
 ### SVG Embedding
 Embed SVG graphics directly:

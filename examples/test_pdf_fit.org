@@ -1,24 +1,70 @@
-#+TITLE: PDF FIT mode examples
+#+TITLE: PDF auto-contain scaling examples
 #+AUTHOR: Example
 #+PAGESIZE: A2
 #+ORIENTATION: landscape
-#+GRID: 5x5
+#+GRID: 6x6
 #+MARGINS: 0
 #+THEME: light
 #+GRID_DEBUG: true
 
-* FIT demo slide
+* PDF scaling demo
 :PROPERTIES:
-:ID: fit1
+:ID: pdf_scale_demo
 :END:
 
-** Contain (default)
+# This example illustrates the new automatic contain + optional multiplier behavior.
+# The intrinsic PDF size is contained within each element frame (after padding).
+# A user :SCALE: multiplies that base but cannot exceed it.
+
+** 1. Auto contain (no :SCALE:)
 :PROPERTIES:
 :TYPE: pdf
 :PDF: assets/drawing_flat.pdf
 :PAGE: 1
-:AREA: A1,e5
-:padding: 0
+:AREA: A1,c4
+:PADDING: 0
 :END:
+Some text describing: occupies columns A..C and rows 1..4. Base contain scale used.
 
+** 2. With padding shrinking frame
+:PROPERTIES:
+:TYPE: pdf
+:PDF: assets/drawing_flat.pdf
+:PAGE: 1
+:AREA: d1,f4
+:PADDING: 6,6,6,6
+:END:
+Padding reduces usable frame so resulting rendered PDF is smaller (still auto-contained).
 
+** 3. User multiplier < 1 (:SCALE: 0.5)
+:PROPERTIES:
+:TYPE: pdf
+:PDF: assets/drawing_flat.pdf
+:PAGE: 1
+:AREA: A5,c6
+:SCALE: 0.5
+:PADDING: 0
+:END:
+Half of auto-contain size (base*0.5) within area.
+
+** 4. User multiplier > 1 (:SCALE: 3) (capped)
+:PROPERTIES:
+:TYPE: pdf
+:PDF: assets/drawing_flat.pdf
+:PAGE: 1
+:AREA: d5,f6
+:SCALE: 3
+:PADDING: 0
+:END:
+Although :SCALE: 3 requested, final scale is capped at base contain scale.
+
+** 5. Larger area different base scale
+:PROPERTIES:
+:TYPE: pdf
+:PDF: assets/drawing_flat.pdf
+:PAGE: 1
+:AREA: A1,f6
+:PADDING: 10,10,10,10
+:SCALE: 1.0
+:END:
+Full grid minus padding; demonstrates larger frame can yield different base scale (often =1 if PDF already smaller than frame).

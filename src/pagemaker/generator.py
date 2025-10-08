@@ -979,13 +979,35 @@ def generate_typst(ir):
                 pdf = el['pdf']
                 psrc = pdf['src']
                 ppage = pdf['pages'][0]
-                scale = pdf.get('scale', 1.0)
+                user_scale = pdf.get('scale', 1.0) or 1.0
+                # Compute auto-contain scale so PDF fits inside its frame.
+                try:
+                    pad_dict = el.get('padding_mm') if isinstance(el, dict) else None
+                    frame_w_mm, frame_h_mm = _compute_element_frame_size_mm(page, area, pad_dict)
+                    pdf_w_mm, pdf_h_mm = _pdf_intrinsic_size_mm(psrc)
+                    if pdf_w_mm <= 0 or pdf_h_mm <= 0:
+                        base_scale = 1.0
+                    else:
+                        base_scale = min(frame_w_mm / pdf_w_mm, frame_h_mm / pdf_h_mm)
+                        if base_scale <= 0 or not (base_scale == base_scale):  # NaN guard
+                            base_scale = 1.0
+                    final_scale = base_scale * float(user_scale)
+                    # Enforce containment even if user multiplier > 1 by capping
+                    if final_scale > base_scale:
+                        final_scale = base_scale
+                    scale_numeric = float(f"{final_scale:.6f}")
+                except Exception:
+                    scale_numeric = (
+                        float(user_scale) if isinstance(user_scale, (int, float)) else 1.0
+                    )
                 if pathlib.Path(psrc).suffix.lower() != '.pdf':
                     content_fragments.append(
                         f"Fig(image(\"{psrc}\", width: 100%, height: 100%, fit: \"contain\"))"
                     )
                 else:
-                    content_fragments.append(f"PdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale})")
+                    content_fragments.append(
+                        f"// auto pdf scale base (contain) applied\nPdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale_numeric})"
+                    )
             elif el['type'] == 'toc':
                 # TOC with page numbers and dot leaders
                 toc_entries = []
@@ -1212,6 +1234,143 @@ def escape_text(s, styled_wrapper=False):
     s = restore_protected_links(s, protected_links)
 
     return s
+
+
+# --- PDF intrinsic size helpers for auto-contain scaling ---
+
+
+def _compute_element_frame_size_mm(
+    page: dict, area: dict, padding: dict | None
+) -> tuple[float, float]:
+    """Compute the usable frame (content box) size in mm for an element.
+
+    Mirrors Typst runtime helpers layer_grid / layer_grid_padded by summing track widths.
+    AREA coordinates are always expressed in the *total* grid when margins are declared
+    (i.e. margin tracks present), otherwise they map directly onto the content grid.
+
+    When margins are declared, the total grid structure is:
+      [ left_margin_track ] [ content cols ... ] [ right_margin_track ]
+      [ top_margin_track ]  [ content rows ... ] [ bottom_margin_track ]
+    Each outer margin track has absolute size equal to the declared margin mm value.
+
+    We sum the exact contributions of tracks overlapped by the AREA span. If the span
+    includes a margin track, that entire margin size contributes. Content tracks contribute
+    their uniform cw or ch size. Finally element padding (if any) is subtracted from both
+    dimensions (clamped >= 0).
+    """
+    page_w = page['page_size']['w_mm']
+    page_h = page['page_size']['h_mm']
+    cols = page['grid']['cols']
+    rows = page['grid']['rows']
+    margins_decl = bool(page.get('margins_declared')) and isinstance(page.get('margins_mm'), dict)
+    # Derive content cell sizes
+    if margins_decl:
+        mmm = page.get('margins_mm') or {}
+        top_m = float(mmm.get('top', 0.0))
+        right_m = float(mmm.get('right', 0.0))
+        bottom_m = float(mmm.get('bottom', 0.0))
+        left_m = float(mmm.get('left', 0.0))
+        content_w = page_w - (left_m + right_m)
+        content_h = page_h - (top_m + bottom_m)
+        cw = content_w / cols
+        ch = content_h / rows
+        # Total grid indices range: 1 .. cols+2 (with margins), similarly for rows.
+        x_tot = area['x']
+        y_tot = area['y']
+        w_tot = area['w']
+        h_tot = area['h']
+        # Iterate horizontally over covered total grid tracks
+        frame_w = 0.0
+        for col_index in range(x_tot, x_tot + w_tot):
+            if col_index == 1:
+                frame_w += left_m
+            elif col_index == cols + 2:  # right margin track
+                frame_w += right_m
+            else:
+                frame_w += cw
+        frame_h = 0.0
+        for row_index in range(y_tot, y_tot + h_tot):
+            if row_index == 1:
+                frame_h += top_m
+            elif row_index == rows + 2:  # bottom margin track
+                frame_h += bottom_m
+            else:
+                frame_h += ch
+    else:
+        # Simple uniform grid
+        cw = page_w / cols
+        ch = page_h / rows
+        frame_w = area['w'] * cw
+        frame_h = area['h'] * ch
+        top_m = right_m = bottom_m = left_m = 0.0  # for clarity though unused later
+    # Subtract padding (element padding sits *inside* frame)
+    if isinstance(padding, dict):
+        t = float(padding.get('top', 0.0))
+        r = float(padding.get('right', 0.0))
+        b = float(padding.get('bottom', 0.0))
+        left_pad = float(padding.get('left', 0.0))
+        frame_w -= left_pad + r
+        frame_h -= t + b
+    if frame_w < 0:
+        frame_w = 0.0
+    if frame_h < 0:
+        frame_h = 0.0
+    return frame_w, frame_h
+
+
+_pdf_size_cache = {}
+
+
+def _fmt_len(val: float) -> str:
+    try:
+        return (f"{float(val):.6f}").rstrip('0').rstrip('.')
+    except Exception:
+        return "0"
+
+
+def _pdf_intrinsic_size_mm(path: str) -> tuple[float, float]:
+    """Return (width_mm, height_mm) of first page of PDF by parsing MediaBox.
+    Falls back to US Letter (612x792pt) when file missing/unreadable.
+    Caches results per path for efficiency.
+    """
+    import math
+    import os
+    import re
+
+    if not isinstance(path, str) or path == "":
+        return 215.9, 279.4  # letter fallback
+    if path in _pdf_size_cache:
+        return _pdf_size_cache[path]
+    width_pt, height_pt = 612.0, 792.0  # letter default
+    try:
+        if os.path.exists(path):
+            # Read limited chunk to find /MediaBox [a b c d]
+            with open(path, 'rb') as fh:
+                data = fh.read(200_000)  # first 200KB usually enough
+            # Decode forgivingly
+            try:
+                txt = data.decode('latin-1', errors='ignore')
+            except Exception:
+                txt = ''
+            m = re.search(
+                r'/MediaBox\s*\[\s*(-?\d+(?:\.\d*)?)\s+(-?\d+(?:\.\d*)?)\s+(-?\d+(?:\.\d*)?)\s+(-?\d+(?:\.\d*)?)\s*\]',
+                txt,
+            )
+            if m:
+                x0, y0, x1, y1 = (float(m.group(i)) for i in range(1, 5))
+                w = abs(x1 - x0)
+                h = abs(y1 - y0)
+                # Guard against zero/NaN
+                if w > 1 and h > 1 and math.isfinite(w) and math.isfinite(h):
+                    width_pt, height_pt = w, h
+    except Exception:
+        pass
+    # Convert points (1/72") to mm
+    mm_per_pt = 25.4 / 72.0
+    width_mm = width_pt * mm_per_pt
+    height_mm = height_pt * mm_per_pt
+    _pdf_size_cache[path] = (width_mm, height_mm)
+    return width_mm, height_mm
 
 
 def _is_typst_directive(line):

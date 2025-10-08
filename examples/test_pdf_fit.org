@@ -2,7 +2,7 @@
 #+AUTHOR: Example
 #+PAGESIZE: A2
 #+ORIENTATION: landscape
-#+GRID: 4x4
+#+GRID: 6x6
 #+MARGINS: 0
 #+THEME: light
 #+GRID_DEBUG: true
@@ -17,9 +17,9 @@
 :TYPE: pdf
 :PDF: assets/drawing_flat.pdf
 :PAGE: 1
-:AREA: A1,e5
-:scale: 2
-:padding: 10
+:AREA: A1,f6
+:scale:  2
+:padding: 0
 :END:
 
 

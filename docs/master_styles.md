@@ -163,6 +163,57 @@ Examples:
 - When `padding_mm` exists (even all zeros), the generator emits `#layer_grid_padded(...)` with the provided top/right/bottom/left values.
 - `:ALIGN:` (left|center|right) applies to text, figure, svg, pdf, toc. `:VALIGN:` (top|middle|bottom) applies to text. If `:VALIGN:` is not set for text, `:FLOW:` can imply a vertical alignment (`bottom-up` → bottom, `center-out` → horizon).
 
+## Rectangle Styles
+
+Rectangle elements support additional style properties, either inline via element properties (`:COLOR:`, `:ALPHA:`, `:STROKE:`, `:STROKE_COLOR:`, `:RADIUS:`) or inherited from a referenced style (e.g. `#+STYLE_CALLOUT:`).
+
+Supported rectangle style keys:
+- color: fill color. Accepts `#hex`, `rgb(...)`, `hsl(...)`, named colors.
+- alpha: 0.0–1.0; values outside range or non-numeric are clamped/defaulted at generation (warning issued during validation).
+- stroke: length with unit (`pt|mm|cm|in`). Required unit; invalid or missing unit is an error.
+- stroke_color (stroke-color): stroke color; if omitted but stroke present, the fill color is used as fallback silently.
+- radius: corner radius length with unit (`pt|mm|cm|in`). Invalid or missing unit is an error.
+
+Precedence & merging:
+1. Style-level rectangle keys (if style referenced by element)
+2. Element-level rectangle dict overrides style keys
+3. Defaults: `color` defaults to `#3498db`, `alpha` defaults to `1.0` when unspecified or invalid.
+
+Generation details:
+- Output helper signature: `ColorRect(color, alpha, stroke: none|"<len>", stroke_color: none|"<color>", radius: none|"<len>")`.
+- When only radius is provided (no stroke), generator still emits `stroke: none, stroke_color: none` to pass the radius.
+- Alpha is applied through a transparentize call in Typst: `rgb(color).transparentize(100% - alpha*100%)`.
+
+Validation behaviors:
+- Out-of-range or non-numeric alpha: warning; generation clamps to 0.0 or 1.0 (non-numeric → 1.0).
+- Invalid stroke or radius units: error (validation `ok()` becomes False).
+- Stroke color format heuristic: warns if not hex/rgb()/hsl(); still emitted unchanged.
+
+Examples:
+```
+#+STYLE_CALLOUT: color: #225588, alpha: 0.5, stroke: 1pt, stroke-color: #113344, radius: 3pt
+
+** Callout Block
+:PROPERTIES:
+:TYPE: rectangle
+:STYLE: callout
+:AREA: A1,C4
+:END:
+```
+
+Inline override example:
+```
+** Framed Panel
+:PROPERTIES:
+:TYPE: rectangle
+:AREA: A5,C8
+:COLOR: #ffeeaa
+:ALPHA: 1.2    ; will clamp to 1.0 (warn)
+:STROKE: 2pt
+:RADIUS: 5mm
+:END:
+```
+
 ## Validation and Rendering Notes
 
 - Per-page `PAGESIZE`/`ORIENTATION` overrides are ignored in Typst output; a single page size is set at the top of the document based on the first rendered page.

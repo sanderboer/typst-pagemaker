@@ -652,6 +652,13 @@ class OrgElement:
                 'color': self.props.get('COLOR', '#3498db'),
                 'alpha': float(self.props.get('ALPHA', '1.0')),
             }
+            # Optional stroke properties (element-level overrides)
+            if 'STROKE' in self.props:
+                rectangle['stroke'] = self.props.get('STROKE')
+            if 'STROKE_COLOR' in self.props:
+                rectangle['stroke_color'] = self.props.get('STROKE_COLOR')
+            if 'RADIUS' in self.props:
+                rectangle['radius'] = self.props.get('RADIUS')
         text_blocks = []
         style = None
         padding_mm = None
@@ -700,6 +707,9 @@ class OrgElement:
                 align = parse_align(self.props.get('ALIGN'))
             if valign is None:
                 valign = parse_valign(self.props.get('VALIGN'))
+            # Support STYLE on rectangle/toc for style-driven rectangle attributes
+            if self.type == 'rectangle' and style is None:
+                style = self.props.get('STYLE')
         return {
             'id': self.id,
             'type': self.type,

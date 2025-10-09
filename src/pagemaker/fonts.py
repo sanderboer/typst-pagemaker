@@ -18,12 +18,19 @@ def _get_font_paths() -> List[str]:
     """Get font paths in order of preference, supporting repo and installed usage.
 
     Order:
-    1) Project-local assets/fonts (+/static)
-    2) Examples assets/fonts (+/static)
+    1) Project-local assets/fonts (+/static), with repo-root fallback
+    2) Examples assets/fonts (+/static), with repo-root fallback
     3) Packaged fonts next to this module (installed or repo): <module_dir>/fonts and family subdirs
     4) Repo source fonts at src/pagemaker/fonts (when running from project root without importing package)
     """
     font_paths: List[str] = []
+
+    # Detect repo root relative to this module when available (src/pagemaker/ -> repo root)
+    module_dir = pathlib.Path(__file__).resolve().parent
+    repo_root = module_dir.parent.parent
+    repo_root_exists = (repo_root / 'examples' / 'assets' / 'fonts').exists() or (
+        repo_root / 'assets' / 'fonts'
+    ).exists()
 
     # 1. Project-local assets/fonts (for development/user customization)
     local_fonts = pathlib.Path('assets/fonts')
@@ -32,6 +39,14 @@ def _get_font_paths() -> List[str]:
         static_path = local_fonts / 'static'
         if static_path.exists():
             font_paths.append(str(static_path))
+    # 1b. Repo-root fallback for assets/fonts when CWD differs
+    if repo_root_exists:
+        repo_assets = repo_root / 'assets' / 'fonts'
+        if repo_assets.exists():
+            font_paths.append(str(repo_assets))
+            repo_assets_static = repo_assets / 'static'
+            if repo_assets_static.exists():
+                font_paths.append(str(repo_assets_static))
 
     # 2. Examples assets/fonts as fallback (example fonts)
     examples_fonts = pathlib.Path('examples/assets/fonts')
@@ -40,12 +55,24 @@ def _get_font_paths() -> List[str]:
         static_path = examples_fonts / 'static'
         if static_path.exists():
             font_paths.append(str(static_path))
+    # 2b. Repo-root fallback for examples/assets/fonts
+    if repo_root_exists:
+        repo_examples = repo_root / 'examples' / 'assets' / 'fonts'
+        if repo_examples.exists():
+            font_paths.append(str(repo_examples))
+            repo_examples_static = repo_examples / 'static'
+            if repo_examples_static.exists():
+                font_paths.append(str(repo_examples_static))
 
     # 3. Packaged fonts next to this module (works for installed package and repo src)
     # Avoid relying on import-time resolution; use __file__ to find the module directory
-    module_fonts_base = pathlib.Path(__file__).parent / 'fonts'
+    module_fonts_base = module_dir / 'fonts'
     if module_fonts_base.exists():
+        # Include both normalized and raw path forms to tolerate non-normalized __file__ in callers
         font_paths.append(str(module_fonts_base))
+        raw_module_fonts_base = pathlib.Path(__file__).parent / 'fonts'
+        if raw_module_fonts_base.exists():
+            font_paths.append(str(raw_module_fonts_base))
         # Add known families explicitly and any other family subdirectories
         key_families = ['Inter', 'Crimson_Pro', 'JetBrains_Mono']
         # Include all subdirectories under fonts for completeness

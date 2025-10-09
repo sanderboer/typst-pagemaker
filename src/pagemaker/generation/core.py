@@ -44,9 +44,9 @@ PARAGRAPH_PARAMS = {
 
 def parse_style_decl(s: str) -> dict:
     """Parse a style declaration string like 'font: Inter, weight: bold, size: 24pt, color: #333'.
-    Returns dict with optional keys: font, weight, size, color (strings as provided, trimmed).
+    Returns dict with optional keys including: font, weight, size, color, alpha, stroke, stroke_color.
     Accepts separators comma/semicolon, and key separators ':' or '='. Keys are case-insensitive.
-    Aliases: font-family->font, font-weight->weight, font-size->size, fill->color.
+    Aliases: font-family->font, font-weight->weight, font-size->size, fill->color, stroke-color->stroke_color.
     Safely ignores commas/semicolons inside parentheses or quotes (e.g., rgb(50%,50%,50%)).
 
     Also accepts paragraph options (applied via Typst par()):
@@ -101,11 +101,9 @@ def parse_style_decl(s: str) -> dict:
         if not k:
             continue
 
-        # Use efficient set lookups instead of tuple checks
         if k in FONT_ALIASES:
             out['font'] = v
         elif k in WEIGHT_ALIASES:
-            # Validate weight values
             if v.lower() not in VALID_WEIGHTS and v not in VALID_NUMERIC_WEIGHTS:
                 warnings.warn(
                     f"Unknown font weight '{v}'. Valid values: {', '.join(sorted(VALID_WEIGHTS | VALID_NUMERIC_WEIGHTS))}",
@@ -116,8 +114,15 @@ def parse_style_decl(s: str) -> dict:
             out['size'] = v
         elif k in COLOR_ALIASES:
             out['color'] = v
+        elif k == 'alpha':
+            out['alpha'] = v
+        elif k == 'stroke':
+            out['stroke'] = v
+        elif k in ('stroke-color', 'stroke_color'):
+            out['stroke_color'] = v
+        elif k == 'radius':
+            out['radius'] = v
         elif k == 'linebreaks':
-            # Validate linebreaks values
             if v.lower() not in VALID_LINEBREAKS:
                 warnings.warn(
                     f"Unknown linebreaks value '{v}'. Valid values: {', '.join(sorted(VALID_LINEBREAKS))}",
@@ -125,7 +130,6 @@ def parse_style_decl(s: str) -> dict:
                 )
             out['linebreaks'] = v
         elif k in PARAGRAPH_PARAMS:
-            # Handle parameter name normalization
             if k in ('first_line_indent', 'first-line-indent'):
                 out['first-line-indent'] = v
             elif k in ('hanging_indent', 'hanging-indent'):
@@ -133,7 +137,6 @@ def parse_style_decl(s: str) -> dict:
             else:
                 out[k] = v
         else:
-            # Warn about unrecognized properties
             warnings.warn(f"Unrecognized style property '{k}' in declaration: {s}", UserWarning)
     return out
 
@@ -690,9 +693,9 @@ def generate_header_and_setup(ir: Dict[str, Any], theme: dict) -> List[str]:
         "#let Fig(img, caption: none, caption_align: left, img_align: left) = if caption == none { \n  block(width: 100%, height: 100%)[#align(img_align)[#img]] \n} else { \n  block(width: 100%, height: 100%)[\n    #block(height: 85%)[#align(img_align)[#img]] \n    #block(height: 15%)[#align(caption_align)[#text(size: 0.75em, fill: rgb(60%,60%,60%), font: theme.font_body)[#caption]]] \n  ] \n}\n"
     )
 
-    # ColorRect helper function
+    # ColorRect helper function (extended with optional stroke + stroke_color)
     out.append(
-        "#let ColorRect(color, alpha) = {\n  block(width: 100%, height: 100%, fill: rgb(color).transparentize(100% - alpha * 100%))[]\n}\n"
+        "#let ColorRect(color, alpha, stroke: none, stroke_color: none, radius: none) = {\n  // Accept radius-only by passing stroke: none explicitly\n  let fill_expr = rgb(color).transparentize(100% - alpha * 100%)\n  let stroke_arg = if stroke == none { none } else { stroke }\n  let stroke_col = if stroke_color == none { none } else { rgb(stroke_color) }\n  let radius_arg = if radius == none { none } else { radius }\n  if stroke_arg == none && radius_arg == none {\n    block(width: 100%, height: 100%, fill: fill_expr)[]\n  } else {\n    let stroke_spec = if stroke_arg == none { none } else { stroke_arg + stroke_col }\n    rect(width: 100%, height: 100%, fill: fill_expr, stroke: stroke_spec, radius: radius_arg)\n  }\n}\n"
     )
 
     # PDF embed helper function
@@ -928,9 +931,62 @@ def process_pages(ir, masters, render_pages, styles):
                 content_fragments.append(_render_text_element(el, styles))
             elif el['type'] == 'rectangle' and el.get('rectangle'):
                 rect = el['rectangle']
-                color = rect['color']
-                alpha = rect.get('alpha', 1.0)
-                content_fragments.append(f"ColorRect(\"{color}\", {alpha})")
+                # Resolve style inheritance for rectangle if STYLE provided
+                style_name = (
+                    (el.get('style') or '').strip().lower()
+                    if isinstance(el.get('style'), str)
+                    else None
+                )
+                style_rect = {}
+                if style_name and style_name in styles:
+                    # Only extract rectangle-relevant keys
+                    base = styles[style_name]
+                    for k in ('color', 'alpha', 'stroke', 'stroke_color', 'radius'):
+                        if k in base:
+                            style_rect[k] = base[k]
+                # Merge precedence: element rect props override style values
+                merged = {**style_rect, **{k: v for k, v in rect.items() if v is not None}}
+                color = merged.get('color', '#3498db')
+                alpha_raw = merged.get('alpha', 1.0)
+                try:
+                    alpha_f = float(alpha_raw)
+                except Exception:
+                    alpha_f = 1.0
+                # Clamp alpha
+                if alpha_f < 0.0:
+                    alpha_f = 0.0
+                if alpha_f > 1.0:
+                    alpha_f = 1.0
+                stroke = merged.get('stroke')
+                stroke_color = merged.get('stroke_color')
+                radius = merged.get('radius')
+                # Stroke color fallback: if stroke present but no stroke_color, use fill color silently
+                if (
+                    isinstance(stroke, str)
+                    and stroke.strip()
+                    and (not stroke_color or not str(stroke_color).strip())
+                ):
+                    stroke_color = color
+                # Build function call including optional stroke and radius. Emit minimal form when none provided.
+                if stroke or stroke_color or (isinstance(radius, str) and radius.strip()):
+                    stroke_arg = (
+                        f"\"{stroke}\"" if isinstance(stroke, str) and stroke.strip() else 'none'
+                    )
+                    stroke_col_arg = (
+                        f"\"{stroke_color}\""
+                        if isinstance(stroke_color, str) and stroke_color.strip()
+                        else 'none'
+                    )
+                    radius_part = (
+                        f", radius: \"{radius}\""
+                        if isinstance(radius, str) and radius.strip()
+                        else ''
+                    )
+                    content_fragments.append(
+                        f"ColorRect(\"{color}\", {alpha_f}, stroke: {stroke_arg}, stroke_color: {stroke_col_arg}{radius_part})"
+                    )
+                else:
+                    content_fragments.append(f"ColorRect(\"{color}\", {alpha_f})")
             elif el['type'] == 'figure' and el.get('figure'):
                 src = el['figure']['src']
                 cap = el['figure'].get('caption')

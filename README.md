@@ -47,7 +47,7 @@ See the Vector PDF Embedding section below for details and examples.
 
 ### Features
 - **PDF embedding**: MuchPDF integration with sanitize/SVG/PNG fallback
-- **Rectangles**: Colored overlays with alpha transparency
+- **Rectangles**: Colored overlays with alpha transparency; optional stroke, stroke_color fallback, and corner radius
 - **Images**: Fit modes (contain, cover, fill) and captions
 - **Debug grid**: Optional grid lines and labels (columns 1..N, rows a..z)
 - **Custom fonts**: Integrated font management system with Google Fonts integration
@@ -66,7 +66,7 @@ See the Vector PDF Embedding section below for details and examples.
 | `figure` | Images with optional captions | Supports fit modes, captions |
 | `pdf` | Vector PDF embedding | Page selection, scaling |
 | `svg` | SVG image embedding | Fit: contain; path via `:SVG:` |
-| `rectangle` | Colored overlays | Custom colors, alpha transparency |
+| `rectangle` | Colored overlays | Color, alpha, optional stroke/stroke_color/radius |
 | `toc` | Table of contents | Auto-lists slide titles (• 1. Title); supports :AREA:, :PADDING:, :ALIGN: |
 
 ## Quick Start
@@ -706,6 +706,19 @@ Create transparent overlays and design elements:
 :Z: 10
 :END:
 ```
+
+Rectangle style keys and behavior:
+- color: fill color (`#hex`, `rgb(...)`, `hsl(...)`, named)
+- alpha: 0.0–1.0 (values outside are clamped during generation)
+- stroke: length with unit (`pt|mm|cm|in`)
+- stroke_color: stroke color; when omitted but stroke is set, falls back to fill color
+- radius: corner radius (length with unit)
+
+Emission rules:
+- Minimal: `ColorRect("<color>", <alpha>)` when no stroke/radius provided
+- Any optional set: `ColorRect(..., stroke: ..., stroke_color: ..., radius: ...)`
+- Radius-only: emits `stroke: none, stroke_color: none` with provided `radius`
+
 
 ### Vector PDF Embedding
 Include high-quality PDF pages with fallback support:

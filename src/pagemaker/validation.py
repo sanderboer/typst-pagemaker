@@ -29,6 +29,93 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
     issues: List[ValidationIssue] = []
     if not isinstance(ir, dict):
         return ValidationResult([ValidationIssue(path="/", message="IR root not a dict")])
+
+    # Style-level validation (rectangle-related keys) before per-page validation
+    meta = ir.get('meta') or {}
+    try:
+        from pagemaker.generation.core import parse_style_decl  # lazy import to avoid cycles
+    except Exception:
+        parse_style_decl = None  # type: ignore
+    if parse_style_decl:
+        for k, v in meta.items():
+            if (
+                not isinstance(k, str)
+                or not k.upper().startswith('STYLE_')
+                or k.upper().strip() == 'STYLE'
+            ):
+                continue
+            name = k.split('_', 1)[1].strip().lower() if '_' in k else k.lower()
+            decl = parse_style_decl(v)
+            if not isinstance(decl, dict):
+                continue
+            # Alpha validation (clamp strategy is applied at generation; warn here when out-of-range)
+            if 'alpha' in decl:
+                aval = decl.get('alpha')
+                try:
+                    af = float(aval)
+                    if af < 0.0 or af > 1.0:
+                        issues.append(
+                            ValidationIssue(
+                                path=f"/meta/{k}",
+                                message=f"Style '{name}' alpha out of range 0.0-1.0; will be clamped",
+                                severity='warn',
+                            )
+                        )
+                except Exception:
+                    issues.append(
+                        ValidationIssue(
+                            path=f"/meta/{k}",
+                            message=f"Style '{name}' alpha not numeric; default 1.0 will be used",
+                            severity='warn',
+                        )
+                    )
+            # Stroke validation: must include length unit
+            stroke = decl.get('stroke')
+            if isinstance(stroke, str):
+                s = stroke.strip()
+                if s:
+                    import re as _re
+
+                    if not _re.fullmatch(r"[0-9]*\.?[0-9]+(pt|mm|cm|in)", s):
+                        issues.append(
+                            ValidationIssue(
+                                path=f"/meta/{k}",
+                                message=f"Style '{name}' stroke '{s}' missing or has invalid unit (require pt|mm|cm|in)",
+                                severity='error',
+                            )
+                        )
+            # Stroke color basic format check
+            stroke_color = decl.get('stroke_color')
+            if isinstance(stroke_color, str):
+                sc = stroke_color.strip()
+                if sc and not (
+                    sc.startswith('#')
+                    or sc.lower().startswith('rgb')
+                    or sc.lower().startswith('hsl')
+                ):
+                    issues.append(
+                        ValidationIssue(
+                            path=f"/meta/{k}",
+                            message=f"Style '{name}' stroke_color should be hex or rgb()/hsl()",
+                            severity='warn',
+                        )
+                    )
+            # Radius validation (optional): must have unit
+            radius = decl.get('radius')
+            if isinstance(radius, str):
+                r = radius.strip()
+                if r:
+                    import re as _re2
+
+                    if not _re2.fullmatch(r"[0-9]*\.?[0-9]+(pt|mm|cm|in)", r):
+                        issues.append(
+                            ValidationIssue(
+                                path=f"/meta/{k}",
+                                message=f"Style '{name}' radius '{r}' missing or has invalid unit (require pt|mm|cm|in)",
+                                severity='error',
+                            )
+                        )
+
     pages = ir.get("pages")
     seen_page_ids = set()
     seen_element_ids = set()
@@ -186,7 +273,7 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                                     severity=sev,
                                 )
                             )
-                # Rectangle alpha
+                # Rectangle validation
                 if el.get('type') == 'rectangle':
                     rect = el.get('rectangle') or {}
                     alpha = rect.get('alpha')
@@ -195,9 +282,71 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                             issues.append(
                                 ValidationIssue(
                                     path=f"{epath}/rectangle/alpha",
-                                    message="Alpha out of range 0.0-1.0",
+                                    message="Alpha out of range 0.0-1.0; will be clamped",
+                                    severity='warn',
                                 )
                             )
+                    # stroke / stroke_color from rectangle dict only (style already validated above)
+                    stroke = rect.get('stroke')
+                    if isinstance(stroke, str):
+                        s = stroke.strip()
+                        if s:
+                            import re as _re3
+
+                            if not _re3.fullmatch(r"[0-9]*\.?[0-9]+(pt|mm|cm|in)", s):
+                                issues.append(
+                                    ValidationIssue(
+                                        path=f"{epath}/rectangle/stroke",
+                                        message="Stroke length missing or has invalid unit (require pt|mm|cm|in)",
+                                        severity='error',
+                                    )
+                                )
+                    elif stroke is not None:
+                        issues.append(
+                            ValidationIssue(
+                                path=f"{epath}/rectangle/stroke",
+                                message="Stroke must be string length with unit",
+                                severity='error',
+                            )
+                        )
+                    stroke_color = rect.get('stroke_color')
+                    if isinstance(stroke_color, str):
+                        sc = stroke_color.strip()
+                        if sc and not (
+                            sc.startswith('#')
+                            or sc.lower().startswith('rgb')
+                            or sc.lower().startswith('hsl')
+                        ):
+                            issues.append(
+                                ValidationIssue(
+                                    path=f"{epath}/rectangle/stroke_color",
+                                    message="Stroke color should be hex or rgb()/hsl()",
+                                    severity='warn',
+                                )
+                            )
+                    # radius validation
+                    radius = rect.get('radius')
+                    if isinstance(radius, str):
+                        r = radius.strip()
+                        if r:
+                            import re as _re4
+
+                            if not _re4.fullmatch(r"[0-9]*\.?[0-9]+(pt|mm|cm|in)", r):
+                                issues.append(
+                                    ValidationIssue(
+                                        path=f"{epath}/rectangle/radius",
+                                        message="Radius length missing or has invalid unit (require pt|mm|cm|in)",
+                                        severity='error',
+                                    )
+                                )
+                    elif radius is not None:
+                        issues.append(
+                            ValidationIssue(
+                                path=f"{epath}/rectangle/radius",
+                                message="Radius must be string length with unit",
+                                severity='error',
+                            )
+                        )
                 # Deprecation warning: element-level MARGIN was declared
                 if el.get('had_margin_decl') is True:
                     issues.append(

@@ -24,6 +24,7 @@ import tempfile
 import time
 import urllib.parse
 import urllib.request
+from typing import Any
 
 from . import adjust_asset_paths, generate_typst, parse_org, update_html_total
 from .fonts import (
@@ -217,7 +218,11 @@ def _analyze_font_usage(ir: dict) -> dict:
     - Global FONT meta directive
     - Inline Typst directives in element content (#set text(font: "..."))
     """
-    font_usage = {'fonts_found': set(), 'missing_fonts': set(), 'usage_locations': []}
+    font_usage: dict[str, Any] = {
+        'fonts_found': set(),
+        'missing_fonts': set(),
+        'usage_locations': [],
+    }
 
     meta = ir.get('meta', {}) or {}
 

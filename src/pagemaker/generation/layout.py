@@ -100,7 +100,7 @@ def _split_paragraphs(text: str) -> list:
         return []
     lines = text.splitlines()
     paras = []
-    buf = []
+    buf: list[str] = []
 
     def flush():
         nonlocal buf

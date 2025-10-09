@@ -855,6 +855,19 @@ def meta_defaults(meta):
 
 
 def parse_org(path):
+    """Parse an org-mode file into intermediate representation.
+
+    This is the main parsing function that converts org-mode files into
+    the internal IR format used by pagemaker. It processes headlines,
+    properties, content blocks, and metadata to create a structured
+    representation suitable for Typst generation.
+
+    Args:
+        path: Path to the org-mode file to parse
+
+    Returns:
+        dict: Intermediate representation containing 'meta' and 'pages' keys
+    """
     with open(path, encoding='utf-8') as f:
         lines = f.readlines()
     meta = {}

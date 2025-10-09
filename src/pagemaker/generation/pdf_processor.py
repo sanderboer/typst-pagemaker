@@ -7,7 +7,7 @@ import re
 from typing import Any, Dict
 
 # Global cache for PDF size calculations
-_pdf_size_cache = {}
+_pdf_size_cache: dict[str, tuple[float, float]] = {}
 
 
 def pdf_intrinsic_size_mm(path: str) -> tuple[float, float]:

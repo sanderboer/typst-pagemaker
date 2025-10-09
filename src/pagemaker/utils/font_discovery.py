@@ -213,7 +213,7 @@ def _scan_single_directory(font_dir: pathlib.Path) -> Dict[str, Any]:
 
 def collect_font_names(font_paths: List[str]) -> Set[str]:
     """Collect all available font family names from given paths."""
-    all_names = set()
+    all_names: set[str] = set()
 
     scan_results = scan_font_directories(font_paths)
     for result in scan_results.values():
@@ -431,7 +431,11 @@ def analyze_font_usage(ir: dict) -> dict:
     # Import here to avoid circular imports
     from ..fonts import _collect_real_font_names, _get_font_paths
 
-    font_usage = {'fonts_found': set(), 'missing_fonts': set(), 'usage_locations': []}
+    font_usage: dict[str, Any] = {
+        'fonts_found': set(),
+        'missing_fonts': set(),
+        'usage_locations': [],
+    }
 
     meta = ir.get('meta', {}) or {}
 

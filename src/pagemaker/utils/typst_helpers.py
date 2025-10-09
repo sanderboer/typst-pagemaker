@@ -246,7 +246,7 @@ def process_org_links(text: str) -> tuple[str, list]:
     import re
 
     # Step 1: Replace links with temporary placeholders to protect them
-    links = []
+    links: list[str] = []
 
     def link_replacer(match):
         url = match.group(1)

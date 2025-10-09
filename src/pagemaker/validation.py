@@ -225,6 +225,13 @@ def validate_ir(ir: Dict[str, Any], strict_assets: bool = False) -> ValidationRe
                     w = area.get('w')
                     h = area.get('h')
                     if all(isinstance(v, int) for v in (x, y, w, h)):
+                        # Type narrowing - we know these are ints after the isinstance check
+                        assert (
+                            isinstance(x, int)
+                            and isinstance(y, int)
+                            and isinstance(w, int)
+                            and isinstance(h, int)
+                        )
                         if x < 1 or y < 1 or w < 1 or h < 1:
                             issues.append(
                                 ValidationIssue(

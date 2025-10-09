@@ -695,7 +695,7 @@ def generate_header_and_setup(ir: Dict[str, Any], theme: dict) -> List[str]:
 
     # ColorRect helper function (extended with optional stroke + stroke_color)
     out.append(
-        "#let ColorRect(color, alpha, stroke: none, stroke_color: none, radius: none) = {\n  // Accept radius-only by passing stroke: none explicitly\n  let fill_expr = rgb(color).transparentize(100% - alpha * 100%)\n  let stroke_arg = if stroke == none { none } else { stroke }\n  let stroke_col = if stroke_color == none { none } else { rgb(stroke_color) }\n  let radius_arg = if radius == none { none } else { radius }\n  if stroke_arg == none && radius_arg == none {\n    block(width: 100%, height: 100%, fill: fill_expr)[]\n  } else {\n    let stroke_spec = if stroke_arg == none { none } else { stroke_arg + stroke_col }\n    rect(width: 100%, height: 100%, fill: fill_expr, stroke: stroke_spec, radius: radius_arg)\n  }\n}\n"
+        "#let ColorRect(color, alpha, stroke: none, stroke_color: none, radius: none) = {\n  // Accept radius-only by passing stroke: none explicitly\n  let fill_expr = rgb(color).transparentize(100% - alpha * 100%)\n  let stroke_arg = if stroke == none { none } else { stroke }\n  let stroke_col = if stroke_color == none { none } else { rgb(stroke_color) }\n  let radius_arg = if radius == none { none } else { radius }\n  if stroke_arg == none and radius_arg == none {\n    block(width: 100%, height: 100%, fill: fill_expr)[]\n  } else {\n    let stroke_spec = if stroke_arg == none { none } else { stroke_arg + stroke_col }\n    rect(width: 100%, height: 100%, fill: fill_expr, stroke: stroke_spec, radius: radius_arg)\n  }\n}\n"
     )
 
     # PDF embed helper function
@@ -929,8 +929,11 @@ def process_pages(ir, masters, render_pages, styles):
             pre_comments = []
             if el['type'] in ('header', 'subheader', 'body'):
                 content_fragments.append(_render_text_element(el, styles))
-            elif el['type'] == 'rectangle' and el.get('rectangle'):
-                rect = el['rectangle']
+            elif el['type'] == 'rectangle' and (
+                el.get('rectangle')
+                or (isinstance(el.get('style'), str) and el.get('style').strip().lower() in styles)
+            ):
+                rect = el.get('rectangle') or {}
                 # Resolve style inheritance for rectangle if STYLE provided
                 style_name = (
                     (el.get('style') or '').strip().lower()
@@ -970,7 +973,9 @@ def process_pages(ir, masters, render_pages, styles):
                 # Build function call including optional stroke and radius. Emit minimal form when none provided.
                 if stroke or stroke_color or (isinstance(radius, str) and radius.strip()):
                     stroke_arg = (
-                        f"\"{stroke}\"" if isinstance(stroke, str) and stroke.strip() else 'none'
+                        f"{stroke.strip()}"
+                        if isinstance(stroke, str) and stroke.strip()
+                        else 'none'
                     )
                     stroke_col_arg = (
                         f"\"{stroke_color}\""
@@ -978,7 +983,7 @@ def process_pages(ir, masters, render_pages, styles):
                         else 'none'
                     )
                     radius_part = (
-                        f", radius: \"{radius}\""
+                        f", radius: {radius.strip()}"
                         if isinstance(radius, str) and radius.strip()
                         else ''
                     )

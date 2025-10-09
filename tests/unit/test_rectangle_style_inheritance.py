@@ -26,7 +26,6 @@ class TestRectangleStyleInheritance(unittest.TestCase):
                             'style': 'callout',
                             'area': {'x': 1, 'y': 1, 'w': 2, 'h': 2},
                             'z': 1,
-                            # rectangle dict minimal, relies on style for color/alpha
                             'rectangle': {
                                 'color': '#abcdef',
                                 'alpha': 0.9,
@@ -39,6 +38,33 @@ class TestRectangleStyleInheritance(unittest.TestCase):
         # Element color/alpha override style; expect element values in output
         typst = pm.generate_typst(ir)
         self.assertIn('ColorRect("#abcdef", 0.9)', typst)
+
+    def test_style_only_applies_when_element_rect_omits_values(self):
+        # Style provides color/alpha; element rectangle dict has no color/alpha
+        ir = {
+            'meta': {'STYLE_CALLOUT': 'color: #112233, alpha: 0.4'},
+            'pages': [
+                {
+                    'title': 'RectStyleOnly',
+                    'page_size': {'w_mm': 210.0, 'h_mm': 297.0},
+                    'grid': {'cols': 4, 'rows': 4},
+                    'elements': [
+                        {
+                            'id': 'r1',
+                            'type': 'rectangle',
+                            'style': 'callout',
+                            'area': {'x': 1, 'y': 1, 'w': 2, 'h': 2},
+                            'z': 1,
+                            # Non-empty dict to trigger rectangle rendering, but no color/alpha
+                            'rectangle': {'stroke': ''},
+                        }
+                    ],
+                }
+            ],
+        }
+        typst = pm.generate_typst(ir)
+        # Expect style values used
+        self.assertIn('ColorRect("#112233", 0.4)', typst)
 
     def test_style_stroke_and_color(self):
         ir = {
@@ -63,7 +89,7 @@ class TestRectangleStyleInheritance(unittest.TestCase):
         }
         typst = pm.generate_typst(ir)
         # Should include stroke args in ColorRect call
-        self.assertIn('ColorRect("#001122", 0.6, stroke: "1pt", stroke_color: "#ff00aa")', typst)
+        self.assertIn('ColorRect("#001122", 0.6, stroke: 1pt, stroke_color: "#ff00aa")', typst)
 
     def test_element_overrides_style_stroke(self):
         ir = {
@@ -95,7 +121,7 @@ class TestRectangleStyleInheritance(unittest.TestCase):
         }
         typst = pm.generate_typst(ir)
         # Element overrides style stroke and stroke_color
-        self.assertIn('ColorRect("#123456", 0.3, stroke: "3pt", stroke_color: "#0000ff")', typst)
+        self.assertIn('ColorRect("#123456", 0.3, stroke: 3pt, stroke_color: "#0000ff")', typst)
 
 
 if __name__ == '__main__':

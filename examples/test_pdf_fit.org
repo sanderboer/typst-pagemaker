@@ -6,6 +6,7 @@
 #+MARGINS: 0
 #+THEME: light
 #+GRID_DEBUG: true
+#+STYLE_ROUNDED_ORANGE: radius: 20pt, color: #00ff00, stroke: 5pt, stroke_color: #008000
 
 * PDF scaling demo
 :PROPERTIES:
@@ -31,14 +32,16 @@ Some text describing: occupies columns A..C and rows 1..4. Base contain scale us
 :ID: pdf_scale_demo
 :END:
 
-** 3a rectangl
+** 3a rectangle
 :PROPERTIES:
 :TYPE: rectangle
+:STYLE: rounded_orange
 :COLOR: #ff0000
-:padding: 0,0,0,10
+:RADIUS: 50%
+:padding: 10
 :AREA: A1, C3
-:alpha: 0.5
 :END:
+Overrides style 
 
 ** 2. With padding shrinking frame
 :PROPERTIES:

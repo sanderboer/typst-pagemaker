@@ -34,7 +34,7 @@ class TestRectangleRadiusAndStroke(unittest.TestCase):
         typst = pm.generate_typst(ir)
         # Expect stroke: none placeholders when only radius provided
         self.assertIn(
-            'ColorRect("#101010", 0.75, stroke: none, stroke_color: none, radius: "5mm")', typst
+            'ColorRect("#101010", 0.75, stroke: none, stroke_color: none, radius: 5mm)', typst
         )
 
     def test_radius_with_stroke(self):
@@ -65,7 +65,7 @@ class TestRectangleRadiusAndStroke(unittest.TestCase):
         }
         typst = pm.generate_typst(ir)
         self.assertIn(
-            'ColorRect("#222222", 0.5, stroke: "2pt", stroke_color: "#333333", radius: "3pt")',
+            'ColorRect("#222222", 0.5, stroke: 2pt, stroke_color: "#333333", radius: 3pt)',
             typst,
         )
 
@@ -98,7 +98,7 @@ class TestRectangleRadiusAndStroke(unittest.TestCase):
         typst = pm.generate_typst(ir)
         # Expect stroke_color equals fill color (#abcdef)
         self.assertIn(
-            'ColorRect("#abcdef", 1.0, stroke: "1pt", stroke_color: "#abcdef", radius: "2mm")',
+            'ColorRect("#abcdef", 1.0, stroke: 1pt, stroke_color: "#abcdef", radius: 2mm)',
             typst,
         )
 

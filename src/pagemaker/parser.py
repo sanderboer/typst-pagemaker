@@ -648,10 +648,14 @@ class OrgElement:
         if self.type == 'svg':
             svg = {'src': self.props.get('SVG'), 'scale': float(self.props.get('SCALE', '1.0'))}
         if self.type == 'rectangle':
-            rectangle = {
-                'color': self.props.get('COLOR', '#3498db'),
-                'alpha': float(self.props.get('ALPHA', '1.0')),
-            }
+            rectangle = {}
+            if 'COLOR' in self.props:
+                rectangle['color'] = self.props.get('COLOR')
+            if 'ALPHA' in self.props:
+                try:
+                    rectangle['alpha'] = float(self.props.get('ALPHA'))
+                except Exception:
+                    pass
             # Optional stroke properties (element-level overrides)
             if 'STROKE' in self.props:
                 rectangle['stroke'] = self.props.get('STROKE')

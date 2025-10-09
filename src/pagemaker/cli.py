@@ -24,7 +24,7 @@ import tempfile
 import time
 import urllib.parse
 import urllib.request
-from typing import Any
+from typing import Any, List
 
 from . import adjust_asset_paths, generate_typst, parse_org, update_html_total
 from .fonts import (
@@ -943,6 +943,63 @@ def cmd_validate(args):
         sys.exit(1)
 
 
+def _collect_asset_paths(ir, org_path: pathlib.Path) -> List[pathlib.Path]:
+    """Collect all asset file paths referenced in the intermediate representation.
+
+    Args:
+        ir: Intermediate representation dictionary
+        org_path: Path to the org file (used to resolve relative asset paths)
+
+    Returns:
+        List of pathlib.Path objects for all referenced asset files that exist
+    """
+    asset_paths = []
+    org_dir = org_path.parent
+
+    def resolve_asset_path(src: str) -> pathlib.Path:
+        """Resolve an asset path relative to the org file's directory."""
+        if pathlib.Path(src).is_absolute():
+            return pathlib.Path(src)
+
+        # Try relative to org file directory first
+        relative_path = org_dir / src
+        if relative_path.exists():
+            return relative_path.resolve()
+
+        # Try relative to current working directory as fallback
+        cwd_path = pathlib.Path(src)
+        if cwd_path.exists():
+            return cwd_path.resolve()
+
+        # Return the relative path even if it doesn't exist (might exist later)
+        return relative_path
+
+    for page in ir.get('pages', []):
+        for el in page.get('elements', []):
+            # Check for figure assets (images)
+            fig = el.get('figure')
+            if fig and fig.get('src'):
+                asset_path = resolve_asset_path(fig['src'])
+                if asset_path.exists():
+                    asset_paths.append(asset_path)
+
+            # Check for PDF assets
+            pdf = el.get('pdf')
+            if pdf and pdf.get('src'):
+                asset_path = resolve_asset_path(pdf['src'])
+                if asset_path.exists():
+                    asset_paths.append(asset_path)
+
+            # Check for SVG assets
+            svg = el.get('svg')
+            if svg and svg.get('src'):
+                asset_path = resolve_asset_path(svg['src'])
+                if asset_path.exists():
+                    asset_paths.append(asset_path)
+
+    return list(set(asset_paths))  # Remove duplicates
+
+
 def cmd_watch(args):
     org_path = pathlib.Path(args.org)
     if not org_path.exists():
@@ -951,6 +1008,7 @@ def cmd_watch(args):
     export_dir = pathlib.Path(args.export_dir)
     export_dir.mkdir(parents=True, exist_ok=True)
     last_hash = None
+    last_asset_paths = set()
     print(f"Watching {org_path} interval={args.interval}s pdf={args.pdf} (once={args.once})")
 
     def compute_hash(p: pathlib.Path):
@@ -959,6 +1017,30 @@ def cmd_watch(args):
             return hashlib.sha256(data).hexdigest()
         except Exception:
             return None
+
+    def compute_combined_hash():
+        """Compute combined hash of org file and all asset files."""
+        hashes = []
+
+        # Hash the org file
+        org_hash = compute_hash(org_path)
+        if org_hash:
+            hashes.append(org_hash)
+
+        # Parse org to get current asset paths (before adjust_asset_paths modifies them)
+        try:
+            ir = parse_org(str(org_path))
+            current_asset_paths = _collect_asset_paths(ir, org_path)
+
+            # Hash all asset files
+            for asset_path in sorted(current_asset_paths):  # Sort for consistent ordering
+                asset_hash = compute_hash(asset_path)
+                if asset_hash:
+                    hashes.append(f"{asset_path}:{asset_hash}")
+
+            return hashlib.sha256('|'.join(hashes).encode()).hexdigest(), set(current_asset_paths)
+        except Exception:
+            return org_hash, set() if org_hash else (None, set())
 
     def build_once():
         ir = parse_org(str(org_path))
@@ -998,9 +1080,23 @@ def cmd_watch(args):
             return True
 
     while True:
-        h = compute_hash(org_path)
-        if h and h != last_hash:
+        h, current_asset_paths = compute_combined_hash()
+
+        # Check if org file, asset files, or asset list changed
+        assets_changed = current_asset_paths != last_asset_paths
+        hash_changed = h and h != last_hash
+
+        if hash_changed or assets_changed:
+            if assets_changed and not hash_changed:
+                print(f"[watch] Asset files changed: {len(current_asset_paths)} assets")
+            elif hash_changed and assets_changed:
+                print(f"[watch] Org file and assets changed: {len(current_asset_paths)} assets")
+            else:
+                print("[watch] Org file changed")
+
             last_hash = h
+            last_asset_paths = current_asset_paths
+
             try:
                 ok = build_once()
                 if not ok and args.once:
@@ -1012,7 +1108,7 @@ def cmd_watch(args):
             if args.once:
                 break
         if args.once:
-            # File hash didn't change but in --once mode ensure we build at least once
+            # No changes but in --once mode ensure we build at least once
             if last_hash is None:
                 try:
                     ok = build_once()

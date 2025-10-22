@@ -89,7 +89,7 @@ typst --version  # Ensure Typst is also installed
 
 **Optional Dependencies:**
 - **qpdf** - Enhanced PDF repair and normalization  
-- **Ghostscript (gs)** - Alternative PDF processing and PNG rendering
+- **Ghostscript (gs)** - Alternative PDF processing, PNG rendering, and **OutputIntent injection for PDF/A compliance**
 
 Install platform-specific dependencies:
 ```bash
@@ -158,6 +158,55 @@ pagemaker ir examples/sample.org > ir.json
 # Validate IR (non-zero exit on error)
 pagemaker validate examples/sample.org
 ```
+
+### PDF OutputIntent Injection (PDF/A Compliance)
+
+Enhance PDF output with OutputIntent injection for professional print workflows and PDF/A compliance. This feature adds ICC color profiles to PDFs, improving color accuracy and meeting archival standards.
+
+**Requirements:**
+- **Ghostscript (gs)** - Required for OutputIntent injection (automatically detected)
+
+**Basic Usage:**
+```bash
+# Inject sRGB OutputIntent (auto-discovers system sRGB profile)
+pagemaker pdf examples/sample.org --inject-output-intent-srgb --pdf-output document.pdf
+
+# Use custom ICC profile
+pagemaker pdf examples/sample.org --icc-profile /path/to/profile.icc --pdf-output document.pdf
+
+# Combine with PDF presets for print production
+pagemaker pdf examples/sample.org --inject-output-intent-srgb --pdf-preset prepress --pdf-output document.pdf
+
+# Works in watch mode too
+pagemaker watch examples/sample.org --pdf --inject-output-intent-srgb --export-dir export
+```
+
+**Available Options:**
+- `--inject-output-intent-srgb`: Automatically discovers and injects system sRGB ICC profile
+- `--icc-profile <path>`: Inject custom ICC profile from specified file path
+- `--pdf-preset <preset>`: Apply PDF optimization preset (`screen`, `printer`, `prepress`)
+
+**PDF Presets:**
+- `screen`: Optimized for digital display and web viewing
+- `printer`: Balanced settings for general printing
+- `prepress`: High-quality prepress settings for professional printing
+
+**Graceful Fallback:**
+- If Ghostscript is not available, the feature fails gracefully with a warning
+- PDF generation continues normally, producing the original Typst PDF without OutputIntent
+- This ensures builds don't break in environments without Ghostscript
+
+**Use Cases:**
+- **PDF/A compliance**: Required for long-term document archival
+- **Print production**: Ensures consistent color reproduction across devices
+- **Professional publishing**: Meeting industry standards for color management
+- **Color-critical workflows**: Scientific documents, design work, photography
+
+**Technical Details:**
+- Supports automatic sRGB profile discovery on macOS, Linux, and Windows
+- Uses Ghostscript for reliable OutputIntent injection
+- Preserves all original PDF content and metadata
+- Compatible with all pagemaker features (fonts, images, layouts, etc.)
 
 
 Manual Typst compile (if you only produced .typ):

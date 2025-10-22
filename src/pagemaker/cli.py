@@ -922,6 +922,23 @@ def cmd_pdf(args):
         no_clean=args.no_clean,
     )
 
+    # Apply OutputIntent post-processing if requested and compilation succeeded
+    if ok and (
+        getattr(args, 'inject_output_intent_srgb', False) or getattr(args, 'icc_profile', None)
+    ):
+        from .generation.pdf_postprocess import maybe_inject_output_intent
+
+        icc_profile_path = None
+        if hasattr(args, 'icc_profile') and args.icc_profile:
+            icc_profile_path = pathlib.Path(args.icc_profile)
+
+        maybe_inject_output_intent(
+            pdf_path=pdf_path,
+            icc_profile_path=icc_profile_path,
+            use_srgb_discovery=getattr(args, 'inject_output_intent_srgb', False),
+            preset=getattr(args, 'pdf_preset', None),
+        )
+
     print(f"PDF build success={ok} pdf={pdf_path} pages={len(ir['pages'])}")
     if not ok:
         sys.exit(1)
@@ -1071,6 +1088,25 @@ def cmd_watch(args):
                 sanitize=getattr(args, 'sanitize_pdfs', False),
                 no_clean=args.no_clean,
             )
+
+            # Apply OutputIntent post-processing if requested and compilation succeeded
+            if ok and (
+                getattr(args, 'inject_output_intent_srgb', False)
+                or getattr(args, 'icc_profile', None)
+            ):
+                from .generation.pdf_postprocess import maybe_inject_output_intent
+
+                icc_profile_path = None
+                if hasattr(args, 'icc_profile') and args.icc_profile:
+                    icc_profile_path = pathlib.Path(args.icc_profile)
+
+                maybe_inject_output_intent(
+                    pdf_path=pdf_path,
+                    icc_profile_path=icc_profile_path,
+                    use_srgb_discovery=getattr(args, 'inject_output_intent_srgb', False),
+                    preset=getattr(args, 'pdf_preset', None),
+                )
+
             print(f"[watch] Rebuilt PDF success={ok} pages={len(ir['pages'])}")
             return ok
         else:
@@ -1702,6 +1738,20 @@ def build_parser():
         action='store_true',
         help='Attempt to sanitize PDFs and fallback to SVG if necessary',
     )
+    pdf.add_argument(
+        '--inject-output-intent-srgb',
+        action='store_true',
+        help='Embed sRGB OutputIntent via Ghostscript post-processing',
+    )
+    pdf.add_argument(
+        '--icc-profile',
+        help='Path to ICC profile to embed as OutputIntent (takes precedence over --inject-output-intent-srgb)',
+    )
+    pdf.add_argument(
+        '--pdf-preset',
+        choices=['screen', 'printer', 'prepress'],
+        help='PDF quality preset for Ghostscript processing (only applies with OutputIntent injection)',
+    )
     pdf.set_defaults(func=cmd_pdf)
 
     irp = sub.add_parser('ir', help='emit IR JSON')
@@ -1732,6 +1782,20 @@ def build_parser():
         '--sanitize-pdfs',
         action='store_true',
         help='Attempt to sanitize PDFs and fallback to SVG if necessary',
+    )
+    watch.add_argument(
+        '--inject-output-intent-srgb',
+        action='store_true',
+        help='Embed sRGB OutputIntent via Ghostscript post-processing',
+    )
+    watch.add_argument(
+        '--icc-profile',
+        help='Path to ICC profile to embed as OutputIntent (takes precedence over --inject-output-intent-srgb)',
+    )
+    watch.add_argument(
+        '--pdf-preset',
+        choices=['screen', 'printer', 'prepress'],
+        help='PDF quality preset for Ghostscript processing (only applies with OutputIntent injection)',
     )
     watch.set_defaults(func=cmd_watch)
 

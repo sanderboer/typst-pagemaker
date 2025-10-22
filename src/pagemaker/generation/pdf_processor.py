@@ -43,13 +43,17 @@ def pdf_intrinsic_size_mm(path: str) -> tuple[float, float]:
                     width_pt, height_pt = w, h
     except Exception:
         pass
-    # Convert points (1/72") to mm
-    # Empirical correction: muchpdf appears to render PDF user units ~90 per inch
-    # rather than the traditional 72 pt/in. Observed embedded PDFs were ~0.8x
-    # expected size (scale deficit of 1/1.25). Adjust conversion so intrinsic
-    # size is smaller, yielding a larger auto-contain scale that fills frames.
-    # When muchpdf clarifies its internal DPI, revisit this (possibly 96/in etc.).
-    mm_per_pt = 25.4 / 90.0
+    # Convert points to mm with overrideable points-per-inch
+    # Default remains 90.0 to match observed muchpdf behavior; override with env.
+    # TODO(pdf-dpi): Revalidate this constant after migrating off muchpdf; may switch to 72 or probed value.
+    # TODO(pdf-dpi): Revalidate this constant after migrating off muchpdf; may switch to 72 or probed value.
+    try:
+        pt_per_in = float(os.environ.get("PAGEMAKER_PDF_PT_PER_IN", "90"))
+        if not math.isfinite(pt_per_in) or pt_per_in <= 0:
+            pt_per_in = 90.0
+    except Exception:
+        pt_per_in = 90.0
+    mm_per_pt = 25.4 / pt_per_in
     width_mm = width_pt * mm_per_pt
     height_mm = height_pt * mm_per_pt
     _pdf_size_cache[path] = (width_mm, height_mm)
@@ -57,81 +61,17 @@ def pdf_intrinsic_size_mm(path: str) -> tuple[float, float]:
 
 
 def adjust_asset_paths(ir, typst_dir: pathlib.Path):
-    """Adjust relative asset paths in IR to be relative to typst_dir."""
+    """Adjust relative asset paths in IR to be relative to typst_dir.
+
+    Delegates to AssetPathResolver for centralized behavior parity with generator.
+    """
     try:
-        typst_dir = typst_dir.resolve()
+        from ..utils.assets_paths import AssetPathResolver
     except Exception:
+        # Fallback to no-op if resolver import fails
         return
-    # Determine project root relative to this module (../../)
-    try:
-        project_root = pathlib.Path(__file__).resolve().parents[3]  # Updated for generation/ subdir
-    except Exception:
-        project_root = pathlib.Path.cwd()
-
-    def resolve_rel(src: str) -> str:
-        if os.path.isabs(src) or re.match(r'^[a-zA-Z]+:', src):
-            return src
-
-        # If file exists relative to current working directory,
-        # compute path relative to typst_dir (where .typ file will be)
-        cwd_path = pathlib.Path.cwd() / src
-        try:
-            if cwd_path.resolve().exists():
-                return os.path.relpath(cwd_path.resolve(), typst_dir)
-        except Exception:
-            pass
-
-        # Try other candidates if not found in cwd
-        candidates = [
-            (project_root / src),
-            (typst_dir / src),
-        ]
-        for cand in candidates:
-            try:
-                c = cand.resolve()
-            except Exception:
-                continue
-            if c.exists():
-                # Found existing file, rewrite relative to export dir
-                try:
-                    return os.path.relpath(c, typst_dir)
-                except Exception:
-                    continue
-
-        # Special fallback: if user referenced 'assets/...', also look under examples/assets
-        if src.startswith('assets/'):
-            alt = project_root / 'examples' / src
-            try:
-                alt_res = alt.resolve()
-                if alt_res.exists():
-                    try:
-                        return os.path.relpath(alt_res, typst_dir)
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-        # If no file found but src is relative, try best-effort path adjustment
-        # relative to project root (common case for assets)
-        if not os.path.isabs(src):
-            try:
-                project_asset_path = (project_root / src).resolve()
-                return os.path.relpath(project_asset_path, typst_dir)
-            except Exception:
-                pass
-        return src
-
-    for page in ir.get('pages', []):
-        for el in page.get('elements', []):
-            fig = el.get('figure')
-            if fig and fig.get('src'):
-                fig['src'] = resolve_rel(fig['src'])
-            pdf = el.get('pdf')
-            if pdf and pdf.get('src'):
-                pdf['src'] = resolve_rel(pdf['src'])
-            svg = el.get('svg')
-            if svg and svg.get('src'):
-                svg['src'] = resolve_rel(svg['src'])
+    resolver = AssetPathResolver(typst_dir=pathlib.Path(typst_dir))
+    resolver.adjust_ir_asset_paths(ir)
 
 
 class PDFProcessor:

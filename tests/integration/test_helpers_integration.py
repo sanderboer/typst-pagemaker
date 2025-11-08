@@ -3,8 +3,8 @@
 
 - Verifies the sample example generates no AREA warnings and includes
   footer macros in the Typst output.
-- Optionally compiles a minimal Org using the helpers if Typst + muchpdf
-  are available on the system (skips otherwise).
+- Optionally compiles a minimal Org using the helpers if Typst
+  is available on the system (skips otherwise).
 """
 
 import io
@@ -24,31 +24,16 @@ sys.path.insert(0, str(SRC_PATH))
 import pagemaker as pm  # noqa: E402
 
 
-def _has_typst_and_muchpdf() -> bool:
+def _has_typst() -> bool:
+    """Return True if the `typst` CLI is available.
+
+    The old MuchPDF availability check has been removed; native Typst PDF embedding
+    is now used by pagemaker. Set PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1 only to exercise
+    the deprecated MuchPDF path (not required for normal operation).
+    """
     try:
         res = subprocess.run(['typst', '--version'], capture_output=True, text=True)
-        if res.returncode != 0:
-            return False
-        with tempfile.TemporaryDirectory() as td:
-            typ_path = Path(td) / 'check.typ'
-            typ_path.write_text(
-                '#import "@preview/muchpdf:0.1.1": muchpdf\n#page(width: 10pt, height: 10pt)[]\n',
-                encoding='utf-8',
-            )
-            out_pdf = Path(td) / 'check.pdf'
-            res2 = subprocess.run(
-                [
-                    'typst',
-                    'compile',
-                    '--root',
-                    str(PROJECT_ROOT.resolve()),
-                    str(typ_path),
-                    str(out_pdf),
-                ],
-                capture_output=True,
-                text=True,
-            )
-            return res2.returncode == 0
+        return res.returncode == 0
     except FileNotFoundError:
         return False
 
@@ -73,8 +58,8 @@ class TestHelpersIntegration(unittest.TestCase):
         self.assertIn('#let page_total = context counter(page).final().at(0)', typst_code)
 
     def test_cli_pdf_compile_with_helpers_if_available(self):
-        if not _has_typst_and_muchpdf():
-            self.skipTest('typst or muchpdf not available; skipping helpers PDF compile test')
+        if not _has_typst():
+            self.skipTest('typst CLI not available; skipping helpers PDF compile test')
         org_content = (
             "#+TITLE: Helpers Test\n\n"
             "* Slide\n:PROPERTIES:\n:ID: s1\n:END:\n\n"
@@ -82,31 +67,47 @@ class TestHelpersIntegration(unittest.TestCase):
             "Page #page_no / #page_total — #date_iso\n"
         )
         with tempfile.TemporaryDirectory() as td:
-            td_path = Path(td)
-            org_path = td_path / 'deck.org'
-            org_path.write_text(org_content, encoding='utf-8')
-            cmd = [
-                sys.executable,
-                '-m',
-                'pagemaker.cli',
-                'pdf',
-                str(org_path),
-                '--export-dir',
-                td,
-                '--pdf-output',
-                'out.pdf',
-                '--no-clean',
-            ]
-            env = os.environ.copy()
-            env['PYTHONPATH'] = str(SRC_PATH) + os.pathsep + env.get('PYTHONPATH', '')
-            res = subprocess.run(
-                cmd, cwd=str(PROJECT_ROOT), env=env, capture_output=True, text=True
-            )
-            if res.returncode != 0:
-                self.fail(
-                    f"CLI PDF compile with helpers failed. STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+            # Create export dir inside project root to satisfy Typst --root
+            export_dir = PROJECT_ROOT / 'temp_test_helpers_export'
+            export_dir.mkdir(parents=True, exist_ok=True)
+            org_path = PROJECT_ROOT / 'temp_test_helpers_deck.org'
+            try:
+                org_path.write_text(org_content, encoding='utf-8')
+                cmd = [
+                    sys.executable,
+                    '-m',
+                    'pagemaker.cli',
+                    'pdf',
+                    str(org_path),
+                    '--export-dir',
+                    str(export_dir),
+                    '--pdf-output',
+                    'out.pdf',
+                    '--no-clean',
+                ]
+                env = os.environ.copy()
+                env['PYTHONPATH'] = str(SRC_PATH) + os.pathsep + env.get('PYTHONPATH', '')
+                res = subprocess.run(
+                    cmd, cwd=str(PROJECT_ROOT), env=env, capture_output=True, text=True
                 )
-            self.assertTrue((td_path / 'out.pdf').exists())
+                if res.returncode != 0:
+                    self.fail(
+                        f"CLI PDF compile with helpers failed. STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+                    )
+                self.assertTrue((export_dir / 'out.pdf').exists())
+            finally:
+                try:
+                    if org_path.exists():
+                        org_path.unlink()
+                except OSError:
+                    pass
+                try:
+                    pdf_path = export_dir / 'out.pdf'
+                    if pdf_path.exists():
+                        pdf_path.unlink()
+                    export_dir.rmdir()
+                except OSError:
+                    pass
 
 
 if __name__ == '__main__':

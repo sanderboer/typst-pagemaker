@@ -94,3 +94,10 @@ Current PDF handling in pagemaker has legacy duplication and an overly complex f
 
 ## Migration Note (Draft)
 Users should migrate from the deprecated `muchpdf` package to native Typst `image()` embedding immediately; pagemaker will remove the `muchpdf` import/macro after one minor release. Legacy `--sanitize-pdfs` & automatic SVG/PNG fallbacks are deprecated—preprocess problematic PDFs externally (e.g., Ghostscript) if needed. Upcoming versions will remove built-in fallbacks for a leaner pipeline.
+
+## Status Update (2025-11-08)
+- M2 implemented: native PdfEmbed macro uses image() with scale transform.
+- Legacy MuchPDF retained only when `PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1` (emits DeprecationWarning).
+- Updated integration tests to drop hard MuchPDF requirement; legacy asset tests gated behind env flag.
+- README updated to reflect native embedding + legacy flag.
+- Next: finalize sizing probe (M3), move sanitize/fallbacks behind new flag (Phase 2), then deprecate/remove (Phase 3).

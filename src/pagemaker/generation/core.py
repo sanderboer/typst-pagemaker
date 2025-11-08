@@ -5,6 +5,7 @@ the conversion from IR to Typst code. It coordinates with other modules
 in the generation package to handle layout, element rendering, and PDF processing.
 """
 
+import os
 import pathlib
 import re
 import warnings
@@ -631,7 +632,13 @@ def generate_header_and_setup(ir: Dict[str, Any], theme: dict) -> List[str]:
             timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat()
         )
     )
-    out.append("#import \"@preview/muchpdf:0.1.1\": muchpdf\n")
+    # Conditional legacy muchpdf import (deprecated). Enabled only when env flag set.
+    if os.environ.get('PAGEMAKER_ENABLE_MUCHPDF_LEGACY') == '1':
+        warnings.warn(
+            "PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1: using deprecated @preview/muchpdf package; will be removed in a future release.",
+            DeprecationWarning,
+        )
+        out.append("#import \"@preview/muchpdf:0.1.1\": muchpdf\n")
 
     # Theme definition
     out.append("#let theme = (")
@@ -698,10 +705,15 @@ def generate_header_and_setup(ir: Dict[str, Any], theme: dict) -> List[str]:
         "#let ColorRect(color, alpha, stroke: none, stroke_color: none, radius: none) = {\n  // Accept radius-only by passing stroke: none explicitly\n  let fill_expr = rgb(color).transparentize(100% - alpha * 100%)\n  let stroke_arg = if stroke == none { none } else { stroke }\n  let stroke_col = if stroke_color == none { none } else { rgb(stroke_color) }\n  let radius_arg = if radius == none { none } else { radius }\n  if stroke_arg == none and radius_arg == none {\n    block(width: 100%, height: 100%, fill: fill_expr)[]\n  } else {\n    let stroke_spec = if stroke_arg == none { none } else { stroke_arg + stroke_col }\n    rect(width: 100%, height: 100%, fill: fill_expr, stroke: stroke_spec, radius: radius_arg)\n  }\n}\n"
     )
 
-    # PDF embed helper function
-    out.append(
-        "#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  let pdf_data = read(path, encoding: none)\n  let pg = page - 1\n  let pdf_img = muchpdf(pdf_data, pages: pg, scale: scale)\n  // Allow overflow so explicit scale can extend beyond frame intentionally\n  block(width: 100%, height: 100%)[\n    #pdf_img\n  ]\n}\n"
-    )
+    # PDF embed helper function. If legacy muchpdf is enabled, use it; else use native image().
+    if os.environ.get('PAGEMAKER_ENABLE_MUCHPDF_LEGACY') == '1':
+        out.append(
+            "#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  let pdf_data = read(path, encoding: none)\n  let pg = page - 1\n  let pdf_img = muchpdf(pdf_data, pages: pg, scale: scale)\n  // Allow overflow so explicit scale can extend beyond frame intentionally\n  block(width: 100%, height: 100%)[\n    #pdf_img\n  ]\n}\n"
+        )
+    else:
+        out.append(
+            "#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  // Native Typst PDF embedding via image() with scale transform\n  let img = image(path, page: page)\n  block(width: 100%, height: 100%)[\n    #scale(x: scale, y: scale)[#img]\n  ]\n}\n"
+        )
 
     # Layer helpers
     out.append(

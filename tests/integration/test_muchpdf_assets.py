@@ -21,7 +21,15 @@ ASSETS_DIR = PROJECT_ROOT / "examples" / "assets" / "test-pdfs"
 
 class TestMuchPDFOnAssets(unittest.TestCase):
     def _has_typst_and_muchpdf(self) -> bool:
-        """Return True if typst CLI is available and can import MuchPDF."""
+        """Return True if legacy MuchPDF tests should run.
+
+        Requires typst CLI and the environment variable PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1.
+        Without the env var the legacy path is skipped (native image() embedding is default).
+        """
+        import os
+
+        if os.environ.get("PAGEMAKER_ENABLE_MUCHPDF_LEGACY") != "1":
+            return False
         try:
             res = subprocess.run(["typst", "--version"], capture_output=True, text=True)
             if res.returncode != 0:
@@ -84,7 +92,9 @@ class TestMuchPDFOnAssets(unittest.TestCase):
 
     def test_known_good_pdfs_compile(self):
         if not self._has_typst_and_muchpdf():
-            self.skipTest("typst or muchpdf not available; skipping MuchPDF asset tests")
+            self.skipTest(
+                "legacy MuchPDF path disabled or typst CLI unavailable; skipping legacy MuchPDF asset tests"
+            )
 
         # Known-good samples expected to succeed with MuchPDF
         cases = [
@@ -115,7 +125,9 @@ class TestMuchPDFOnAssets(unittest.TestCase):
         has improved), this test will be reported as an unexpected success.
         """
         if not self._has_typst_and_muchpdf():
-            self.skipTest("typst or muchpdf not available; skipping MuchPDF asset tests")
+            self.skipTest(
+                "legacy MuchPDF path disabled or typst CLI unavailable; skipping legacy MuchPDF asset tests"
+            )
 
         pdf_path = ASSETS_DIR / "test-exploded-view.pdf"
         self.assertTrue(pdf_path.exists(), f"Missing test asset: {pdf_path}")

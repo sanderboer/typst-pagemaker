@@ -46,7 +46,7 @@ See the Vector PDF Embedding section below for details and examples.
 - **Typography**: Fonts and basic theming
 
 ### Features
-- **PDF embedding**: MuchPDF integration with sanitize/SVG/PNG fallback
+- **PDF embedding**: Native Typst image() PDF page embedding (automatic contain scaling) with optional deprecated MuchPDF legacy path (set PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1) and sanitize/SVG/PNG fallback
 - **Rectangles**: Colored overlays with alpha transparency; optional stroke, stroke_color fallback, and corner radius
 - **Images**: Fit modes (contain, cover, fill) and captions
 - **Debug grid**: Optional grid lines and labels (columns 1..N, rows a..z)
@@ -783,7 +783,7 @@ Include high-quality PDF pages with fallback support:
 :END:
 ```
 Notes:
-- For problematic PDFs with MuchPDF, run the CLI with `--sanitize-pdfs`.
+- For problematic PDFs, run the CLI with `--sanitize-pdfs` (legacy MuchPDF path is deprecated and optional).
 - If sanitization still fails, the first requested page is auto-converted to SVG (preferred) or PNG and embedded as an image.
 - Fallback assets are written under `export_dir/assets/pdf-fallbacks/` and linked in the generated Typst.
 
@@ -964,7 +964,7 @@ make test
 python -m unittest discover tests -v
 ```
 
-- The suite includes an optional PDF compile test that runs `pagemaker pdf` end-to-end and compiles via Typst. It automatically skips if `typst` or the `@preview/muchpdf` package are unavailable on your system.
+- The suite includes an optional PDF compile test that runs `pagemaker pdf` end-to-end and compiles via Typst. It automatically skips if `typst` is unavailable. Legacy MuchPDF-specific tests only run when PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1 is set.
 
 ### Code Style & Pre-commit
 

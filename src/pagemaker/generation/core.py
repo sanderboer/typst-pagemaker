@@ -5,7 +5,6 @@ the conversion from IR to Typst code. It coordinates with other modules
 in the generation package to handle layout, element rendering, and PDF processing.
 """
 
-import os
 import pathlib
 import re
 import warnings
@@ -632,13 +631,6 @@ def generate_header_and_setup(ir: Dict[str, Any], theme: dict) -> List[str]:
             timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat()
         )
     )
-    # Conditional legacy muchpdf import (deprecated). Enabled only when env flag set.
-    if os.environ.get('PAGEMAKER_ENABLE_MUCHPDF_LEGACY') == '1':
-        warnings.warn(
-            "PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1: using deprecated @preview/muchpdf package; will be removed in a future release.",
-            DeprecationWarning,
-        )
-        out.append("#import \"@preview/muchpdf:0.1.1\": muchpdf\n")
 
     # Theme definition
     out.append("#let theme = (")
@@ -705,15 +697,11 @@ def generate_header_and_setup(ir: Dict[str, Any], theme: dict) -> List[str]:
         "#let ColorRect(color, alpha, stroke: none, stroke_color: none, radius: none) = {\n  // Accept radius-only by passing stroke: none explicitly\n  let fill_expr = rgb(color).transparentize(100% - alpha * 100%)\n  let stroke_arg = if stroke == none { none } else { stroke }\n  let stroke_col = if stroke_color == none { none } else { rgb(stroke_color) }\n  let radius_arg = if radius == none { none } else { radius }\n  if stroke_arg == none and radius_arg == none {\n    block(width: 100%, height: 100%, fill: fill_expr)[]\n  } else {\n    let stroke_spec = if stroke_arg == none { none } else { stroke_arg + stroke_col }\n    rect(width: 100%, height: 100%, fill: fill_expr, stroke: stroke_spec, radius: radius_arg)\n  }\n}\n"
     )
 
-    # PDF embed helper function. If legacy muchpdf is enabled, use it; else use native image().
-    if os.environ.get('PAGEMAKER_ENABLE_MUCHPDF_LEGACY') == '1':
-        out.append(
-            "#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  let pdf_data = read(path, encoding: none)\n  let pg = page - 1\n  let pdf_img = muchpdf(pdf_data, pages: pg, scale: scale)\n  // Allow overflow so explicit scale can extend beyond frame intentionally\n  block(width: 100%, height: 100%)[\n    #pdf_img\n  ]\n}\n"
-        )
-    else:
-        out.append(
-            "#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  // Native Typst PDF embedding via image() with scale transform\n  let img = image(path, page: page)\n  block(width: 100%, height: 100%)[\n    #scale(x: scale, y: scale)[#img]\n  ]\n}\n"
-        )
+    # PDF embed helper function: always use native Typst image() with scale transform
+    out.append("#let _scale = scale\n")
+    out.append(
+        "#let PdfEmbed(path, page: 1, scale: 1.0) = {\n  // Embed PDF using contain fit to fill the frame; scale parameter is informational.\n  block(width: 100%, height: 100%)[\n    #image(path, page: page, width: 100%, height: 100%, fit: \"contain\")\n  ]\n}\n"
+    )
 
     # Layer helpers
     out.append(
@@ -853,20 +841,19 @@ def process_pages(ir, masters, render_pages, styles):
     Returns:
         List of strings containing page content
     """
-    import pathlib
     import sys
-    import warnings
 
     from ..generator import (
         _apply_alignment_wrapper,
         _compute_element_frame_size_mm,
         _get_alignment_wrapper,
-        _pdf_intrinsic_size_mm,
         _render_text_element,
         _typst_grid_toc_entry,
         escape_text,
         parse_bool,
     )
+
+    # Direct import of pdf intrinsic size (bypassing deprecated generator alias)
 
     out = []
 
@@ -1004,96 +991,54 @@ def process_pages(ir, masters, render_pages, styles):
                     )
                 else:
                     content_fragments.append(f"ColorRect(\"{color}\", {alpha_f})")
-            elif el['type'] == 'figure' and el.get('figure'):
-                src = el['figure']['src']
-                cap = el['figure'].get('caption')
-                fit = el['figure'].get('fit', 'contain')
-                align, _ = _get_alignment_wrapper(el)
-                align = align or 'left'  # Default to left for figures
-                fit_map = {
-                    'fill': 'cover',
-                    'contain': 'contain',
-                    'cover': 'cover',
-                    'stretch': 'stretch',
-                }
-                fit_val = fit_map.get(str(fit).lower(), str(fit))
-                # For contain fit with alignment, use different approach
-                if fit_val == "contain" and align != "center":
-                    img_call = f"image(\"{src}\")"
-                else:
-                    img_call = f"image(\"{src}\", width: 100%, height: 100%, fit: \"{fit_val}\")"
+            elif el['type'] in ('figure', 'svg', 'pdf') and el.get(el['type']):
+                # NEW: Unified media rendering via strategy pattern
+                from .media_renderer import RenderContext, get_media_renderer
 
-                if cap:
-                    cap_e = escape_text(cap)
-                    content_fragments.append(
-                        f"Fig({img_call}, caption: [{cap_e}], caption_align: {align}, img_align: {align})"
-                    )
-                else:
-                    content_fragments.append(
-                        f"Fig({img_call}, caption_align: {align}, img_align: {align})"
-                    )
-            elif el['type'] == 'svg' and el.get('svg'):
-                svg = el['svg']
-                ssrc = svg.get('src')
-                # Render SVG via image fit contain into the frame
-                content_fragments.append(
-                    f"Fig(image(\"{ssrc}\", width: 100%, height: 100%, fit: \"contain\"))"
-                )
-            elif el['type'] == 'pdf' and el.get('pdf'):
-                pdf = el['pdf']
-                psrc = pdf['src']
-                ppage = pdf['pages'][0]
-                user_scale = pdf.get('scale', 1.0) or 1.0
-                # Compute auto-contain scale so PDF fits inside its frame.
+                media_type = el['type']
+                media_data = el[media_type]
+                src = media_data.get('src')
+
+                if not src:
+                    # Skip elements without src
+                    continue
+
+                # Get fit mode (default to contain)
+                fit = media_data.get('fit', 'contain')
+
+                # Compute frame size (available space after padding)
                 try:
                     pad_dict = el.get('padding_mm') if isinstance(el, dict) else None
                     frame_w_mm, frame_h_mm = _compute_element_frame_size_mm(page, area, pad_dict)
-                    pdf_w_mm, pdf_h_mm = _pdf_intrinsic_size_mm(psrc)
-                    if pdf_w_mm <= 0 or pdf_h_mm <= 0:
-                        base_scale = 1.0
-                    else:
-                        base_scale = min(frame_w_mm / pdf_w_mm, frame_h_mm / pdf_h_mm)
-                        if base_scale <= 0 or not (base_scale == base_scale):  # NaN guard
-                            base_scale = 1.0
-                    # Ignore user-supplied :SCALE: for now; always use containment base_scale
-                    if isinstance(user_scale, (int, float)) and abs(float(user_scale) - 1.0) > 1e-6:
-                        warnings.warn(
-                            f":SCALE: {user_scale} specified for PDF '{psrc}' is currently ignored (auto-contain scaling enforced).",
-                            UserWarning,
-                        )
-                    final_scale = base_scale
-                    scale_numeric = float(f"{final_scale:.6f}")
                 except Exception:
-                    scale_numeric = (
-                        float(user_scale) if isinstance(user_scale, (int, float)) else 1.0
-                    )
-                if pathlib.Path(psrc).suffix.lower() != '.pdf':
-                    content_fragments.append(
-                        f"Fig(image(\"{psrc}\", width: 100%, height: 100%, fit: \"contain\"))"
-                    )
-                else:
-                    scale_mode = (pdf.get('scale_mode') or 'contain').strip().lower()
-                    if scale_mode not in ('contain', 'cover'):
-                        scale_mode = 'contain'
-                    # For cover, recompute scale to fill and possibly crop
-                    if scale_mode == 'cover':
-                        try:
-                            pad_dict = el.get('padding_mm') if isinstance(el, dict) else None
-                            frame_w_mm, frame_h_mm = _compute_element_frame_size_mm(
-                                page, area, pad_dict
-                            )
-                            pdf_w_mm, pdf_h_mm = _pdf_intrinsic_size_mm(psrc)
-                            if pdf_w_mm > 0 and pdf_h_mm > 0:
-                                cover_scale = max(frame_w_mm / pdf_w_mm, frame_h_mm / pdf_h_mm)
-                                scale_numeric = float(f"{cover_scale:.6f}")
-                        except Exception:
-                            pass
-                    mode_comment = "contain" if scale_mode == 'contain' else 'cover (may crop)'
-                    # Add comment separate from expression to avoid syntax issues inside layer_grid_padded
-                    pre_comments.append(f"// auto pdf scale base {mode_comment} applied")
-                    content_fragments.append(
-                        f"PdfEmbed(\"{psrc}\", page: {ppage}, scale: {scale_numeric})"
-                    )
+                    frame_w_mm = frame_h_mm = 0.0
+
+                # Get alignment
+                align, valign = _get_alignment_wrapper(el)
+
+                # Build render context
+                ctx = RenderContext(
+                    element=el,
+                    page=page,
+                    area=area,
+                    padding_mm=pad_dict,
+                    frame_w_mm=frame_w_mm,
+                    frame_h_mm=frame_h_mm,
+                    align=align,
+                    valign=valign,
+                )
+
+                # Get appropriate renderer and render
+                renderer = get_media_renderer(media_type)
+
+                # Prepare media-specific kwargs
+                media_kwargs = {}
+                if media_type == 'pdf':
+                    media_kwargs['box'] = media_data.get('box')
+                    media_kwargs['page'] = media_data.get('pages', [1])[0]
+
+                result = renderer.render(ctx, src, fit, **media_kwargs)
+                content_fragments.append(result.typst_code)
             elif el['type'] == 'toc':
                 # TOC with page numbers and dot leaders
                 toc_entries = []

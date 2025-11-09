@@ -164,10 +164,10 @@ class TestSvgStrategy:
             'contain',
         )
 
-        # For contain mode, output should use FRAME dimensions, not drawn dimensions
-        # This lets Typst handle the scaling properly
-        assert 'width: 100.000000mm' in result.typst_code
-        assert 'height: 100.000000mm' in result.typst_code
+        # For contain mode, output should use percentage-based sizing to allow alignment
+        # This lets Typst's fit: "contain" handle the scaling within the frame
+        assert 'width: 100%' in result.typst_code
+        assert 'height: 100%' in result.typst_code
         assert 'fit: "contain"' in result.typst_code
 
     @patch('pagemaker.generator._compute_media_drawn_and_offsets')
@@ -200,10 +200,10 @@ class TestSvgStrategy:
 
         result = self.strategy.render_manual(ctx, 'icon.svg', 'contain', 100.0, 50.0)
 
-        # For contain mode, we use frame dimensions regardless of user scale
-        # User scale affects drawn_w/h calculation but we use frame for image() call
-        assert 'width: 100.000000mm' in result.typst_code
-        assert 'height: 100.000000mm' in result.typst_code
+        # For contain mode, we use percentage-based sizing to allow alignment to work
+        # User scale doesn't affect the sizing (it would affect drawn_w/h in cover mode)
+        assert 'width: 100%' in result.typst_code
+        assert 'height: 100%' in result.typst_code
 
 
 class TestPdfStrategy:
@@ -256,9 +256,9 @@ class TestPdfStrategy:
 
         result = self.strategy.render_manual(ctx, 'doc.pdf', 'contain', 215.9, 279.4)
 
-        # For contain mode, should use FRAME dimensions, not drawn dimensions
+        # For contain mode, should use percentage-based sizing to allow alignment to work
         assert (
-            'image("doc.pdf", page: 2, width: 100.000000mm, height: 120.000000mm, fit: "contain")'
+            'image("doc.pdf", page: 2, width: 100%, height: 100%, fit: "contain")'
             in result.typst_code
         )
 

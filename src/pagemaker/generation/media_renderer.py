@@ -353,19 +353,12 @@ class SvgRenderStrategy(MediaRenderStrategy):
                     offset_y_mm = -overflow_y / 2.0
                     needs_clip = True
 
-        # For contain mode: use frame dimensions and let Typst scale the content
-        # For cover/stretch: use drawn dimensions (cover needs oversized content for clipping)
+        # For contain mode: use percentage-based sizing to allow alignment to work
+        # For cover/stretch: use explicit mm dimensions (cover needs oversized content for clipping)
         if fit == 'contain':
-            img_w_mm = ctx.frame_w_mm
-            img_h_mm = ctx.frame_h_mm
+            img_inner = f'image("{src}", width: 100%, height: 100%, fit: "contain")'
         else:
-            img_w_mm = drawn_w_mm
-            img_h_mm = drawn_h_mm
-
-        # Generate image call with explicit dimensions and fit mode
-        img_inner = (
-            f'image("{src}", width: {img_w_mm:.6f}mm, height: {img_h_mm:.6f}mm, fit: "{fit}")'
-        )
+            img_inner = f'image("{src}", width: {drawn_w_mm:.6f}mm, height: {drawn_h_mm:.6f}mm, fit: "{fit}")'
 
         # Add place() offsets for centering/alignment
         place_args = []
@@ -454,17 +447,14 @@ class PdfRenderStrategy(MediaRenderStrategy):
             drawn_w_mm *= float(user_scale)
             drawn_h_mm *= float(user_scale)
 
-        # For contain mode: use frame dimensions and let Typst scale the content
-        # For cover/stretch: use drawn dimensions (cover needs oversized content for clipping)
+        # For contain mode: use percentage-based sizing to allow alignment to work
+        # For cover/stretch: use explicit mm dimensions (cover needs oversized content for clipping)
         if fit == 'contain':
-            img_w_mm = ctx.frame_w_mm
-            img_h_mm = ctx.frame_h_mm
+            img_call = (
+                f'image("{src}", page: {page_num}, width: 100%, height: 100%, fit: "contain")'
+            )
         else:
-            img_w_mm = drawn_w_mm
-            img_h_mm = drawn_h_mm
-
-        # Generate image call with explicit dimensions and fit parameter
-        img_call = f'image("{src}", page: {page_num}, width: {img_w_mm:.6f}mm, height: {img_h_mm:.6f}mm, fit: "contain")'
+            img_call = f'image("{src}", page: {page_num}, width: {drawn_w_mm:.6f}mm, height: {drawn_h_mm:.6f}mm, fit: "{fit}")'
 
         # Add place() offsets for positioning
         place_args = []

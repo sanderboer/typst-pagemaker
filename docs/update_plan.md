@@ -1,6 +1,6 @@
 # Pagemaker Modernization Roadmap
 
-**Document Version**: 2.0  
+**Document Version**: 2.2  
 **Last Updated**: 2025-11-09  
 **Status**: Active Development
 
@@ -19,10 +19,51 @@ This document consolidates all planned improvements for pagemaker's media handli
 
 ### Completed Work
 - [x] Native Typst `image()` embedding for PDFs (MuchPDF removed)
-- [x] Unified `:SRC:` property across all media types
+- [x] Unified media source syntax: `:SRC:` property + `[[file:path]]` link support
+  - `:SRC:` takes precedence when both present (recommended for new documents)
+  - `[[file:path]]` supported as fallback (legacy/org-mode native syntax)
+  - Deprecation warnings for legacy `:PDF:` and `:SVG:` properties
 - [x] AssetPathResolver class for centralized path handling
 - [x] PDF sizing probe standardized to 72 pt/in
 - [x] `:FIT:` property accepted for all media (parser level)
+- [x] **PDF Sizing, Placement, and Alignment** (2025-11-09)
+  - ✅ PDF sizing (intrinsic dimensions) working correctly
+  - ✅ PDF placement (positioning in frames) working correctly
+  - ✅ PDF alignment (`:ALIGN:` and `:VALIGN:` properties) working correctly
+  - ✅ PDF captions with alignment working (bug fix below)
+  - ⚠️ **NOT YET IMPLEMENTED**: PDF/Image/SVG cropping for `:FIT: cover` mode
+    - Cover mode exists in code but clipping/cropping not yet implemented or tested
+    - This is part of **M3: Cover/Contain FIT Unification** milestone
+- [x] **Bug Fix**: PDF/Image caption + alignment rendering (2025-11-09)
+  - Fixed captions not rendering when both caption and alignment specified
+  - Added `fill_space` parameter to `Fig()` helper in `core.py`
+  - Updated `FigureRenderStrategy` and `PdfRenderStrategy` in `media_renderer.py`
+  - 5 new tests in `test_pdf_caption_with_alignment.py`
+  - Updated 2 broken tests to match new behavior
+  - Result: 231 tests passing (up from 205 passing, 2 failing)
+
+---
+
+## Recent Changes (November 2025)
+
+### Sizing, Placement, and Alignment Status
+- **2025-11-09**: ✅ PDF sizing, placement, and alignment fully working
+  - Intrinsic dimensions correctly detected via `pdf_intrinsic_size_mm`
+  - Positioning in frames with `:ALIGN:` and `:VALIGN:` properties working
+  - Caption rendering with alignment working (see bug fix below)
+  - **Note**: `:FIT: cover` mode with cropping NOT YET implemented (planned for M3)
+
+### Bug Fixes & Code Quality
+- **2025-11-09**: Fixed PDF/image caption + alignment bug where captions disappeared when alignment was specified
+  - Modified: `core.py`, `media_renderer.py`
+  - Added: `test_pdf_caption_with_alignment.py` with 5 comprehensive tests
+  - Fixed: 2 broken tests in `test_pdf_alignment_block_sizing.py` and `test_media_renderer_strategies.py`
+  - Status: ✅ All 231 tests passing
+- **2025-11-09**: Fixed all ruff linter errors
+  - Removed duplicate `apply_pdf_fallbacks` function in `pdf_processor.py`
+  - Moved imports to top of file in `cli.py`
+  - Cleaned up test file imports
+  - Status: ✅ All ruff checks passing
 
 ---
 
@@ -202,7 +243,7 @@ Replace type-specific if/elif branches in `generation/core.py:999-1162` with str
 **Goal**: Support true cover/contain/stretch semantics uniformly across all media types
 
 ### Overview
-Currently PDFs are forcibly normalized to `contain` and SVGs lack proper cover support. Implement full cover semantics with alignment-based cropping for all media types.
+Currently PDFs are forcibly normalized to `contain` and SVGs lack proper cover support. **Basic PDF sizing, placement, and alignment are working correctly** (as of Nov 2025), but `:FIT: cover` mode with cropping is not yet implemented. This milestone will implement full cover semantics with alignment-based cropping for all media types.
 
 ### Tasks
 
@@ -227,6 +268,7 @@ Currently PDFs are forcibly normalized to `contain` and SVGs lack proper cover s
 #### M3.3: PDF Cover Support
 - [ ] Update `PdfRenderStrategy.render_manual()` to support cover fit
 - [ ] Implement clipping: `block(clip: true)[place(dx, dy)[image(...)]]`
+- [ ] **Note**: PDF sizing and alignment already working, only cropping needs implementation
 - [ ] Test alignment anchors determine visible region:
   - [ ] Left: shows left edge of wide image
   - [ ] Center: shows center of wide image (default)
@@ -527,12 +569,14 @@ Week 8: M6.4-M6.5 (Documentation Part 2 + Polish)
 
 ### Completed Milestones
 - [x] **Legacy Cleanup**: MuchPDF removed, native Typst embedding
-- [x] **Interface Unification**: `:SRC:` property, `:FIT:` parser support
+- [x] **Interface Unification**: `:SRC:` property + `[[file:path]]` link support, `:FIT:` parser support
 - [x] **Asset Path Resolution**: AssetPathResolver class
 - [x] **PDF Sizing Standard**: 72 pt/in probe default
+- [x] **Bug Fix**: Caption + alignment rendering (Nov 2025)
+- [x] **Code Quality**: Ruff linter errors resolved (Nov 2025)
 
 ### Current Milestone
-- [ ] **M1**: Intrinsic Size Providers (In Progress)
+- [ ] **M1**: Intrinsic Size Providers (Not Started - 0/19 tasks complete)
 
 ### Upcoming
 - [ ] **M2**: Media Renderer Abstraction

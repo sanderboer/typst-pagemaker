@@ -1,4 +1,3 @@
-import os
 import pathlib
 import re
 
@@ -729,7 +728,96 @@ def _compute_element_frame_size_mm(
     return frame_w, frame_h
 
 
-_pdf_size_cache: dict[str, tuple[float, float]] = {}
+def _compute_media_drawn_and_offsets(
+    intrinsic_w: float,
+    intrinsic_h: float,
+    frame_w: float,
+    frame_h: float,
+    fit: str,
+    align: str | None = None,
+    valign: str | None = None,
+) -> tuple[float, float, float, float, bool]:
+    """Compute drawn width/height and offset (dx, dy) inside frame for media.
+
+    Args:
+        intrinsic_w, intrinsic_h: intrinsic media size in mm (positive)
+        frame_w, frame_h: target frame size in mm (non-negative)
+        fit: one of 'contain', 'cover', 'stretch'
+        align: horizontal alignment ('left', 'center', 'right') for cover mode cropping
+        valign: vertical alignment ('top', 'middle'/'horizon', 'bottom') for cover mode cropping
+
+    Returns:
+        (drawn_w, drawn_h, offset_x_mm, offset_y_mm, needs_clip)
+        Offsets are the top-left translation when drawn content exceeds frame (for cover).
+        For cover mode, offsets depend on alignment (left/center/right, top/middle/bottom).
+        needs_clip indicates whether the media exceeds frame and should be clipped.
+    """
+    if not (intrinsic_w > 0 and intrinsic_h > 0 and frame_w >= 0 and frame_h >= 0):
+        return frame_w, frame_h, 0.0, 0.0, False
+    aspect = intrinsic_w / intrinsic_h
+    frame_aspect = frame_w / frame_h if frame_h != 0 else aspect
+    fit_norm = (fit or 'contain').strip().lower()
+    if fit_norm not in ('contain', 'cover', 'stretch'):
+        fit_norm = 'contain'
+
+    if fit_norm == 'stretch':
+        drawn_w, drawn_h = frame_w, frame_h
+        return drawn_w, drawn_h, 0.0, 0.0, False
+
+    if fit_norm == 'contain':
+        if frame_aspect <= aspect:
+            drawn_w = frame_w
+            drawn_h = frame_w / aspect
+        else:
+            drawn_h = frame_h
+            drawn_w = frame_h * aspect
+        return drawn_w, drawn_h, 0.0, 0.0, False
+
+    # cover mode - scale to fill frame, with alignment-based cropping
+    if frame_aspect <= aspect:
+        # Frame narrower than media; scale by height to cover, crop horizontally
+        drawn_h = frame_h
+        drawn_w = frame_h * aspect
+        overflow_x = drawn_w - frame_w
+
+        # Compute horizontal offset based on alignment
+        if overflow_x > 0:
+            if align == 'left':
+                offset_x = 0.0  # Show left edge
+            elif align == 'right':
+                offset_x = -overflow_x  # Show right edge
+            else:  # center (default)
+                offset_x = -overflow_x / 2.0  # Show center
+        else:
+            offset_x = 0.0
+
+        return drawn_w, drawn_h, offset_x, 0.0, overflow_x > 0
+    else:
+        # Frame wider than media; scale by width to cover, crop vertically
+        drawn_w = frame_w
+        drawn_h = frame_w / aspect if aspect != 0 else frame_h
+        overflow_y = drawn_h - frame_h
+
+        # Compute vertical offset based on alignment
+        if overflow_y > 0:
+            # Normalize valign (middle and horizon are synonyms)
+            valign_norm = valign
+            if valign_norm == 'middle':
+                valign_norm = 'horizon'
+
+            if valign_norm == 'top':
+                offset_y = 0.0  # Show top edge
+            elif valign_norm in ('bottom',):
+                offset_y = -overflow_y  # Show bottom edge
+            else:  # horizon/center (default)
+                offset_y = -overflow_y / 2.0  # Show center
+        else:
+            offset_y = 0.0
+
+        return drawn_w, drawn_h, 0.0, offset_y, overflow_y > 0
+
+
+# Deprecated: PDF size cache moved to generation.pdf_processor
 
 
 def _fmt_len(val: float) -> str:
@@ -739,54 +827,22 @@ def _fmt_len(val: float) -> str:
         return "0"
 
 
+# TODO(deprecation): use pdf_processor.pdf_intrinsic_size_mm; remove this alias after minor release.
 def _pdf_intrinsic_size_mm(path: str) -> tuple[float, float]:
-    """Return (width_mm, height_mm) of first page of PDF by parsing MediaBox.
-    Falls back to US Letter (612x792pt) when file missing/unreadable.
-    Caches results per path for efficiency.
-    """
-    import math
-    import os
-    import re
+    """Deprecated alias for pdf_processor.pdf_intrinsic_size_mm.
 
-    if not isinstance(path, str) or path == "":
-        return 215.9, 279.4  # letter fallback
-    if path in _pdf_size_cache:
-        return _pdf_size_cache[path]
-    width_pt, height_pt = 612.0, 792.0  # letter default
-    try:
-        if os.path.exists(path):
-            # Read limited chunk to find /MediaBox [a b c d]
-            with open(path, 'rb') as fh:
-                data = fh.read(200_000)  # first 200KB usually enough
-            # Decode forgivingly
-            try:
-                txt = data.decode('latin-1', errors='ignore')
-            except Exception:
-                txt = ''
-            m = re.search(
-                r'/MediaBox\s*\[\s*(-?\d+(?:\.\d*)?)\s+(-?\d+(?:\.\d*)?)\s+(-?\d+(?:\.\d*)?)\s+(-?\d+(?:\.\d*)?)\s*\]',
-                txt,
-            )
-            if m:
-                x0, y0, x1, y1 = (float(m.group(i)) for i in range(1, 5))
-                w = abs(x1 - x0)
-                h = abs(y1 - y0)
-                # Guard against zero/NaN
-                if w > 1 and h > 1 and math.isfinite(w) and math.isfinite(h):
-                    width_pt, height_pt = w, h
-    except Exception:
-        pass
-    # Convert points (1/72") to mm
-    # Empirical correction: muchpdf appears to render PDF user units ~90 per inch
-    # rather than the traditional 72 pt/in. Observed embedded PDFs were ~0.8x
-    # expected size (scale deficit of 1/1.25). Adjust conversion so intrinsic
-    # size is smaller, yielding a larger auto-contain scale that fills frames.
-    # When muchpdf clarifies its internal DPI, revisit this (possibly 96/in etc.).
-    mm_per_pt = 25.4 / 90.0
-    width_mm = width_pt * mm_per_pt
-    height_mm = height_pt * mm_per_pt
-    _pdf_size_cache[path] = (width_mm, height_mm)
-    return width_mm, height_mm
+    Emits a DeprecationWarning when used. Will be removed in a future minor release.
+    """
+    import warnings
+
+    warnings.warn(
+        "_pdf_intrinsic_size_mm is deprecated; import from pagemaker.generation.pdf_processor instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    from .generation.pdf_processor import pdf_intrinsic_size_mm as _impl
+
+    return _impl(path)
 
 
 def _is_typst_directive(line):
@@ -897,85 +953,10 @@ def update_html_total(html_path: pathlib.Path, total: int):
 def adjust_asset_paths(ir, typst_dir: pathlib.Path):
     """Adjust relative asset paths in IR to be relative to typst_dir.
 
-    This function modifies asset paths in the intermediate representation
-    to ensure they are correctly resolved relative to the target Typst
-    directory for proper compilation.
-
-    Args:
-        ir: Intermediate representation dictionary
-        typst_dir: Target directory for Typst compilation
+    Delegates to AssetPathResolver to centralize path handling.
     """
-    try:
-        typst_dir = typst_dir.resolve()
-    except Exception:
-        return
-    # Determine project root relative to this module (../../)
-    try:
-        project_root = pathlib.Path(__file__).resolve().parents[2]
-    except Exception:
-        project_root = pathlib.Path.cwd()
+    from .utils.assets_paths import AssetPathResolver
 
-    def resolve_rel(src: str) -> str:
-        if os.path.isabs(src) or re.match(r'^[a-zA-Z]+:', src):
-            return src
-
-        # If file exists relative to current working directory,
-        # compute path relative to typst_dir (where .typ file will be)
-        cwd_path = pathlib.Path.cwd() / src
-        try:
-            if cwd_path.resolve().exists():
-                return os.path.relpath(cwd_path.resolve(), typst_dir)
-        except Exception:
-            pass
-
-        # Try other candidates if not found in cwd
-        candidates = [
-            (project_root / src),
-            (typst_dir / src),
-        ]
-        for cand in candidates:
-            try:
-                c = cand.resolve()
-            except Exception:
-                continue
-            if c.exists():
-                # Found existing file, rewrite relative to export dir
-                try:
-                    return os.path.relpath(c, typst_dir)
-                except Exception:
-                    continue
-
-        # Special fallback: if user referenced 'assets/...', also look under examples/assets
-        if src.startswith('assets/'):
-            alt = project_root / 'examples' / src
-            try:
-                alt_res = alt.resolve()
-                if alt_res.exists():
-                    try:
-                        return os.path.relpath(alt_res, typst_dir)
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-        # If no file found but src is relative, try best-effort path adjustment
-        # relative to project root (common case for assets)
-        if not os.path.isabs(src):
-            try:
-                project_asset_path = (project_root / src).resolve()
-                return os.path.relpath(project_asset_path, typst_dir)
-            except Exception:
-                pass
-        return src
-
-    for page in ir.get('pages', []):
-        for el in page.get('elements', []):
-            fig = el.get('figure')
-            if fig and fig.get('src'):
-                fig['src'] = resolve_rel(fig['src'])
-            pdf = el.get('pdf')
-            if pdf and pdf.get('src'):
-                pdf['src'] = resolve_rel(pdf['src'])
-            svg = el.get('svg')
-            if svg and svg.get('src'):
-                svg['src'] = resolve_rel(svg['src'])
+    resolver = AssetPathResolver(typst_dir=pathlib.Path(typst_dir))
+    resolver.adjust_ir_asset_paths(ir)
+    return

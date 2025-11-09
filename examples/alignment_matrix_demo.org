@@ -1,0 +1,373 @@
+#+TITLE: Media Alignment Matrix
+#+AUTHOR: pagemaker
+#+DATE: 2025-11-09
+#+PAGESIZE: A3
+#+ORIENTATION: landscape
+#+GRID: 15x10
+#+GRID_DEBUG: true
+
+* Alignment Matrix: Contain Mode
+:PROPERTIES:
+:ID: contain-matrix
+:END:
+
+** Title
+:PROPERTIES:
+:TYPE: header
+:AREA: A1,A15
+:END:
+Alignment Matrix - Contain Mode (Letterboxing)
+
+** Description
+:PROPERTIES:
+:TYPE: body
+:AREA: B1,B15
+:END:
+Contain mode scales media to fit entirely within the frame. Use ALIGN/VALIGN to position the media within the letterboxed space.
+
+** Column Headers
+:PROPERTIES:
+:TYPE: subheader
+:AREA: C1,C5
+:ALIGN: center
+:END:
+ALIGN: left
+
+** CH2
+:PROPERTIES:
+:TYPE: subheader
+:AREA: C6,C10
+:ALIGN: center
+:END:
+ALIGN: center
+
+** CH3
+:PROPERTIES:
+:TYPE: subheader
+:AREA: C11,C15
+:ALIGN: center
+:END:
+ALIGN: right
+
+** Row Label 1
+:PROPERTIES:
+:TYPE: body
+:AREA: D1,D1
+:VALIGN: middle
+:END:
+top
+
+** TL
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-1.jpg
+:FIT: contain
+:ALIGN: left
+:VALIGN: top
+:AREA: D2,E5
+:PADDING: 2
+:Z: 10
+:END:
+
+** TC
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-1.jpg
+:FIT: contain
+:ALIGN: center
+:VALIGN: top
+:AREA: D6,E10
+:PADDING: 2
+:Z: 10
+:END:
+
+** TR
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-1.jpg
+:FIT: contain
+:ALIGN: right
+:VALIGN: top
+:AREA: D11,E15
+:PADDING: 2
+:Z: 10
+:END:
+
+** Row Label 2
+:PROPERTIES:
+:TYPE: body
+:AREA: F1,F1
+:VALIGN: middle
+:END:
+middle
+
+** ML
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-1.jpg
+:FIT: contain
+:ALIGN: left
+:VALIGN: middle
+:AREA: F2,G5
+:PADDING: 2
+:Z: 10
+:END:
+
+** MC (default)
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-1.jpg
+:FIT: contain
+:ALIGN: center
+:VALIGN: middle
+:AREA: F6,G10
+:PADDING: 2
+:Z: 10
+:END:
+
+** MR
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-1.jpg
+:FIT: contain
+:ALIGN: right
+:VALIGN: middle
+:AREA: F11,G15
+:PADDING: 2
+:Z: 10
+:END:
+
+** Row Label 3
+:PROPERTIES:
+:TYPE: body
+:AREA: H1,H1
+:VALIGN: middle
+:END:
+bottom
+
+** BL
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-1.jpg
+:FIT: contain
+:ALIGN: left
+:VALIGN: bottom
+:AREA: H2,I5
+:PADDING: 2
+:Z: 10
+:END:
+
+** BC
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-1.jpg
+:FIT: contain
+:ALIGN: center
+:VALIGN: bottom
+:AREA: H6,I10
+:PADDING: 2
+:Z: 10
+:END:
+
+** BR
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-1.jpg
+:FIT: contain
+:ALIGN: right
+:VALIGN: bottom
+:AREA: H11,I15
+:PADDING: 2
+:Z: 10
+:END:
+
+* Alignment Matrix: Cover Mode
+:PROPERTIES:
+:ID: cover-matrix
+:END:
+
+** Title 2
+:PROPERTIES:
+:TYPE: header
+:AREA: A1,A15
+:END:
+Alignment Matrix - Cover Mode (Cropping)
+
+** Description 2
+:PROPERTIES:
+:TYPE: body
+:AREA: B1,B15
+:END:
+Cover mode scales media to fill the entire frame. Use ALIGN/VALIGN to control which part of the image is visible (cropping focus).
+
+** Column Headers 2
+:PROPERTIES:
+:TYPE: subheader
+:AREA: C1,C5
+:ALIGN: center
+:END:
+ALIGN: left
+
+** CH2_2
+:PROPERTIES:
+:TYPE: subheader
+:AREA: C6,C10
+:ALIGN: center
+:END:
+ALIGN: center
+
+** CH3_2
+:PROPERTIES:
+:TYPE: subheader
+:AREA: C11,C15
+:ALIGN: center
+:END:
+ALIGN: right
+
+** Row Label 1_2
+:PROPERTIES:
+:TYPE: body
+:AREA: D1,D1
+:VALIGN: middle
+:END:
+top
+
+** TL_2
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-1.jpg
+:FIT: cover
+:ALIGN: left
+:VALIGN: top
+:AREA: D2,E5
+:PADDING: 2
+:Z: 10
+:END:
+
+** TC_2
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-1.jpg
+:FIT: cover
+:ALIGN: center
+:VALIGN: top
+:AREA: D6,E10
+:PADDING: 2
+:Z: 10
+:END:
+
+** TR_2
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-1.jpg
+:FIT: cover
+:ALIGN: right
+:VALIGN: top
+:AREA: D11,E15
+:PADDING: 2
+:Z: 10
+:END:
+
+** Row Label 2_2
+:PROPERTIES:
+:TYPE: body
+:AREA: F1,F1
+:VALIGN: middle
+:END:
+middle
+
+** ML_2
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-1.jpg
+:FIT: cover
+:ALIGN: left
+:VALIGN: middle
+:AREA: F2,G5
+:PADDING: 2
+:Z: 10
+:END:
+
+** MC_2 (default)
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-1.jpg
+:FIT: cover
+:ALIGN: center
+:VALIGN: middle
+:AREA: F6,G10
+:PADDING: 2
+:Z: 10
+:END:
+
+** MR_2
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-1.jpg
+:FIT: cover
+:ALIGN: right
+:VALIGN: middle
+:AREA: F11,G15
+:PADDING: 2
+:Z: 10
+:END:
+
+** Row Label 3_2
+:PROPERTIES:
+:TYPE: body
+:AREA: H1,H1
+:VALIGN: middle
+:END:
+bottom
+
+** BL_2
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-1.jpg
+:FIT: cover
+:ALIGN: left
+:VALIGN: bottom
+:AREA: H2,I5
+:PADDING: 2
+:Z: 10
+:END:
+
+** BC_2
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-1.jpg
+:FIT: cover
+:ALIGN: center
+:VALIGN: bottom
+:AREA: H6,I10
+:PADDING: 2
+:Z: 10
+:END:
+
+** BR_2
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-1.jpg
+:FIT: cover
+:ALIGN: right
+:VALIGN: bottom
+:AREA: H11,I15
+:PADDING: 2
+:Z: 10
+:END:
+
+** Usage Note
+:PROPERTIES:
+:TYPE: body
+:AREA: J1,J15
+:VALIGN: top
+:END:
+=== Key Insights ===
+
+• Contain mode: Alignment positions the scaled media within the letterboxed space
+• Cover mode: Alignment controls the crop focus - which part of the image remains visible
+• Default (no alignment): center/middle for both modes
+• VALIGN values: top, middle, bottom
+• ALIGN values: left, center, right
+
+Try different combinations to achieve the desired visual result!

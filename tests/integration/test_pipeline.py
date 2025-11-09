@@ -30,7 +30,8 @@ class TestPipeline(unittest.TestCase):
         # Generate typst code
         typst_code = pm.generate_typst(ir)
         self.assertIsInstance(typst_code, str)
-        self.assertIn('#import "@preview/muchpdf:0.1.1"', typst_code)
+        # Legacy muchpdf import path removed; import must never appear
+        self.assertNotIn('#import "@preview/muchpdf:0.1.1"', typst_code)
 
     def test_pdf_org_to_typst(self):
         """Test converting PDF org file to typst"""
@@ -39,7 +40,9 @@ class TestPipeline(unittest.TestCase):
 
         # Generate typst code
         typst_code = pm.generate_typst(ir)
-        self.assertIn('muchpdf', typst_code)
+        # Native embedding uses PdfEmbed macro; legacy muchpdf path removed.
+        self.assertNotIn('muchpdf', typst_code)
+        self.assertIn('PdfEmbed(', typst_code)
         self.assertIn('assets/test-pdfs/test-plan.pdf', typst_code)
 
     def test_adjust_asset_paths_integration(self):

@@ -1,0 +1,63 @@
+#+TITLE: Media Consolidation Demo
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+#+GRID_DEBUG: false
+
+* Demo: Cross-Type Media Features
+:PROPERTIES:
+:ID: demo
+:END:
+
+** Title
+:PROPERTIES:
+:TYPE: header
+:AREA: 1,1,12,1
+:ALIGN: center
+:END:
+Media Consolidation: Unified Figure & PDF Features
+
+** Figure with PDF Page Selection
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/diagram.png
+:PAGE: 1
+:CAPTION: You can now use :PAGE: on figure elements for multi-page PDFs
+:AREA: 1,2,6,4
+:ALIGN: center
+:END:
+
+** PDF with Caption Support
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/diagram.png
+:CAPTION: PDFs can now have captions just like figures
+:AREA: 7,2,6,4
+:ALIGN: center
+:END:
+
+** Explanation (Left)
+:PROPERTIES:
+:TYPE: body
+:AREA: 1,6,6,3
+:VALIGN: top
+:END:
+*Figure Type Benefits:*
+
+- Use :PAGE: for multi-page PDFs
+- Captions work as expected
+- Alignment & fit modes
+- Choose semantically when you want "image-like" behavior
+
+** Explanation (Right)
+:PROPERTIES:
+:TYPE: body
+:AREA: 7,6,6,3
+:VALIGN: top
+:END:
+*PDF Type Benefits:*
+
+- Now supports :CAPTION: property
+- Full alignment support (:ALIGN:, :VALIGN:)
+- Auto contain scaling
+- Choose semantically for "document page" behavior

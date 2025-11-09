@@ -1,0 +1,14 @@
+* Test Align
+:PROPERTIES:
+:ID: test1
+:END:
+
+** Image Right Bottom
+:PROPERTIES:
+:TYPE: figure
+:AREA: 1,1,6,4
+:SRC: assets/test-images/forest.jpg
+:ALIGN: right
+:VALIGN: bottom
+:CAPTION: Should be right-bottom aligned
+:END:

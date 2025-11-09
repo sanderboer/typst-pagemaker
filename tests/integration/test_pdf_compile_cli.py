@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Optional integration test that compiles PDF via the CLI.
-Skips gracefully if `typst` is not installed or the muchpdf package
-is unavailable (e.g., offline environments).
+Skips gracefully if `typst` is not installed.
 """
 
 import os
@@ -16,60 +15,54 @@ SRC_PATH = os.path.join(PROJECT_ROOT, 'src')
 
 
 class TestPDFCompileCLI(unittest.TestCase):
-    def _has_typst_and_muchpdf(self) -> bool:
+    def _has_typst(self) -> bool:
+        """Return True if typst CLI is available.
+
+        Legacy MuchPDF import test removed; native image() embedding is now standard.
+        """
         try:
-            # Check typst binary
             res = subprocess.run(['typst', '--version'], capture_output=True, text=True)
-            if res.returncode != 0:
-                return False
-            # Create a tiny typst file that only imports muchpdf
-            with tempfile.TemporaryDirectory() as td:
-                typ_path = Path(td) / 'check.typ'
-                typ_path.write_text(
-                    '#import "@preview/muchpdf:0.1.1": muchpdf\n#page(width: 10pt, height: 10pt)[]\n',
-                    encoding='utf-8',
-                )
-                out_pdf = Path(td) / 'check.pdf'
-                res2 = subprocess.run(
-                    [
-                        'typst',
-                        'compile',
-                        '--root',
-                        str(Path(PROJECT_ROOT).resolve()),
-                        str(typ_path),
-                        str(out_pdf),
-                    ],
-                    capture_output=True,
-                    text=True,
-                )
-                return res2.returncode == 0
+            return res.returncode == 0
         except FileNotFoundError:
             return False
 
     def test_cli_pdf_compile_if_available(self):
-        if not self._has_typst_and_muchpdf():
-            self.skipTest("typst or muchpdf not available; skipping PDF compile test")
+        if not self._has_typst():
+            self.skipTest("typst CLI not available; skipping PDF compile test")
         fixtures = Path(PROJECT_ROOT) / 'tests' / 'fixtures'
         org_path = fixtures / 'pdf_test.org'
         with tempfile.TemporaryDirectory() as td:
-            cmd = [
-                sys.executable,
-                '-m',
-                'pagemaker.cli',
-                'pdf',
-                str(org_path),
-                '--export-dir',
-                td,
-                '--pdf-output',
-                'out.pdf',
-                '--no-clean',
-            ]
-            env = os.environ.copy()
-            env['PYTHONPATH'] = SRC_PATH + os.pathsep + env.get('PYTHONPATH', '')
-            res = subprocess.run(cmd, cwd=PROJECT_ROOT, env=env, capture_output=True, text=True)
-            if res.returncode != 0:
-                self.fail(f"CLI pdf compile failed. STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
-            self.assertTrue((Path(td) / 'out.pdf').exists())
+            export_dir = Path(PROJECT_ROOT) / 'temp_test_pdfcli_export'
+            export_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                cmd = [
+                    sys.executable,
+                    '-m',
+                    'pagemaker.cli',
+                    'pdf',
+                    str(org_path),
+                    '--export-dir',
+                    str(export_dir),
+                    '--pdf-output',
+                    'out.pdf',
+                    '--no-clean',
+                ]
+                env = os.environ.copy()
+                env['PYTHONPATH'] = SRC_PATH + os.pathsep + env.get('PYTHONPATH', '')
+                res = subprocess.run(cmd, cwd=PROJECT_ROOT, env=env, capture_output=True, text=True)
+                if res.returncode != 0:
+                    self.fail(
+                        f"CLI pdf compile failed. STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+                    )
+                self.assertTrue((export_dir / 'out.pdf').exists())
+            finally:
+                try:
+                    pdf_path = export_dir / 'out.pdf'
+                    if pdf_path.exists():
+                        pdf_path.unlink()
+                    export_dir.rmdir()
+                except OSError:
+                    pass
 
 
 if __name__ == '__main__':

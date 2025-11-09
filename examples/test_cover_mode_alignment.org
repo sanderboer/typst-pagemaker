@@ -1,0 +1,355 @@
+#+TITLE: Cover Mode Alignment Test - All Media Types
+#+AUTHOR: Visual Verification Test
+#+PAGESIZE: A4
+#+ORIENTATION: portrait
+#+GRID: 6x8
+#+MARGINS: 5
+#+THEME: light
+#+GRID_DEBUG: true
+
+* Page 1: Figure Cover Mode - Horizontal Alignment
+** Left Aligned Cover
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-1.jpg
+:AREA: A1,C3
+:FIT: cover
+:ALIGN: left
+:VALIGN: middle
+:PADDING: 0
+:CAPTION: Figure cover - left aligned
+:END:
+
+** Center Aligned Cover
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-1.jpg
+:AREA: D1,F3
+:FIT: cover
+:ALIGN: center
+:VALIGN: middle
+:PADDING: 0
+:CAPTION: Figure cover - center aligned
+:END:
+
+** Right Aligned Cover
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-1.jpg
+:AREA: A4,C6
+:FIT: cover
+:ALIGN: right
+:VALIGN: middle
+:PADDING: 0
+:CAPTION: Figure cover - right aligned
+:END:
+
+* Page 2: Figure Cover Mode - Vertical Alignment
+** Top Aligned Cover
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-1.jpg
+:AREA: A1,C3
+:FIT: cover
+:ALIGN: center
+:VALIGN: top
+:PADDING: 0
+:CAPTION: Figure cover - top aligned
+:END:
+
+** Middle Aligned Cover
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-1.jpg
+:AREA: D1,F3
+:FIT: cover
+:ALIGN: center
+:VALIGN: middle
+:PADDING: 0
+:CAPTION: Figure cover - middle aligned
+:END:
+
+** Bottom Aligned Cover
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-1.jpg
+:AREA: A4,C6
+:FIT: cover
+:ALIGN: center
+:VALIGN: bottom
+:PADDING: 0
+:CAPTION: Figure cover - bottom aligned
+:END:
+
+* Page 3: SVG Cover Mode - Alignment Grid
+** Top-Left
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: A1,B2
+:FIT: cover
+:ALIGN: left
+:VALIGN: top
+:PADDING: 0
+:CAPTION: SVG cover - top left
+:END:
+
+** Top-Center
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: C1,D2
+:FIT: cover
+:ALIGN: center
+:VALIGN: top
+:PADDING: 0
+:CAPTION: SVG cover - top center
+:END:
+
+** Top-Right
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: E1,F2
+:FIT: cover
+:ALIGN: right
+:VALIGN: top
+:PADDING: 0
+:CAPTION: SVG cover - top right
+:END:
+
+** Middle-Left
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: A3,B4
+:FIT: cover
+:ALIGN: left
+:VALIGN: middle
+:PADDING: 0
+:CAPTION: SVG cover - middle left
+:END:
+
+** Middle-Center
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: C3,D4
+:FIT: cover
+:ALIGN: center
+:VALIGN: middle
+:PADDING: 0
+:CAPTION: SVG cover - center
+:END:
+
+** Middle-Right
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: E3,F4
+:FIT: cover
+:ALIGN: right
+:VALIGN: middle
+:PADDING: 0
+:CAPTION: SVG cover - middle right
+:END:
+
+** Bottom-Left
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: A5,B6
+:FIT: cover
+:ALIGN: left
+:VALIGN: bottom
+:PADDING: 0
+:CAPTION: SVG cover - bottom left
+:END:
+
+** Bottom-Center
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: C5,D6
+:FIT: cover
+:ALIGN: center
+:VALIGN: bottom
+:PADDING: 0
+:CAPTION: SVG cover - bottom center
+:END:
+
+** Bottom-Right
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: E5,F6
+:FIT: cover
+:ALIGN: right
+:VALIGN: bottom
+:PADDING: 0
+:CAPTION: SVG cover - bottom right
+:END:
+
+* Page 4: PDF Cover Mode - Corner Alignments
+** Top-Left PDF Cover
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/drawing_flat.pdf
+:PAGE: 1
+:AREA: A1,C3
+:FIT: cover
+:ALIGN: left
+:VALIGN: top
+:PADDING: 0
+:CAPTION: PDF cover - top left
+:END:
+
+** Top-Right PDF Cover
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/drawing_flat.pdf
+:PAGE: 1
+:AREA: D1,F3
+:FIT: cover
+:ALIGN: right
+:VALIGN: top
+:PADDING: 0
+:CAPTION: PDF cover - top right
+:END:
+
+** Bottom-Left PDF Cover
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/drawing_flat.pdf
+:PAGE: 1
+:AREA: A4,C6
+:FIT: cover
+:ALIGN: left
+:VALIGN: bottom
+:PADDING: 0
+:CAPTION: PDF cover - bottom left
+:END:
+
+** Bottom-Right PDF Cover
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/drawing_flat.pdf
+:PAGE: 1
+:AREA: D4,F6
+:FIT: cover
+:ALIGN: right
+:VALIGN: bottom
+:PADDING: 0
+:CAPTION: PDF cover - bottom right
+:END:
+
+* Page 5: Cover vs Contain Comparison - Figures
+** Figure Contain (Left)
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/ocean/ocean-1.jpg
+:AREA: A1,C4
+:FIT: contain
+:ALIGN: center
+:VALIGN: middle
+:PADDING: 0
+:CAPTION: Contain mode - shows full image
+:END:
+
+** Figure Cover (Right)
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/ocean/ocean-1.jpg
+:AREA: D1,F4
+:FIT: cover
+:ALIGN: center
+:VALIGN: middle
+:PADDING: 0
+:CAPTION: Cover mode - fills frame with clipping
+:END:
+
+* Page 6: Cover vs Contain Comparison - SVG
+** SVG Contain
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-exploded-view-p11.svg
+:AREA: A1,C4
+:FIT: contain
+:ALIGN: center
+:VALIGN: middle
+:PADDING: 0
+:CAPTION: SVG contain - full view
+:END:
+
+** SVG Cover
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-exploded-view-p11.svg
+:AREA: D1,F4
+:FIT: cover
+:ALIGN: center
+:VALIGN: middle
+:PADDING: 0
+:CAPTION: SVG cover - filled frame
+:END:
+
+* Page 7: Cover vs Contain Comparison - PDF
+** PDF Contain
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/drawing_flat.pdf
+:PAGE: 1
+:AREA: A1,C4
+:FIT: contain
+:ALIGN: center
+:VALIGN: middle
+:PADDING: 0
+:CAPTION: PDF contain - full page visible
+:END:
+
+** PDF Cover
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/drawing_flat.pdf
+:PAGE: 1
+:AREA: D1,F4
+:FIT: cover
+:ALIGN: center
+:VALIGN: middle
+:PADDING: 0
+:CAPTION: PDF cover - frame filled
+:END:
+
+* Page 8: Cover Mode Without Alignment (Default Center-Middle)
+** Figure - No Align Specified
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/forest.jpg
+:AREA: A1,C3
+:FIT: cover
+:PADDING: 0
+:CAPTION: Figure cover - default alignment
+:END:
+
+** SVG - No Align Specified
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: D1,F3
+:FIT: cover
+:PADDING: 0
+:CAPTION: SVG cover - default alignment
+:END:
+
+** PDF - No Align Specified
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/drawing_flat.pdf
+:PAGE: 1
+:AREA: A4,C6
+:FIT: cover
+:PADDING: 0
+:CAPTION: PDF cover - default alignment
+:END:
+
+# End of cover mode alignment test

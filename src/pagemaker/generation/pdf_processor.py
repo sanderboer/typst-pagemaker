@@ -57,33 +57,49 @@ def pdf_intrinsic_size_mm(path: str, box: str | None = None) -> tuple[float, flo
         return _pdf_size_cache[cache_key]
     width_pt, height_pt = 612.0, 792.0  # letter default
     try:
-        if os.path.exists(path):
-            # Read limited chunk to find page box definitions
-            with open(path, 'rb') as fh:
-                data = fh.read(300_000)  # slightly larger window for boxes
-            # Decode forgivingly
-            try:
-                txt = data.decode('latin-1', errors='ignore')
-            except Exception:
-                txt = ''
+        # Try to resolve path - handle both absolute and relative paths
+        resolved_path = path
+        if not os.path.exists(path):
+            # Try from export directory (common case after asset path adjustment)
+            export_path = os.path.join(os.getcwd(), 'export', path)
+            if os.path.exists(export_path):
+                resolved_path = export_path
+            else:
+                # Try from current working directory
+                cwd_path = os.path.join(os.getcwd(), path)
+                if os.path.exists(cwd_path):
+                    resolved_path = cwd_path
+                else:
+                    # Path doesn't exist, use fallback dimensions
+                    _pdf_size_cache[cache_key] = (width_pt * 25.4 / 72, height_pt * 25.4 / 72)
+                    return _pdf_size_cache[cache_key]
 
-            # Helper to extract box size
-            def _box_size(name: str) -> tuple[float, float] | None:
-                m = re.search(
-                    rf'/{name}\s*\[\s*(-?\d+(?:\.\d*)?)\s+(-?\d+(?:\.\d*)?)\s+(-?\d+(?:\.\d*)?)\s+(-?\d+(?:\.\d*)?)\s*\]',
-                    txt,
-                )
-                if not m:
-                    return None
-                try:
-                    x0, y0, x1, y1 = (float(m.group(i)) for i in range(1, 5))
-                    w = abs(x1 - x0)
-                    h = abs(y1 - y0)
-                    if w > 1 and h > 1 and math.isfinite(w) and math.isfinite(h):
-                        return w, h
-                except Exception:
-                    return None
+        # Read limited chunk to find page box definitions
+        with open(resolved_path, 'rb') as fh:
+            data = fh.read(300_000)  # slightly larger window for boxes
+        # Decode forgivingly
+        try:
+            txt = data.decode('latin-1', errors='ignore')
+        except Exception:
+            txt = ''
+
+        # Helper to extract box size
+        def _box_size(name: str) -> tuple[float, float] | None:
+            m = re.search(
+                rf'/{name}\s*\[\s*(-?\d+(?:\.\d*)?)\s+(-?\d+(?:\.\d*)?)\s+(-?\d+(?:\.\d*)?)\s+(-?\d+(?:\.\d*)?)\s*\]',
+                txt,
+            )
+            if not m:
                 return None
+            try:
+                x0, y0, x1, y1 = (float(m.group(i)) for i in range(1, 5))
+                w = abs(x1 - x0)
+                h = abs(y1 - y0)
+                if w > 1 and h > 1 and math.isfinite(w) and math.isfinite(h):
+                    return w, h
+            except Exception:
+                return None
+            return None
 
             # Choose box preference
             preferred = []

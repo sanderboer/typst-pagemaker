@@ -33,8 +33,8 @@ def test_pdf_contain_upscale_allowed():
     assert scale > 0
 
 
-def test_pdf_cover_behaves_as_contain_same_scale():
-    # Cover requested; policy enforces contain so scale identical.
+def test_pdf_cover_uses_manual_path_with_clipping():
+    """Test that cover mode uses manual rendering path with clipping, while contain uses PdfEmbed."""
     page = _page()
     page['elements'] = [
         {
@@ -54,6 +54,14 @@ def test_pdf_cover_behaves_as_contain_same_scale():
     typ = generate_typst(ir)
     import re
 
-    scales = re.findall(r'PdfEmbed\("dummy.pdf", page: 1, scale: ([0-9.]+)\)', typ)
-    assert len(scales) == 2
-    assert abs(float(scales[0]) - float(scales[1])) < 1e-9
+    # Contain should use PdfEmbed (simple path)
+    pdf_embeds = re.findall(r'PdfEmbed\("dummy.pdf", page: 1, scale: ([0-9.]+)\)', typ)
+    assert len(pdf_embeds) == 1, "Contain mode should use PdfEmbed"
+
+    # Cover should use manual path with clipping
+    assert 'clip: true' in typ, "Cover mode should use clipping"
+    # Cover uses image() with explicit dimensions in a clipping block
+    manual_images = re.findall(
+        r'image\("dummy.pdf", page: 1, width: ([0-9.]+)mm, height: ([0-9.]+)mm\)', typ
+    )
+    assert len(manual_images) == 1, "Cover mode should use manual image() rendering"

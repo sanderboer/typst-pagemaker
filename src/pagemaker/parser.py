@@ -832,6 +832,7 @@ class OrgElement:
                 'src': svg_src,
                 'scale': _to_float(self.props.get('SCALE', '1.0'), 1.0),
                 'fit': fit_val_svg,
+                'caption': self.props.get('CAPTION'),  # Support :CAPTION: for SVG elements
             }
         if self.type == 'rectangle':
             rectangle = {}

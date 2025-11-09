@@ -22,23 +22,23 @@ This approach is ideal for creating presentations, posters, reports, and any doc
 
 ## Features
 
-### Migration Notice (Breaking Change)
-PDF embedding now always uses automatic contain scaling with permitted upscaling (legacy `:FIT:` modes and the `:FULL_PAGE:` flag for `pdf` elements were removed). A previously documented optional `:SCALE:` multiplier is currently ignored and will emit a warning when specified.
+### Breaking Changes & Migration
 
-New behavior (pdf elements only, upscaling enabled):
-- The system computes a base auto-contain scale so the intrinsic PDF page fits entirely within the element's padded frame (respecting margins + element `:PADDING:`). This scale may exceed 1.0 when the frame is larger than the intrinsic page (upscaling allowed).
-- User `:SCALE:` values (if present in older documents) are ignored for now (warning emitted). Future releases may reintroduce controlled fit modes.
-- Any `:FIT:` value other than `contain` on a `pdf` element is ignored with a warning (contain-only scaling is enforced).
-- Result: PDFs always fit within their frame via contain scaling (may downscale or upscale). Enlarge the `:AREA:` to show more context; reduce to zoom in with upscaling.
+**Media Embedding Updates:**
+All media types (images, PDFs, SVGs) now support unified fit modes with consistent behavior.
 
-Migration:
-- Remove any `:FIT:` / `:FULL_PAGE:` properties on `pdf` elements (ignored if still present).
-- If you previously relied on `:FIT: contain` just delete it (behavior now default). If you relied on oversizing via `:FIT: fill` or manual big areas, you may enlarge the `:AREA:` or rely on intrinsic upscaling (scale may now exceed 1.0 when frame larger).
-- Non-contain `:FIT:` values (e.g. `cover`, `fill`, `stretch`) on `pdf` elements now emit a warning and are ignored.
-- Image `figure` elements still support `:FIT:` (contain|cover|fill) unchanged.
-- Legacy per-PDF alignment property (`pdf_align` / `:PDF_ALIGN:`) has been removed; use the standard `:ALIGN:` / `:VALIGN:` properties on `pdf` elements.
+**Current behavior (all media types):**
+- All fit modes supported: `contain`, `cover`, `stretch`
+- Cover mode works with alignment-based cropping for all media types
+- Alignment properties (`:ALIGN:`, `:VALIGN:`) control positioning and visible region
+- Intrinsic sizing automatically detected for all media types
 
-See the Vector PDF Embedding section below for details and examples.
+**Migration steps:**
+- Legacy `:PDF:` and `:SVG:` properties are deprecated—use `:SRC:` instead
+- Figure elements still accept `[[file:...]]` links but `:SRC:` is preferred
+- Legacy `:PDF_ALIGN:` property was removed—use standard `:ALIGN:` / `:VALIGN:`
+
+See the [Media Embedding](#media-embedding-images-pdfs-svgs) section for comprehensive documentation.
 
 ### Core Functionality
 - **Org-mode to Typst conversion (optional)**: Converts Org documents to Typst
@@ -48,15 +48,17 @@ See the Vector PDF Embedding section below for details and examples.
 - **Typography**: Fonts and basic theming
 
 ### Features
-- **PDF embedding**: Native Typst image() PDF page embedding (automatic contain scaling, upscaling allowed) with optional sanitize/SVG/PNG fallback
-- **Rectangles**: Colored overlays with alpha transparency; optional stroke, stroke_color fallback, and corner radius
-- **Images**: Fit modes (contain, cover, fill) and captions
-- **Debug grid**: Optional grid lines and labels (columns 1..N, rows a..z)
-- **Custom fonts**: Integrated font management system with Google Fonts integration
-- **Text justification**: `:JUSTIFY:` for header/subheader/body (wraps Typst `par(justify: true)`)
-- **Padding**: `:PADDING:` on text, images, SVG, and PDF (CSS-like TRBL shorthand in mm; per-side padding inherits and accumulates; if totals cancel to 0mm on all sides, generator still emits padded placement).
-- **Alignment & flow**: `:ALIGN:` (left|center|right) for text/figure/svg/pdf/toc; `:VALIGN:` (top|middle|bottom) for text and pdf elements (note: `middle` maps to Typst `horizon`); `:FLOW:` (normal|bottom-up|center-out) — when `:VALIGN:` is not set for text, `:FLOW:` can imply vertical alignment (bottom-up -> bottom, center-out -> horizon).
-- **Custom styles**: Per-document text styles via Org meta `#+STYLE_*` and per-element `:STYLE:` name. See Custom Styles section.
+- **Unified media embedding**: Consistent interface for images, PDFs, and SVGs with full support for all fit modes (contain, cover, stretch), alignment-based cropping, captions, and intrinsic sizing
+- **Cover mode support**: All media types support cover mode with alignment-based cropping—control which part is visible when media fills the frame
+- **PDF embedding**: Native Typst PDF embedding with all fit modes, alignment, sanitize/fallback support, and precise intrinsic size detection
+- **SVG support**: Vector graphics with viewBox-aware sizing, all fit modes, and perfect scaling at any resolution
+- **Rectangles**: Colored overlays with alpha transparency, stroke, and corner radius
+- **Debug grid**: Optional grid lines and labels for layout precision
+- **Custom fonts**: Integrated font management with Google Fonts integration and project/bundled/system font discovery
+- **Text justification**: `:JUSTIFY:` for header/subheader/body elements
+- **Padding**: `:PADDING:` on all element types with CSS-like TRBL shorthand
+- **Alignment & flow**: `:ALIGN:` / `:VALIGN:` for precise positioning within frames; `:FLOW:` for layout hints
+- **Custom styles**: Per-document text styles with paragraph options (leading, spacing, indents)
 
 ### Supported Elements
 
@@ -65,11 +67,13 @@ See the Vector PDF Embedding section below for details and examples.
 | `header` | Main headings | Font: Inter Bold, 24pt |
 | `subheader` | Section headings | Font: Inter SemiBold, 18pt |  
 | `body` | Regular text | Font: Inter Regular |
-| `figure` | Images/PDFs with captions | Supports fit modes, captions, page selection (`:PAGE:`) |
-| `pdf` | Vector PDF embedding | Page selection (`:PAGE:`), captions (`:CAPTION:`), auto contain scaling |
-| `svg` | SVG image embedding | Contain-only scaling (non-contain `:FIT:` ignored with warning); path via `:SVG:` |
-| `rectangle` | Colored overlays | Color, alpha, optional stroke/stroke_color/radius |
-| `toc` | Table of contents | Auto-lists slide titles (• 1. Title); supports :AREA:, :PADDING:, :ALIGN: |
+| `figure` | Images/media with captions | Supports all fit modes, captions, page selection |
+| `pdf` | Vector PDF embedding | Contain-only scaling, captions, page selection |
+| `svg` | SVG vector graphics | Contain-only scaling, intrinsic size detection |
+| `rectangle` | Colored overlays | Color, alpha, stroke, radius |
+| `toc` | Table of contents | Auto-lists slide titles |
+
+**Media Elements:** See the [Media Embedding](#media-embedding-images-pdfs-svgs) section below for comprehensive documentation on fit modes, alignment, captions, and sizing behavior.
 
 ## Quick Start
 
@@ -820,6 +824,288 @@ pagemaker fonts install "Custom Font"
 pagemaker pdf problematic-doc.org --strict-fonts --pdf-output fixed-doc.pdf
 ```
 
+### Media Embedding (Images, PDFs, SVGs)
+
+pagemaker provides a unified media embedding system with powerful sizing and alignment controls. All media types share a consistent property interface and support advanced features like fit modes, alignment, and captions.
+
+#### Unified Media Properties
+
+All media elements (`figure`, `pdf`, `svg`) support these common properties:
+
+| Property | Values | Description |
+|----------|--------|-------------|
+| `:SRC:` | Path or URL | Primary asset path (replaces legacy `:PDF:` / `:SVG:`) |
+| `:FIT:` | `contain`, `cover`, `stretch` | How media scales within its frame |
+| `:ALIGN:` | `left`, `center`, `right` | Horizontal alignment within frame |
+| `:VALIGN:` | `top`, `middle`, `bottom` | Vertical alignment within frame |
+| `:PADDING:` | `4`, `2,4`, `2,4,6,8` | Internal padding in mm (CSS TRBL) |
+| `:CAPTION:` | Text | Caption text (figure and pdf) |
+| `:PAGE:` | Number | Select page from multi-page PDF (figure and pdf) |
+| `:Z:` | Number | Stacking order |
+
+**Migration Note:** Legacy `:PDF:` and `:SVG:` properties are deprecated. Use `:SRC:` instead. Figure elements can still use `[[file:...]]` links but `:SRC:` is recommended for consistency.
+
+#### Fit Modes Explained
+
+The `:FIT:` property controls how media scales to fill its frame (defined by `:AREA:` minus `:PADDING:`):
+
+**`contain` (default)**: Scales media to fit completely within the frame while preserving aspect ratio. Media is centered with empty space (letterboxing) if aspect ratios don't match. Use `:ALIGN:` and `:VALIGN:` to reposition within the frame.
+
+```org
+** Logo (centered, no cropping)
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/logo.png
+:FIT: contain
+:AREA: B2,D4
+:END:
+```
+
+**`cover`**: Scales media to completely fill the frame while preserving aspect ratio. Media is cropped if aspect ratios don't match. Use `:ALIGN:` and `:VALIGN:` to control which part is visible.
+
+```org
+** Hero Image (fills area, crops edges)
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/hero.jpg
+:FIT: cover
+:ALIGN: center
+:VALIGN: middle
+:AREA: A1,L4
+:END:
+```
+
+**`stretch`**: Distorts media to exactly match frame dimensions, ignoring aspect ratio. Rarely needed but useful for precise graphic alignment.
+
+```org
+** Exact Fit (may distort)
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/bg-pattern.png
+:FIT: stretch
+:AREA: A1,L8
+:END:
+```
+
+#### Alignment Behavior
+
+Alignment properties control positioning within the element frame:
+
+- **Without alignment** (default): Media is centered in the frame
+- **With `:ALIGN:` / `:VALIGN:`**: Media is positioned accordingly
+  - `contain` mode: Controls placement of letterboxed media
+  - `cover` mode: Controls which part of the cropped media is visible
+
+**Cover Mode Cropping Details:**
+
+In cover mode, media is scaled to completely fill the frame, and overflow is cropped. Alignment determines which part remains visible:
+
+- **Horizontal alignment** (`:ALIGN:`):
+  - `left`: Left edge visible, right edge cropped
+  - `center`: Center visible, both edges cropped equally (default)
+  - `right`: Right edge visible, left edge cropped
+
+- **Vertical alignment** (`:VALIGN:`):
+  - `top`: Top visible, bottom cropped
+  - `middle`: Middle visible, top and bottom cropped equally (default)
+  - `bottom`: Bottom visible, top cropped
+
+Example: Cover mode with alignment to focus on specific area:
+```org
+** Portrait Photo (focus on face)
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/portrait.jpg
+:FIT: cover
+:ALIGN: center
+:VALIGN: top    # Keep top portion visible (face)
+:AREA: C2,E6
+:END:
+```
+
+Example: Landscape photo with left-aligned crop:
+```org
+** Landscape (focus on left side)
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/landscape.jpg
+:FIT: cover
+:ALIGN: left    # Keep left edge visible
+:VALIGN: middle
+:AREA: B3,F5
+:END:
+```
+
+#### Media Type Reference
+
+**Figure Elements** (`figure`): For raster images and general media embedding
+- Supports: JPG, PNG, WebP, SVG, PDF
+- Supports all fit modes
+- Can include captions and page selection
+- Use for: Photos, illustrations, diagrams
+
+```org
+** Product Photo
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/product.jpg
+:FIT: cover
+:CAPTION: Premium Widget - Model XL
+:AREA: B2,F6
+:END:
+```
+
+**PDF Elements** (`pdf`): For embedded PDF pages with precise sizing
+- Supports all fit modes (contain, cover, stretch)
+- Intrinsic PDF page size is detected (MediaBox dimensions)
+- Supports captions, page selection, and alignment-based cropping
+- Use for: Technical drawings, multi-page documents, vector artwork
+
+```org
+** Technical Specification
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/spec.pdf
+:PAGE: 2
+:FIT: contain
+:CAPTION: System Architecture Diagram
+:AREA: D2,I6
+:END:
+```
+
+**Cover Mode Example:** PDF cropped to fill area with alignment control:
+```org
+** Blueprint Detail
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/plans.pdf
+:FIT: cover
+:ALIGN: left
+:VALIGN: top
+:AREA: C3,H7
+:END:
+```
+
+**SVG Elements** (`svg`): For vector graphics with intrinsic sizing
+- Automatically detects viewBox and intrinsic dimensions
+- Supports all fit modes (contain, cover, stretch)
+- Preserves vector sharpness at any scale
+- Use for: Logos, icons, diagrams, technical illustrations
+
+```org
+** Vector Logo
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/logo.svg
+:FIT: contain
+:ALIGN: center
+:VALIGN: middle
+:AREA: A1,C2
+:END:
+```
+
+**SVG Sizing:** The system intelligently detects SVG intrinsic size from viewBox, width, height attributes, and falls back to content bounding box analysis for proper scaling.
+
+**Cover Mode Example:** SVG cropped to fill area with alignment:
+```org
+** Icon Background
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/pattern.svg
+:FIT: cover
+:ALIGN: center
+:AREA: B2,D4
+:END:
+```
+
+#### Caption Handling
+
+Both `figure` and `pdf` elements support captions:
+
+```org
+** Captioned Image
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/chart.png
+:FIT: contain
+:CAPTION: Q4 Sales Performance - Up 23% YoY
+:AREA: A5,F8
+:END:
+```
+
+**Caption Behavior:**
+- Captions appear below the media
+- Caption space (5mm) is automatically reserved from the frame height
+- Alignment properties apply to both media and caption
+- Works with all fit modes
+
+#### Media Consolidation Features
+
+The unified architecture allows flexible cross-type capabilities:
+
+- **PDFs in figures**: Use `figure` with `:PAGE:` to embed PDF pages
+- **Captions on PDFs**: Use `pdf` with `:CAPTION:` for captioned document pages
+- **Consistent properties**: All types use `:SRC:`, `:ALIGN:`, `:VALIGN:`, `:PADDING:`
+- **Semantic choice**: Choose type based on intent (image vs. document) rather than capabilities
+
+#### Common Patterns
+
+**Full-bleed background image:**
+```org
+** Background
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/texture.jpg
+:FIT: cover
+:AREA: A1,L8
+:Z: -10
+:END:
+```
+
+**Contained logo with padding:**
+```org
+** Company Logo
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/logo.svg
+:FIT: contain
+:PADDING: 10
+:ALIGN: center
+:VALIGN: middle
+:AREA: A1,B2
+:END:
+```
+
+**PDF page with specific focus:**
+```org
+** Blueprint Detail
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/plans.pdf
+:PAGE: 3
+:ALIGN: left
+:VALIGN: top
+:AREA: C3,H7
+:CAPTION: Ground Floor Detail
+:END:
+```
+
+#### Troubleshooting Media Issues
+
+**For problematic PDFs**, use the `--sanitize-pdfs` flag:
+```bash
+pagemaker pdf document.org --sanitize-pdfs --pdf-output output.pdf
+```
+
+If sanitization fails, pagemaker automatically falls back to SVG (preferred) or PNG conversion for the requested page. Fallback assets are written to `export_dir/assets/pdf-fallbacks/`.
+
+**For missing media**, use strict validation:
+```bash
+pagemaker validate document.org --strict-assets
+```
+
+See `examples/test_image_fit.org` for a comprehensive comparison of fit modes across different media types.
+
 ### Colored Rectangles
 Create transparent overlays and design elements:
 ```org
@@ -845,103 +1131,6 @@ Emission rules:
 - Any optional set: `ColorRect(..., stroke: ..., stroke_color: ..., radius: ...)`
 - Radius-only: emits `stroke: none, stroke_color: none` with provided `radius`
 
-
-### Vector PDF Embedding
-
-Developer API deprecation note:
-- `pagemaker.generator._pdf_intrinsic_size_mm` is deprecated. Import `pdf_intrinsic_size_mm` from `pagemaker.generation.pdf_processor` instead. The old alias emits a DeprecationWarning and will be removed in a future minor release.
-- PDF point-to-mm conversion uses `PAGEMAKER_PDF_PT_PER_IN` (default `72`). Future releases may probe DPI dynamically.
-Include high-quality PDF pages with fallback support:
-```org
-** Technical Diagram
-:PROPERTIES:
-:TYPE: pdf
-:PDF: assets/technical-drawing.pdf
-:PAGE: 2
-# (Deprecated) :SCALE: 1.2  -> ignored; auto-contain applied
-:AREA: D2,I5
-:Z: 50
-:END:
-```
-Notes:
-- For problematic PDFs, run the CLI with `--sanitize-pdfs`. If sanitization still fails, pagemaker auto-falls back to SVG/PNG for the requested page.
-- If sanitization still fails, the first requested page is auto-converted to SVG (preferred) or PNG and embedded as an image.
-- Fallback assets are written under `export_dir/assets/pdf-fallbacks/` and linked in the generated Typst.
-
-PDF scaling semantics (automatic contain scaling with upscaling):
-- Intrinsic PDF size is parsed (MediaBox) to obtain its natural width/height in mm.
-- The usable element frame is the declared `:AREA:` cell span minus element `:PADDING:` (and respects page `#+MARGINS:` when present).
-- Applied scale: `base_scale = min(frame_w_mm / pdf_w_mm, frame_h_mm / pdf_h_mm)` (falls back to 1.0 when intrinsic probing fails). Upscaling is allowed when the frame is larger than the intrinsic page (no upper cap).
-- Any legacy `:SCALE:` property (from earlier docs) is currently ignored with a warning; only containment is applied.
-- Any `:FIT:` value other than `contain` on a `pdf` element is ignored with a single parser warning; non-contain values are normalized to `contain`.
-- Element `:PADDING:` reduces the frame before base scale calculation (shrinking resulting size).
-- Alignment (`:ALIGN:` / `:VALIGN:`) now influences PDF placement: when alignment or vertical alignment is specified, the generator wraps `PdfEmbed` in a `block(width: <drawn_w>, height: <drawn_h>)` sized to the scaled intrinsic PDF page so Typst `align(...)[]` positioning affects that block inside the element frame. Without alignment, `PdfEmbed` occupies the full frame (100% width/height) and is visually centered by contain-fit.
-
-Legacy validation errors related to `:SCALE:` are currently dormant because `:SCALE:` is ignored; future fit/scale options may restore stricter validation.
-
-Migration from older versions:
-- Remove any `:FIT:` or `:FULL_PAGE:` on pdf elements (ignored if present).
-- If you depended on `:FIT: contain`, just delete it (now default implicit behavior).
-- If you previously used `:FIT: fill` to overshoot, enlarge the `:AREA:` or rely on upscaling; contain scaling is always applied and may exceed 1.0 when the frame is larger.
-- To simulate a full-page background, span the entire (including margin tracks) grid with `:AREA:` and keep default scale.
-
-Planned (optional) debug: A future `:PDF_DEBUG_SCALE:` flag may emit computed `pdf_w_mm`, `pdf_h_mm`, `frame_w_mm`, `frame_h_mm`, `base_scale` as Typst comments for troubleshooting (user scale currently unused).
-
-### SVG Embedding
-Embed SVG graphics directly:
-```org
-** Vector Graphic
-:PROPERTIES:
-:TYPE: svg
-:SVG: assets/test-svgs/test-plan-p11.svg
-:AREA: C2,J6
-:END:
-```
-- Paths are treated like other assets and adjusted relative to the export directory.
-- Fit defaults to contain within the target area.
-
-### Media Consolidation: Cross-Type Features
-
-The `figure` and `pdf` element types now share common capabilities, allowing flexible media handling:
-
-**Figure with PDF Pages:**
-Use `:PAGE:` property on `figure` elements to select specific pages from multi-page PDFs:
-```org
-** Specification Page 3
-:PROPERTIES:
-:TYPE: figure
-:SRC: assets/documentation.pdf
-:PAGE: 3
-:CAPTION: System Architecture Overview
-:AREA: A1,L8
-:END:
-```
-
-**PDF with Captions:**
-Use `:CAPTION:` property on `pdf` elements to add descriptive text:
-```org
-** Technical Drawing
-:PROPERTIES:
-:TYPE: pdf
-:SRC: assets/blueprint.pdf
-:PAGE: 1
-:CAPTION: Floor Plan - Ground Level
-:AREA: A1,L8
-:END:
-```
-
-**Feature Unification:**
-- Both types support `:SRC:` for the asset path
-- Both types support `pages:` list internally (`:PAGE:` property translates to `pages: [N]`)
-- Both types support `:CAPTION:` for figure captions
-- Both types support alignment (`:ALIGN:`, `:VALIGN:`) and fit modes
-- Semantic distinction remains: use `figure` for raster/vector images, `pdf` for document pages
-- The choice between types is primarily semantic rather than functional
-
-**Benefits:**
-- More flexible workflows: embed captioned PDFs or specific pages from image-based PDFs
-- Consistent property interface across media types
-- Easier migration between element types when document structure changes
 
 ### Margins
 Define outer margins in millimeters that expand the total grid while keeping your content coordinates stable. Format: `top,right,bottom,left` (CSS TRBL order).

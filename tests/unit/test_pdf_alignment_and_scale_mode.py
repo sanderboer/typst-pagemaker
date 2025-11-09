@@ -45,7 +45,8 @@ def test_pdf_align_center_right_and_valign_middle_emits_align_wrapper():
     assert 'align(horizon)[' in typ
 
 
-def test_pdf_scale_mode_always_contain():
+def test_pdf_fit_contain_vs_cover_rendering_paths():
+    """Test that contain uses PdfEmbed (simple path) and cover uses manual path with clipping."""
     page = _page()
     page['elements'] = [
         {
@@ -55,7 +56,7 @@ def test_pdf_scale_mode_always_contain():
             'pdf': {'src': 'dummy.pdf', 'pages': [1], 'fit': 'contain'},
         },
         {
-            'id': 'pdf_cover_ignored',
+            'id': 'pdf_cover',
             'type': 'pdf',
             'area': {'x': 1, 'y': 1, 'w': 2, 'h': 1},
             'pdf': {'src': 'dummy.pdf', 'pages': [1], 'fit': 'cover'},
@@ -65,7 +66,14 @@ def test_pdf_scale_mode_always_contain():
     typ = generate_typst(ir)
     import re
 
-    scales = re.findall(r'PdfEmbed\("dummy.pdf", page: 1, scale: ([0-9.]+)\)', typ)
-    # Both elements should now share identical contain scaling
-    assert len(scales) == 2
-    assert abs(float(scales[0]) - float(scales[1])) < 1e-9
+    # Contain mode uses PdfEmbed (simple path)
+    pdf_embeds = re.findall(r'PdfEmbed\("dummy.pdf", page: 1, scale: ([0-9.]+)\)', typ)
+    assert len(pdf_embeds) == 1, "Contain mode should use PdfEmbed"
+
+    # Cover mode uses manual path with explicit image() call and clipping
+    # Pattern: block(width: X, height: Y, clip: true)[...image("dummy.pdf", page: 1, width: X, height: Y)...]
+    assert 'clip: true' in typ, "Cover mode should use clipping"
+    manual_images = re.findall(
+        r'image\("dummy.pdf", page: 1, width: ([0-9.]+)mm, height: ([0-9.]+)mm\)', typ
+    )
+    assert len(manual_images) == 1, "Cover mode should use manual image() rendering"

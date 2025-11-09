@@ -144,9 +144,23 @@ class SvgSizeProvider(IntrinsicSizeProvider):
             3. Return None if neither available
         """
         try:
+            # Try to resolve path - handle both absolute and relative paths
             path = pathlib.Path(src)
+
+            # If path doesn't exist as-is, try resolving from common locations
             if not path.exists():
-                return None
+                # Try from export directory (common case after asset path adjustment)
+                export_path = pathlib.Path.cwd() / 'export' / src
+                if export_path.exists():
+                    path = export_path
+                else:
+                    # Try from current working directory
+                    cwd_path = pathlib.Path.cwd() / src
+                    if cwd_path.exists():
+                        path = cwd_path
+                    else:
+                        # Path still doesn't exist
+                        return None
 
             # Parse SVG XML
             tree = ET.parse(path)
@@ -321,9 +335,23 @@ class RasterSizeProvider(IntrinsicSizeProvider):
             return None
 
         try:
+            # Try to resolve path - handle both absolute and relative paths
             path = pathlib.Path(src)
+
+            # If path doesn't exist as-is, try resolving from common locations
             if not path.exists():
-                return None
+                # Try from export directory (common case after asset path adjustment)
+                export_path = pathlib.Path.cwd() / 'export' / src
+                if export_path.exists():
+                    path = export_path
+                else:
+                    # Try from current working directory
+                    cwd_path = pathlib.Path.cwd() / src
+                    if cwd_path.exists():
+                        path = cwd_path
+                    else:
+                        # Path still doesn't exist
+                        return None
 
             with Image.open(path) as img:
                 width_px, height_px = img.size

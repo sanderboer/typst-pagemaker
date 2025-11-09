@@ -243,8 +243,12 @@ class FigureRenderStrategy(MediaRenderStrategy):
     """
 
     def can_use_simple_path(self, ctx: RenderContext, fit: str) -> bool:
-        """Figures can always use Typst's built-in fit for all modes."""
-        return fit in ('contain', 'cover', 'stretch')
+        """Figures can use simple path for contain/stretch, but not cover.
+
+        Cover mode requires manual path with explicit clipping to prevent overflow.
+        """
+        # Cover mode needs manual path for clipping, like SVGs
+        return fit in ('contain', 'stretch')
 
     def render_simple(self, ctx: RenderContext, src: str, fit: str) -> RenderedMedia:
         """Render figure using Typst image() with fit parameter."""
@@ -311,10 +315,119 @@ class FigureRenderStrategy(MediaRenderStrategy):
     def render_manual(
         self, ctx: RenderContext, src: str, fit: str, intrinsic_w_mm: float, intrinsic_h_mm: float
     ) -> RenderedMedia:
-        """Figures rarely need manual path - fallback to simple."""
-        # For figures, manual path not typically needed since Typst handles
-        # raster images well. Fall back to simple rendering.
-        return self.render_simple(ctx, src, fit)
+        """Render figure with explicit sizing and clipping for cover mode.
+
+        For contain mode with alignment, delegate to render_simple since Fig()
+        can handle alignment internally. Only cover mode truly needs explicit clipping.
+        """
+        # For contain mode, delegate to render_simple which uses Fig() with alignment
+        # Fig() helper handles alignment internally without needing manual sizing
+        if fit == 'contain':
+            return self.render_simple(ctx, src, fit)
+
+        # Cover mode requires explicit clipping
+        # Import here to avoid circular dependency
+        from ..generator import _compute_media_drawn_and_offsets
+
+        # Compute drawn size based on fit mode
+        drawn_w_mm, drawn_h_mm, offset_x_mm, offset_y_mm, needs_clip = (
+            _compute_media_drawn_and_offsets(
+                intrinsic_w_mm,
+                intrinsic_h_mm,
+                ctx.frame_w_mm,
+                ctx.frame_h_mm,
+                fit,
+                align=ctx.align,
+                valign=ctx.valign,
+            )
+        )
+
+        # Check if source is a PDF with page number
+        pages_list = ctx.element.get('figure', {}).get('pages', [1])
+        page_num = pages_list[0] if pages_list else 1
+        src_lower = src.lower()
+        is_pdf = src_lower.endswith('.pdf')
+
+        # Build image call with explicit dimensions
+        if is_pdf and page_num:
+            img_inner = f'image("{src}", page: {page_num}, width: {drawn_w_mm:.6f}mm, height: {drawn_h_mm:.6f}mm)'
+        else:
+            img_inner = f'image("{src}", width: {drawn_w_mm:.6f}mm, height: {drawn_h_mm:.6f}mm)'
+
+        # Add place() offsets for centering overflow
+        place_args = []
+        if offset_x_mm != 0.0:
+            place_args.append(f"dx: {offset_x_mm:.6f}mm")
+        if offset_y_mm != 0.0:
+            place_args.append(f"dy: {offset_y_mm:.6f}mm")
+        if place_args:
+            img_inner = f"place({', '.join(place_args)}, {img_inner})"
+
+        # Check for caption - need to adjust frame height to leave room for caption
+        caption = ctx.element.get('figure', {}).get('caption')
+        if caption and fit == 'cover':
+            # Estimate caption height: typically 0.75em text + 0.3em gutter ≈ 2.5mm
+            # This is a rough estimate; actual height depends on font size and content
+            caption_height_mm = 5.0  # Conservative estimate
+
+            # Recalculate with reduced frame height
+            adjusted_frame_h_mm = max(ctx.frame_h_mm - caption_height_mm, 1.0)
+
+            # Recompute layout with adjusted frame
+            drawn_w_mm_adj, drawn_h_mm_adj, offset_x_mm_adj, offset_y_mm_adj, needs_clip_adj = (
+                _compute_media_drawn_and_offsets(
+                    intrinsic_w_mm,
+                    intrinsic_h_mm,
+                    ctx.frame_w_mm,
+                    adjusted_frame_h_mm,
+                    fit,
+                    align=ctx.align,
+                    valign=ctx.valign,
+                )
+            )
+
+            # Build image with adjusted dimensions
+            if is_pdf and page_num:
+                img_inner_adj = f'image("{src}", page: {page_num}, width: {drawn_w_mm_adj:.6f}mm, height: {drawn_h_mm_adj:.6f}mm)'
+            else:
+                img_inner_adj = (
+                    f'image("{src}", width: {drawn_w_mm_adj:.6f}mm, height: {drawn_h_mm_adj:.6f}mm)'
+                )
+
+            # Add place() offsets
+            place_args_adj = []
+            if offset_x_mm_adj != 0.0:
+                place_args_adj.append(f"dx: {offset_x_mm_adj:.6f}mm")
+            if offset_y_mm_adj != 0.0:
+                place_args_adj.append(f"dy: {offset_y_mm_adj:.6f}mm")
+            if place_args_adj:
+                img_inner_adj = f"place({', '.join(place_args_adj)}, {img_inner_adj})"
+
+            # Add clip block with adjusted frame height
+            if needs_clip_adj:
+                body_expr_adj = f"block(width: {ctx.frame_w_mm:.6f}mm, height: {adjusted_frame_h_mm:.6f}mm, clip: true)[#{img_inner_adj}]"
+            else:
+                body_expr_adj = img_inner_adj
+
+            from ..generator import escape_text
+
+            cap_e = escape_text(caption)
+            align = ctx.align or 'left'
+            valign = ctx.valign or 'top'
+
+            code = (
+                f"Fig({body_expr_adj}, caption: [{cap_e}], caption_align: {align}, img_align: {align}, "
+                f"caption_valign: {valign}, img_valign: {valign}, fill_space: false)"
+            )
+            return RenderedMedia(code, needs_wrapper=False)
+
+        # Add clip block if content overflows frame
+        if needs_clip:
+            body_expr = f"block(width: {ctx.frame_w_mm:.6f}mm, height: {ctx.frame_h_mm:.6f}mm, clip: true)[#{img_inner}]"
+        else:
+            body_expr = img_inner
+
+        return RenderedMedia(body_expr, needs_wrapper=True)
 
 
 class SvgRenderStrategy(MediaRenderStrategy):
@@ -360,7 +473,13 @@ class SvgRenderStrategy(MediaRenderStrategy):
         # Compute drawn size based on fit mode
         drawn_w_mm, drawn_h_mm, offset_x_mm, offset_y_mm, needs_clip = (
             _compute_media_drawn_and_offsets(
-                intrinsic_w_mm, intrinsic_h_mm, ctx.frame_w_mm, ctx.frame_h_mm, fit
+                intrinsic_w_mm,
+                intrinsic_h_mm,
+                ctx.frame_w_mm,
+                ctx.frame_h_mm,
+                fit,
+                align=ctx.align,
+                valign=ctx.valign,
             )
         )
 
@@ -396,8 +515,74 @@ class SvgRenderStrategy(MediaRenderStrategy):
         if place_args:
             img_inner = f"place({', '.join(place_args)}, {img_inner})"
 
+        # Check for caption - need to adjust frame height to leave room for caption
+        caption = ctx.element.get('svg', {}).get('caption')
+        if caption and fit == 'cover':
+            # Estimate caption height: typically 0.75em text + 0.3em gutter ≈ 2.5mm
+            caption_height_mm = 5.0
+
+            # Recalculate with reduced frame height
+            adjusted_frame_h_mm = max(ctx.frame_h_mm - caption_height_mm, 1.0)
+
+            # Recompute layout with adjusted frame
+            drawn_w_mm_adj, drawn_h_mm_adj, offset_x_mm_adj, offset_y_mm_adj, needs_clip_adj = (
+                _compute_media_drawn_and_offsets(
+                    intrinsic_w_mm,
+                    intrinsic_h_mm,
+                    ctx.frame_w_mm,
+                    adjusted_frame_h_mm,
+                    fit,
+                    align=ctx.align,
+                    valign=ctx.valign,
+                )
+            )
+
+            # Apply user scale if present
+            if isinstance(user_scale, (int, float)) and user_scale not in (0, 1):
+                drawn_w_mm_adj *= float(user_scale)
+                drawn_h_mm_adj *= float(user_scale)
+
+                # Recompute overflow after scaling
+                overflow_x = drawn_w_mm_adj - ctx.frame_w_mm
+                overflow_y = drawn_w_mm_adj - adjusted_frame_h_mm
+                if overflow_x > 0:
+                    offset_x_mm_adj = -overflow_x / 2.0
+                    needs_clip_adj = True
+                if overflow_y > 0:
+                    offset_y_mm_adj = -overflow_y / 2.0
+                    needs_clip_adj = True
+
+            # Build image with adjusted dimensions
+            img_inner_adj = f'image("{src}", width: {drawn_w_mm_adj:.6f}mm, height: {drawn_h_mm_adj:.6f}mm, fit: "cover")'
+
+            # Add place() offsets
+            place_args_adj = []
+            if offset_x_mm_adj != 0.0:
+                place_args_adj.append(f"dx: {offset_x_mm_adj:.6f}mm")
+            if offset_y_mm_adj != 0.0:
+                place_args_adj.append(f"dy: {offset_y_mm_adj:.6f}mm")
+            if place_args_adj:
+                img_inner_adj = f"place({', '.join(place_args_adj)}, {img_inner_adj})"
+
+            # Add clip block with adjusted frame height
+            if needs_clip_adj:
+                body_expr_adj = f"block(width: {ctx.frame_w_mm:.6f}mm, height: {adjusted_frame_h_mm:.6f}mm, clip: true)[#{img_inner_adj}]"
+            else:
+                body_expr_adj = img_inner_adj
+
+            from ..generator import escape_text
+
+            cap_e = escape_text(caption)
+            align = ctx.align or 'left'
+            valign = ctx.valign or 'top'
+
+            code = (
+                f"Fig({body_expr_adj}, caption: [{cap_e}], caption_align: {align}, img_align: {align}, "
+                f"caption_valign: {valign}, img_valign: {valign}, fill_space: false)"
+            )
+            return RenderedMedia(code, needs_wrapper=False)
+
         # Add clip block if content overflows frame
-        # NOTE: Alignment is handled by core.py, not here - we only handle sizing/clipping
         if needs_clip:
             body_expr = f"block(width: {ctx.frame_w_mm:.6f}mm, height: {ctx.frame_h_mm:.6f}mm, clip: true)[#{img_inner}]"
         else:
@@ -409,9 +594,10 @@ class SvgRenderStrategy(MediaRenderStrategy):
 class PdfRenderStrategy(MediaRenderStrategy):
     """Strategy for rendering PDF page embedding.
 
-    PDFs have two distinct rendering paths:
-    - Simple (no alignment): Use PdfEmbed macro with contain scaling
-    - Manual (with alignment): Use image() with explicit dimensions
+    PDFs have three rendering cases:
+    - Simple (contain/stretch, no caption): Use PdfEmbed macro with align wrapper if needed
+    - Simple (contain/stretch, with caption): Use Fig() helper with alignment
+    - Manual (cover mode): Use image() with explicit dimensions and clipping
 
     The simple path is preferred for performance and cleaner output.
 
@@ -424,10 +610,53 @@ class PdfRenderStrategy(MediaRenderStrategy):
     """
 
     def can_use_simple_path(self, ctx: RenderContext, fit: str) -> bool:
-        """PDFs without alignment can use PdfEmbed macro."""
-        # Currently, simple path is available for PDFs without alignment
-        # regardless of fit mode (contain scaling used for all)
-        return True
+        """PDFs can use simple path only for contain/stretch, not cover.
+
+        Cover mode requires manual path with explicit clipping to prevent overflow.
+        """
+        # Cover mode needs manual path for clipping
+        return fit in ('contain', 'stretch')
+
+    def render(self, ctx: RenderContext, src: str, fit: str, **media_kwargs) -> RenderedMedia:
+        """Override render to allow simple path for contain/stretch even with alignment.
+
+        PDFs use simple path (PdfEmbed or Fig) for contain/stretch modes regardless
+        of alignment, and only use manual path for cover mode.
+        """
+        # Try to get intrinsic size from provider
+        intrinsic = None
+        if self.size_provider:
+            try:
+                intrinsic = self.size_provider.get_size_mm(src, **media_kwargs)
+            except Exception as e:
+                warnings.warn(f"Error getting intrinsic size for '{src}': {e}", UserWarning)
+
+        # Decision: use simple path for contain/stretch (alignment handled in render_simple)
+        if self.can_use_simple_path(ctx, fit):
+            return self.render_simple(ctx, src, fit)
+
+        # Manual path (cover mode): need intrinsic size or use fallback
+        if intrinsic is None:
+            warnings.warn(
+                f"Could not determine intrinsic size for '{src}', "
+                f"falling back to frame-based sizing (may produce incorrect aspect ratio)",
+                UserWarning,
+            )
+            intrinsic = (ctx.frame_w_mm, ctx.frame_h_mm)
+
+        intrinsic_w_mm, intrinsic_h_mm = intrinsic
+
+        # Validate dimensions
+        if intrinsic_w_mm <= 0 or intrinsic_h_mm <= 0:
+            warnings.warn(
+                f"Invalid intrinsic size for '{src}': {intrinsic_w_mm}x{intrinsic_h_mm}mm",
+                UserWarning,
+            )
+            # Use frame dimensions as fallback
+            intrinsic_w_mm = ctx.frame_w_mm if ctx.frame_w_mm > 0 else 100.0
+            intrinsic_h_mm = ctx.frame_h_mm if ctx.frame_h_mm > 0 else 100.0
+
+        return self.render_manual(ctx, src, fit, intrinsic_w_mm, intrinsic_h_mm)
 
     def render_simple(self, ctx: RenderContext, src: str, fit: str) -> RenderedMedia:
         """Render PDF using PdfEmbed macro or Fig() if caption is present."""
@@ -473,25 +702,120 @@ class PdfRenderStrategy(MediaRenderStrategy):
                 f'caption_valign: {valign}, img_valign: {valign}, fill_space: {fill_space})'
             )
         else:
-            # Use PdfEmbed for backward compatibility when no caption
-            code = f'PdfEmbed("{src}", page: {page_num}, scale: {base_scale:.6f})'
+            # No caption: use PdfEmbed for backward compatibility
+            pdf_embed = f'PdfEmbed("{src}", page: {page_num}, scale: {base_scale:.6f})'
+
+            # If alignment specified, wrap PdfEmbed in align()
+            if has_alignment:
+                align_terms = []
+                if ctx.align:
+                    align_terms.append(ctx.align)
+                if ctx.valign:
+                    align_terms.append(ctx.valign)
+                code = f"align({' + '.join(align_terms)})[#{pdf_embed}]"
+            else:
+                code = pdf_embed
 
         return RenderedMedia(code, needs_wrapper=False)
 
     def render_manual(
         self, ctx: RenderContext, src: str, fit: str, intrinsic_w_mm: float, intrinsic_h_mm: float
     ) -> RenderedMedia:
-        """Render PDF with explicit sizing, alignment, and clipping.
+        """Render PDF with explicit sizing and clipping for cover mode.
 
-        For PDFs, we delegate to render_simple() to ensure captions are handled
-        correctly. The Fig() helper (updated in core.py) now properly handles
-        alignment internally, so we don't need separate manual rendering logic.
-
-        This matches the approach used by FigureRenderStrategy.
+        Cover mode requires explicit clipping to prevent overflow, similar to
+        Figure and SVG handling.
         """
-        # PDFs with alignment should still use Fig() to preserve captions
-        # The Fig() helper now handles alignment correctly (fixed in core.py)
-        return self.render_simple(ctx, src, fit)
+        # Import here to avoid circular dependency
+        from ..generator import _compute_media_drawn_and_offsets
+
+        # Get page number from metadata
+        page_num = ctx.element.get('pdf', {}).get('pages', [1])[0]
+
+        # Compute drawn size based on fit mode
+        drawn_w_mm, drawn_h_mm, offset_x_mm, offset_y_mm, needs_clip = (
+            _compute_media_drawn_and_offsets(
+                intrinsic_w_mm,
+                intrinsic_h_mm,
+                ctx.frame_w_mm,
+                ctx.frame_h_mm,
+                fit,
+                align=ctx.align,
+                valign=ctx.valign,
+            )
+        )
+
+        # Build image call with explicit dimensions
+        img_inner = f'image("{src}", page: {page_num}, width: {drawn_w_mm:.6f}mm, height: {drawn_h_mm:.6f}mm)'
+
+        # Add place() offsets for centering overflow
+        place_args = []
+        if offset_x_mm != 0.0:
+            place_args.append(f"dx: {offset_x_mm:.6f}mm")
+        if offset_y_mm != 0.0:
+            place_args.append(f"dy: {offset_y_mm:.6f}mm")
+        if place_args:
+            img_inner = f"place({', '.join(place_args)}, {img_inner})"
+
+        # Check for caption - need to adjust frame height to leave room for caption
+        caption = ctx.element.get('pdf', {}).get('caption')
+        if caption and fit == 'cover':
+            # Estimate caption height: typically 0.75em text + 0.3em gutter ≈ 2.5mm
+            caption_height_mm = 5.0
+
+            # Recalculate with reduced frame height
+            adjusted_frame_h_mm = max(ctx.frame_h_mm - caption_height_mm, 1.0)
+
+            # Recompute layout with adjusted frame
+            drawn_w_mm_adj, drawn_h_mm_adj, offset_x_mm_adj, offset_y_mm_adj, needs_clip_adj = (
+                _compute_media_drawn_and_offsets(
+                    intrinsic_w_mm,
+                    intrinsic_h_mm,
+                    ctx.frame_w_mm,
+                    adjusted_frame_h_mm,
+                    fit,
+                    align=ctx.align,
+                    valign=ctx.valign,
+                )
+            )
+
+            # Build image with adjusted dimensions
+            img_inner_adj = f'image("{src}", page: {page_num}, width: {drawn_w_mm_adj:.6f}mm, height: {drawn_h_mm_adj:.6f}mm)'
+
+            # Add place() offsets
+            place_args_adj = []
+            if offset_x_mm_adj != 0.0:
+                place_args_adj.append(f"dx: {offset_x_mm_adj:.6f}mm")
+            if offset_y_mm_adj != 0.0:
+                place_args_adj.append(f"dy: {offset_y_mm_adj:.6f}mm")
+            if place_args_adj:
+                img_inner_adj = f"place({', '.join(place_args_adj)}, {img_inner_adj})"
+
+            # Add clip block with adjusted frame height
+            if needs_clip_adj:
+                body_expr_adj = f"block(width: {ctx.frame_w_mm:.6f}mm, height: {adjusted_frame_h_mm:.6f}mm, clip: true)[#{img_inner_adj}]"
+            else:
+                body_expr_adj = img_inner_adj
+
+            from ..generator import escape_text
+
+            cap_e = escape_text(caption)
+            align = ctx.align or 'left'
+            valign = ctx.valign or 'top'
+
+            code = (
+                f"Fig({body_expr_adj}, caption: [{cap_e}], caption_align: {align}, img_align: {align}, "
+                f"caption_valign: {valign}, img_valign: {valign}, fill_space: false)"
+            )
+            return RenderedMedia(code, needs_wrapper=False)
+
+        # Add clip block if content overflows frame
+        if needs_clip:
+            body_expr = f"block(width: {ctx.frame_w_mm:.6f}mm, height: {ctx.frame_h_mm:.6f}mm, clip: true)[#{img_inner}]"
+        else:
+            body_expr = img_inner
+
+        return RenderedMedia(body_expr, needs_wrapper=True)
 
 
 # Factory function for obtaining appropriate strategy

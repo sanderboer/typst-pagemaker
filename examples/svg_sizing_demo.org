@@ -1,0 +1,144 @@
+#+TITLE: SVG Sizing & ViewBox Demo
+#+AUTHOR: pagemaker
+#+DATE: 2025-11-09
+#+PAGESIZE: A4
+#+ORIENTATION: landscape
+#+GRID: 12x8
+#+GRID_DEBUG: true
+
+* SVG Intrinsic Sizing
+:PROPERTIES:
+:ID: svg-sizing
+:END:
+
+** Page Title
+:PROPERTIES:
+:TYPE: header
+:AREA: A1,A12
+:END:
+SVG Intrinsic Size Detection & Scaling
+
+** Description
+:PROPERTIES:
+:TYPE: body
+:AREA: B1,B12
+:END:
+This demo shows how pagemaker intelligently detects SVG intrinsic dimensions from viewBox, width/height attributes, and content bounding boxes for proper scaling.
+
+** SVG with viewBox (explicit dimensions)
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: C1,E3
+:ALIGN: center
+:VALIGN: middle
+:PADDING: 2
+:END:
+
+** Label 1
+:PROPERTIES:
+:TYPE: body
+:AREA: F1,F3
+:VALIGN: middle
+:END:
+SVG with viewBox attribute - intrinsic size automatically detected
+
+** SVG contain mode (default)
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-exploded-view-fixed-p11.svg
+:FIT: contain
+:AREA: C4,E6
+:PADDING: 2
+:END:
+
+** Label 2
+:PROPERTIES:
+:TYPE: body
+:AREA: F4,F6
+:VALIGN: middle
+:END:
+Contain mode (default) - scales to fit within frame preserving aspect ratio
+
+** SVG with alignment
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:ALIGN: left
+:VALIGN: top
+:AREA: C7,E9
+:PADDING: 2
+:END:
+
+** Label 3
+:PROPERTIES:
+:TYPE: body
+:AREA: F7,F9
+:VALIGN: middle
+:END:
+With alignment - positioned at top-left corner of frame
+
+** Comparison Section
+:PROPERTIES:
+:TYPE: subheader
+:AREA: C10,C12
+:END:
+Different Frame Sizes
+
+** Small Frame
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: D10,D10
+:PADDING: 1
+:END:
+
+** Medium Frame
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: D11,E11
+:PADDING: 1
+:END:
+
+** Large Frame
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:AREA: F10,G12
+:PADDING: 2
+:END:
+
+** Technical Note
+:PROPERTIES:
+:TYPE: body
+:AREA: H1,H12
+:VALIGN: top
+:END:
+=== SVG Size Detection ===
+
+pagemaker uses a 3-tier detection strategy:
+
+1. ViewBox + dimensions: If viewBox and width/height attributes exist, they define intrinsic size
+
+2. Explicit dimensions: If only width/height exist, use those values
+
+3. Content bounding box: Analyze SVG elements to compute natural size
+
+This ensures proper scaling regardless of how the SVG was created.
+
+=== Fit Modes ===
+
+SVG elements support contain mode only. Non-contain fit values are ignored with a warning.
+
+Use :ALIGN: and :VALIGN: to position the SVG within its frame.
+
+=== Use Cases ===
+
+• Logos and icons
+• Technical diagrams
+• Architectural drawings
+• Charts and graphs
+• UI elements
+
+Vector graphics remain sharp at any scale!

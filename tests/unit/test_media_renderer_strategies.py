@@ -70,11 +70,11 @@ class TestFigureStrategy:
         """Initialize strategy for each test."""
         self.strategy = FigureRenderStrategy()
 
-    def test_can_use_simple_path_for_all_fits(self):
-        """Test figures can use simple path for all fit modes."""
+    def test_can_use_simple_path_for_contain_stretch(self):
+        """Test figures can use simple path for contain/stretch, but not cover."""
         ctx = make_context()
         assert self.strategy.can_use_simple_path(ctx, 'contain')
-        assert self.strategy.can_use_simple_path(ctx, 'cover')
+        assert not self.strategy.can_use_simple_path(ctx, 'cover')  # Cover needs clipping
         assert self.strategy.can_use_simple_path(ctx, 'stretch')
 
     def test_render_simple_contain_no_caption(self):
@@ -95,12 +95,30 @@ class TestFigureStrategy:
         assert 'Fig(' in result.typst_code
 
     def test_render_cover_mode(self):
-        """Test cover mode uses explicit fit parameter."""
-        ctx = make_context(element_extra={'figure': {'src': 'photo.jpg'}})
-        result = self.strategy.render_simple(ctx, 'photo.jpg', 'cover')
+        """Test cover mode uses manual path with clipping when needed."""
+        from pagemaker.generation.media_sizing import RasterSizeProvider
 
-        assert 'fit: "cover"' in result.typst_code
-        assert 'width: 100%, height: 100%' in result.typst_code
+        # Create strategy with size provider for intrinsic sizing
+        strategy = FigureRenderStrategy(RasterSizeProvider())
+
+        # Mock context with a square 100mm frame
+        ctx = make_context(
+            frame_w_mm=100.0, frame_h_mm=100.0, element_extra={'figure': {'src': 'photo.jpg'}}
+        )
+
+        # Cover mode should use manual path, not simple path
+        assert not strategy.can_use_simple_path(ctx, 'cover')
+
+        # When rendering manually, should produce clipped block for oversized content
+        # Note: render_manual requires intrinsic size, so we test it directly
+        result = strategy.render_manual(ctx, 'photo.jpg', 'cover', 120.0, 80.0)
+
+        # Should have explicit dimensions in mm (not percentages)
+        assert 'mm' in result.typst_code
+        # Should use clip: true when content overflows
+        assert 'clip: true' in result.typst_code or 'block(' in result.typst_code
+        # Should need wrapper for alignment/padding
+        assert result.needs_wrapper is True
 
 
 class TestSvgStrategy:
@@ -162,6 +180,8 @@ class TestSvgStrategy:
             100.0,  # frame_w_mm
             100.0,  # frame_h_mm
             'contain',
+            align='center',
+            valign=None,
         )
 
         # For contain mode, output should use percentage-based sizing to allow alignment
@@ -215,10 +235,11 @@ class TestPdfStrategy:
         self.strategy = PdfRenderStrategy(self.mock_provider)
 
     def test_can_use_simple_path(self):
-        """Test PDFs can use simple path (PdfEmbed)."""
+        """Test PDFs can use simple path for contain/stretch, but not cover."""
         ctx = make_context()
         assert self.strategy.can_use_simple_path(ctx, 'contain')
-        assert self.strategy.can_use_simple_path(ctx, 'cover')
+        assert not self.strategy.can_use_simple_path(ctx, 'cover')  # Cover needs clipping
+        assert self.strategy.can_use_simple_path(ctx, 'stretch')
 
     def test_render_simple_pdfembed(self):
         """Test simple rendering uses PdfEmbed macro."""
@@ -241,34 +262,27 @@ class TestPdfStrategy:
 
     @patch('pagemaker.generator._compute_media_drawn_and_offsets')
     @patch('pagemaker.generator._get_alignment_wrapper')
-    def test_render_manual_with_alignment(self, mock_align, mock_compute):
-        """Test manual rendering with alignment - now delegates to render_simple."""
-        mock_compute.return_value = (80.0, 100.0, 0.0, 0.0, False)
+    def test_render_manual_with_cover(self, mock_align, mock_compute):
+        """Test manual rendering with cover mode uses explicit clipping."""
+        # For a 100x120 frame with 215.9x279.4 intrinsic PDF:
+        # Cover scale = max(100/215.9, 120/279.4) = max(0.463, 0.429) = 0.463
+        # Drawn = (100mm, 129.4mm), overflow_y = 9.4mm
+        mock_compute.return_value = (100.0, 129.4, 0.0, -4.7, True)  # needs_clip=True
         mock_align.return_value = ('center', 'horizon')
-
-        # Mock the size provider since render_simple needs it
-        from unittest.mock import Mock
-
-        self.strategy.size_provider = Mock()
-        self.strategy.size_provider.get_size_mm.return_value = (215.9, 279.4)
 
         ctx = make_context(
             frame_w_mm=100.0,
             frame_h_mm=120.0,
-            align='center',
-            valign='middle',
-            element_extra={'pdf': {'src': 'doc.pdf', 'pages': [2], 'scale': 1.0}},
+            element_extra={'pdf': {'src': 'doc.pdf', 'pages': [2]}},
         )
 
-        result = self.strategy.render_manual(ctx, 'doc.pdf', 'contain', 215.9, 279.4)
+        result = self.strategy.render_manual(ctx, 'doc.pdf', 'cover', 215.9, 279.4)
 
-        # render_manual now delegates to render_simple, which uses PdfEmbed for PDFs without captions
-        # Scale should be contain scale: min(100/215.9, 120/279.4) = min(0.463, 0.429) = 0.429
-        assert 'PdfEmbed("doc.pdf", page: 2, scale:' in result.typst_code
-        assert '0.4' in result.typst_code  # Approximate check
-
-        # Alignment is handled by core.py, not by render_manual
-        assert 'align(' not in result.typst_code
+        # render_manual now implements cover mode with clipping
+        assert 'image("doc.pdf", page: 2' in result.typst_code
+        assert 'mm' in result.typst_code  # Explicit dimensions
+        assert 'clip: true' in result.typst_code  # Clipping enabled
+        assert result.needs_wrapper is True  # Needs wrapper for alignment
 
 
 class TestStrategyRendering:
@@ -301,6 +315,8 @@ class TestStrategyRendering:
             100.0,  # frame_w
             100.0,  # frame_h
             'contain',
+            align='center',
+            valign=None,
         )
 
     def test_strategy_fallback_when_provider_fails(self):
@@ -329,4 +345,6 @@ class TestStrategyRendering:
             100.0,
             80.0,
             'contain',
+            align='center',
+            valign=None,
         )

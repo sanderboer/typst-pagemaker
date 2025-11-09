@@ -253,15 +253,15 @@ class TestPdfStrategy:
 
         result = self.strategy.render_manual(ctx, 'doc.pdf', 'contain', 215.9, 279.4)
 
-        # Should use image() with explicit dimensions
+        # Should use image() with explicit dimensions and contain fit
         assert (
-            'image("doc.pdf", page: 2, width: 80.000000mm, height: 100.000000mm)'
+            'image("doc.pdf", page: 2, width: 80.000000mm, height: 100.000000mm, fit: "contain")'
             in result.typst_code
         )
 
-        # Should have alignment wrapper
-        assert 'align(center + horizon)' in result.typst_code
-        assert 'block(width: 100%, height: 100%)' in result.typst_code
+        # Alignment is handled by core.py, not by render_manual
+        # render_manual should only handle sizing, NOT alignment wrapping
+        assert 'align(' not in result.typst_code
 
 
 class TestStrategyRendering:

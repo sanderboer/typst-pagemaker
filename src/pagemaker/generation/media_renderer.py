@@ -353,8 +353,10 @@ class SvgRenderStrategy(MediaRenderStrategy):
                     offset_y_mm = -overflow_y / 2.0
                     needs_clip = True
 
-        # Generate image call with explicit dimensions
-        img_inner = f'image("{src}", width: {drawn_w_mm:.6f}mm, height: {drawn_h_mm:.6f}mm)'
+        # Generate image call with explicit dimensions and fit mode to preserve behavior
+        img_inner = (
+            f'image("{src}", width: {drawn_w_mm:.6f}mm, height: {drawn_h_mm:.6f}mm, fit: "{fit}")'
+        )
 
         # Add place() offsets for centering/alignment
         place_args = []
@@ -443,8 +445,8 @@ class PdfRenderStrategy(MediaRenderStrategy):
             drawn_w_mm *= float(user_scale)
             drawn_h_mm *= float(user_scale)
 
-        # Generate image call with explicit dimensions
-        img_call = f'image("{src}", page: {page_num}, width: {drawn_w_mm:.6f}mm, height: {drawn_h_mm:.6f}mm)'
+        # Generate image call with explicit dimensions and contain fit to preserve aspect ratio
+        img_call = f'image("{src}", page: {page_num}, width: {drawn_w_mm:.6f}mm, height: {drawn_h_mm:.6f}mm, fit: "contain")'
 
         # Add place() offsets for positioning
         place_args = []

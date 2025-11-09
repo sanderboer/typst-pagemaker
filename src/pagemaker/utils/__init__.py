@@ -43,6 +43,10 @@ from .typst_helpers import (
     build_text_args,
     format_dimensions,
 )
+from .html_assets import (
+    HtmlAssetManager,
+    make_html_export_portable,
+)
 
 __all__ = [
     # Alignment utilities
@@ -77,4 +81,7 @@ __all__ = [
     'restore_protected_links',
     'build_text_args',
     'format_dimensions',
+    # HTML asset management
+    'HtmlAssetManager',
+    'make_html_export_portable',
 ]

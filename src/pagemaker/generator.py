@@ -503,7 +503,7 @@ def _render_text_element(el: dict, styles: dict) -> str:
     return "\n".join(pieces)
 
 
-def generate_typst(ir):
+def generate_typst(ir, format='pdf'):
     """Generate Typst content from internal representation.
 
     This function serves as a compatibility wrapper that delegates to the
@@ -511,13 +511,14 @@ def generate_typst(ir):
 
     Args:
         ir: Internal representation dictionary
+        format: Output format ('pdf' or 'html'). Affects page setup directives.
 
     Returns:
         str: Complete Typst document content
     """
     from .generation.core import generate_typst as core_generate_typst
 
-    return core_generate_typst(ir)
+    return core_generate_typst(ir, format=format)
 
 
 def el_text(el):

@@ -35,7 +35,7 @@ All media types (images, PDFs, SVGs) now support unified fit modes with consiste
 
 **Migration steps:**
 - Legacy `:PDF:` and `:SVG:` properties are deprecated—use `:SRC:` instead
-- Figure elements still accept `[[file:...]]` links but `:SRC:` is preferred
+- Figure elements prefer `[[file:...]]` links (org-mode native syntax); `:SRC:` also supported
 - Legacy `:PDF_ALIGN:` property was removed—use standard `:ALIGN:` / `:VALIGN:`
 
 See the [Media Embedding](#media-embedding-images-pdfs-svgs) section for comprehensive documentation.
@@ -1105,6 +1105,102 @@ pagemaker validate document.org --strict-assets
 ```
 
 See `examples/test_image_fit.org` for a comprehensive comparison of fit modes across different media types.
+
+### HTML Export
+
+pagemaker supports HTML export alongside PDF generation, allowing you to create web-ready documents from your Org-mode source files.
+
+#### Basic Usage
+
+Generate HTML output using the `--html` flag:
+
+```bash
+# PDF only (default)
+pagemaker pdf document.org
+
+# HTML only
+pagemaker pdf document.org --html
+
+# Both PDF and HTML
+pagemaker pdf document.org --pdf --html
+
+# Watch mode with HTML
+pagemaker watch document.org --pdf --html
+```
+
+**Output Structure:**
+```
+export/
+  document.pdf          # PDF output
+  document/             # HTML output directory
+    index.html          # Main HTML file
+```
+
+#### Current Capabilities
+
+**Working Features:**
+- ✅ **Content-focused HTML**: Semantic HTML structure (headings, paragraphs, lists, tables)
+- ✅ **Media embedding**: All media types render correctly (images, SVGs, PDFs)
+  - Images embedded as base64 data URIs (portable, no external files)
+  - SVGs embedded inline or as data URIs
+  - PDFs converted to images for HTML display
+  - Assets are also copied to `assets/` directory for reference (Typst embeds them automatically)
+- ✅ **Text formatting**: Bold, italic, code, links, and emphasis preserved
+- ✅ **Readable output**: Clean, sequential document flow ideal for reading
+- ✅ **Accessibility**: Proper semantic HTML structure for screen readers
+- ✅ **Self-contained output**: Single HTML file contains all assets (fully portable)
+
+**Use Cases:**
+- Web publication of documents
+- Accessible content delivery
+- Content archival (portable HTML with embedded assets)
+- Document previews in browsers
+- Sharing readable documents (open directly in any browser)
+- Single-file distribution (no external dependencies)
+
+#### Known Limitations
+
+The current HTML export (M7) focuses on **content-focused output** rather than presentation layout:
+
+⚠️ **Layout Limitations:**
+- **No grid positioning**: `:AREA:` properties are ignored in HTML
+- **Sequential flow**: Content renders top-to-bottom, not in grid layout
+- **No slide layout**: Pages flow as continuous document, not full-screen slides
+- **No navigation UI**: No page-to-page navigation controls
+
+These limitations will be addressed in **M7.5: HTML Grid Layout** (planned), which will add:
+- CSS Grid implementation for `:AREA:` positioning
+- Page-based rendering (full-viewport slides)
+- Navigation UI (keyboard shortcuts, page controls)
+- Visual parity with PDF output
+
+#### When to Use HTML vs PDF
+
+**Choose HTML when you need:**
+- Web-based document delivery
+- Accessible, screen-reader-friendly content
+- Searchable, selectable text
+- Responsive content that adapts to viewport
+- Portable documents (single HTML file with embedded assets)
+
+**Choose PDF when you need:**
+- Exact layout control (grid positioning, precise placement)
+- Presentation slides with specific layout
+- Print-ready documents
+- Visual design with specific positioning
+- Multi-page documents with consistent page sizes
+
+**Use Both when:**
+- You want presentation slides (PDF) + readable notes (HTML)
+- Archive requires both print and web formats
+- Accessibility requires HTML but layout requires PDF
+
+#### Examples
+
+See these examples for HTML export demonstrations:
+- `examples/svg_demo.org` - SVG embedding in HTML
+- `examples/media_consolidation_demo.org` - Mixed media (images, PDFs)
+- Any text-heavy example works well with HTML export
 
 ### Colored Rectangles
 Create transparent overlays and design elements:

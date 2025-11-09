@@ -260,7 +260,7 @@ def par_args(style: dict, justify_override: object) -> str:
     return ', '.join(parts)
 
 
-def generate_typst(ir: Dict[str, Any]) -> str:
+def generate_typst(ir: Dict[str, Any], format: str = 'pdf') -> str:
     """Generate Typst code from intermediate representation.
 
     This is the main entry point for code generation that coordinates with
@@ -268,6 +268,7 @@ def generate_typst(ir: Dict[str, Any]) -> str:
 
     Args:
         ir: The intermediate representation dictionary
+        format: Output format ('pdf' or 'html'). Affects page setup directives.
 
     Returns:
         Generated Typst code as string
@@ -293,7 +294,7 @@ def generate_typst(ir: Dict[str, Any]) -> str:
         warnings.warn(warning, UserWarning)
 
     # Generate header and setup using extracted function
-    out = generate_header_and_setup(ir, theme)
+    out = generate_header_and_setup(ir, theme, format=format)
 
     # Build map of master definitions: name -> list of elements
     masters = {}
@@ -600,13 +601,13 @@ def validate_font_availability(styles: dict, available_fonts: dict) -> list:
     return warnings_list
 
 
-def generate_header_and_setup(ir: Dict[str, Any], theme: dict) -> List[str]:
+def generate_header_and_setup(ir: Dict[str, Any], theme: dict, format: str = 'pdf') -> List[str]:
     """Generate complete Typst header with imports, themes, and helper functions.
 
     This function creates all the necessary Typst setup code including:
     - Document imports and configuration
     - Typography theme definitions and font mappings
-    - Page size and orientation settings
+    - Page size and orientation settings (skipped for HTML format)
     - Grid layout helper functions
     - Date and content formatting utilities
 
@@ -615,6 +616,7 @@ def generate_header_and_setup(ir: Dict[str, Any], theme: dict) -> List[str]:
             - meta: Document metadata (page size, theme, etc.)
             - pages: Page definitions for size determination
         theme: Typography theme configuration with font families and styling
+        format: Output format ('pdf' or 'html'). When 'html', page setup is skipped.
 
     Returns:
         List of strings containing complete Typst header content ready for compilation
@@ -646,22 +648,23 @@ def generate_header_and_setup(ir: Dict[str, Any], theme: dict) -> List[str]:
     out.append("#let Subheader(txt) = text(weight: 600, size: 24pt)[txt]\n")
     out.append("#let Body(txt) = text(size: 24pt)[txt]\n")
 
-    # Set uniform page size from first render page
-    first_render_page = None
-    try:
-        for p in ir.get('pages', []):
-            if not (p.get('master_def') or '').strip():
-                first_render_page = p
-                break
-    except Exception:
+    # Set uniform page size from first render page (skip for HTML export)
+    if format != 'html':
         first_render_page = None
+        try:
+            for p in ir.get('pages', []):
+                if not (p.get('master_def') or '').strip():
+                    first_render_page = p
+                    break
+        except Exception:
+            first_render_page = None
 
-    if first_render_page is not None:
-        pw = first_render_page.get('page_size', {}).get('w_mm', 210)
-        ph = first_render_page.get('page_size', {}).get('h_mm', 297)
-    else:
-        pw, ph = 210, 297
-    out.append(f"#set page(width: {pw}mm, height: {ph}mm, margin: 0mm)\n")
+        if first_render_page is not None:
+            pw = first_render_page.get('page_size', {}).get('w_mm', 210)
+            ph = first_render_page.get('page_size', {}).get('h_mm', 297)
+        else:
+            pw, ph = 210, 297
+        out.append(f"#set page(width: {pw}mm, height: {ph}mm, margin: 0mm)\n")
 
     # Dynamic date helpers
     d = None

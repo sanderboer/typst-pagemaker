@@ -23,7 +23,7 @@ import sys
 import time
 import urllib.parse
 import urllib.request
-from typing import Any, List
+from typing import Any, Dict, List
 
 from . import adjust_asset_paths, generate_typst, parse_org, update_html_total
 from .fonts import (
@@ -661,6 +661,155 @@ def _compile_pdf(
     return False
 
 
+def _check_typst_html_support(typst_bin: str = 'typst') -> tuple[bool, str]:
+    """Check if Typst supports HTML export (requires 0.14.0+).
+
+    Returns:
+        Tuple of (supported: bool, version: str)
+    """
+    try:
+        res = subprocess.run([typst_bin, '--version'], capture_output=True, text=True, timeout=5)
+        if res.returncode != 0:
+            return False, 'unknown'
+
+        # Parse version from output like "typst 0.14.0"
+        version_str = res.stdout.strip()
+        match = re.search(r'typst\s+(\d+)\.(\d+)\.(\d+)', version_str)
+        if not match:
+            return False, version_str
+
+        major, minor, patch = map(int, match.groups())
+        version = f"{major}.{minor}.{patch}"
+
+        # HTML export requires Typst 0.14.0+
+        supported = (major > 0) or (major == 0 and minor >= 14)
+        return supported, version
+
+    except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+        return False, 'unknown'
+
+
+def _compile_html(
+    typst_file: pathlib.Path,
+    html_output_dir: pathlib.Path,
+    typst_bin: str = 'typst',
+    source_basename: str | None = None,
+    ir: Dict | None = None,
+) -> pathlib.Path | None:
+    """Compile Typst file to HTML using native Typst HTML export.
+
+    Args:
+        typst_file: Path to .typ file
+        html_output_dir: Directory to write HTML (creates basename/index.html)
+        typst_bin: Path to typst binary
+        source_basename: Optional basename for output directory (defaults to typst_file.stem)
+        ir: Optional IR dict for HTML post-processing (grid layout)
+
+    Returns:
+        Path to generated index.html, or None on failure
+    """
+    # Check Typst version supports HTML export
+    supported, version = _check_typst_html_support(typst_bin)
+    if not supported:
+        print("ERROR: HTML export requires Typst 0.14.0 or newer.", file=sys.stderr)
+        print(f"Found: typst {version}", file=sys.stderr)
+        print("Please upgrade Typst: https://github.com/typst/typst/releases", file=sys.stderr)
+        return None
+
+    # Create output directory: export/<basename>/
+    basename = source_basename if source_basename else typst_file.stem
+    output_dir = html_output_dir / basename
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    html_path = output_dir / 'index.html'
+
+    try:
+        project_root = pathlib.Path.cwd()
+        cmd = [
+            typst_bin,
+            'compile',
+            '--root',
+            str(project_root),
+        ]
+
+        # Add font paths dynamically (same as PDF compilation)
+        font_paths = _get_font_paths()
+        for font_path in font_paths:
+            cmd.extend(['--font-path', font_path])
+
+        # Specify HTML format and enable HTML feature flag
+        cmd.extend(['--features', 'html', '--format', 'html', str(typst_file), str(html_path)])
+
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode == 0:
+            print(f"HTML written to {html_path}")
+
+            # Apply grid layout post-processing if IR is provided
+            #
+            # M7.5 STATUS: Grid layout temporarily disabled (2025-11-09)
+            #
+            # ISSUE: Current implementation regenerates HTML from IR, losing Typst's
+            # semantic HTML structure (headers, paragraphs, figures). This breaks M7
+            # tests that expect Typst HTML content preservation.
+            #
+            # NEED: Proper element matching strategy between Typst HTML and IR elements
+            # OPTIONS BEING CONSIDERED:
+            #   1. Inject element IDs during Typst generation for reliable matching
+            #   2. Client-side JavaScript solution with separate JSON positioning data
+            #   3. Hybrid approach - minimal metadata injection + JS positioning
+            #
+            # M7.5: Client-side grid layout approach
+            #   - Preserves M7 semantic HTML structure
+            #   - Adds M7.5 grid-based slide positioning via JavaScript
+            #   - Degrades gracefully (works without JavaScript)
+            #
+            # Grid layout is applied via client-side JavaScript matching
+            if ir:
+                try:
+                    from .generation.html_postprocess import postprocess_html
+
+                    postprocess_html(html_path, ir)
+                    print(f"Applied grid layout to {html_path}")
+                except ImportError as e:
+                    print(f"WARNING: Could not apply grid layout: {e}", file=sys.stderr)
+                    print(
+                        "Install beautifulsoup4 for grid layout: pip install beautifulsoup4",
+                        file=sys.stderr,
+                    )
+                except Exception as e:
+                    print(f"WARNING: Grid layout post-processing failed: {e}", file=sys.stderr)
+
+            return html_path
+        else:
+            # Check for known Typst HTML limitations
+            if "page configuration is not allowed inside of containers" in res.stderr:
+                print(
+                    "ERROR: Typst HTML export does not support #set page() directives.",
+                    file=sys.stderr,
+                )
+                print(
+                    "This is a known limitation - HTML export is experimental and incompatible with PDF-specific layout.",
+                    file=sys.stderr,
+                )
+                print(
+                    "See: https://github.com/typst/typst/issues/5512",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"ERROR: Typst HTML compile failed (exit {res.returncode}):\n{res.stderr}",
+                    file=sys.stderr,
+                )
+            return None
+
+    except FileNotFoundError:
+        print(f"ERROR: typst binary not found at '{typst_bin}'", file=sys.stderr)
+        return None
+    except Exception as e:
+        print(f"ERROR: HTML compilation failed: {e}", file=sys.stderr)
+        return None
+
+
 def _bin_exists(name: str) -> bool:
     return shutil.which(name) is not None
 
@@ -711,6 +860,22 @@ def cmd_pdf(args):
 
     export_dir = pathlib.Path(args.export_dir)
     export_dir.mkdir(parents=True, exist_ok=True)
+
+    # If HTML export is requested, copy assets BEFORE adjust_asset_paths
+    # This ensures we copy from original paths, not adjusted ones
+    # Assets are copied relative to export_dir (where the .typ file will be)
+    ir_html = None
+    if getattr(args, 'html', False):
+        import copy
+
+        from .utils.html_assets import make_html_export_portable
+
+        # Create a deep copy of IR for HTML export
+        ir_html = copy.deepcopy(ir)
+
+        # Copy assets relative to export_dir (where Typst file will be compiled from)
+        make_html_export_portable(ir_html, export_dir)
+
     adjust_asset_paths(ir, export_dir)
     typst_filename = args.output if args.output else 'deck.typ'
     typst_path = (
@@ -749,6 +914,34 @@ def cmd_pdf(args):
             use_srgb_discovery=getattr(args, 'inject_output_intent_srgb', False),
             preset=getattr(args, 'pdf_preset', None),
         )
+
+    # Compile HTML if requested
+    if getattr(args, 'html', False):
+        # Generate HTML-compatible Typst code using separate HTML generator
+        from .generation.html_generator import generate_html_typst
+
+        # Use the pre-prepared ir_html with copied assets
+        source_basename = pathlib.Path(args.org).stem
+
+        html_typst_code = generate_html_typst(ir_html)
+        _write(typst_path, html_typst_code)
+
+        html_result = _compile_html(
+            typst_file=typst_path,
+            html_output_dir=export_dir,
+            typst_bin=args.typst_bin,
+            source_basename=source_basename,
+            ir=ir_html,
+        )
+        if not html_result:
+            print("WARNING: HTML compilation failed, but PDF succeeded", file=sys.stderr)
+
+        # Clean up .typ file again if it was originally cleaned
+        if not args.no_clean and typst_path.exists():
+            try:
+                typst_path.unlink()
+            except OSError:
+                pass
 
     print(f"PDF build success={ok} pdf={pdf_path} pages={len(ir['pages'])}")
     if not ok:
@@ -917,6 +1110,26 @@ def cmd_watch(args):
                     use_srgb_discovery=getattr(args, 'inject_output_intent_srgb', False),
                     preset=getattr(args, 'pdf_preset', None),
                 )
+
+            # Compile HTML if requested
+            if getattr(args, 'html', False):
+                # Regenerate HTML-specific Typst code
+                from .generation.html_generator import generate_html_typst
+
+                html_typst_code = generate_html_typst(ir)
+                _write(typst_path, html_typst_code)
+
+                # Use source org file basename for HTML output directory
+                source_basename = org_path.stem
+                html_result = _compile_html(
+                    typst_file=typst_path,
+                    html_output_dir=export_dir,
+                    typst_bin=args.typst_bin,
+                    source_basename=source_basename,
+                    ir=ir,
+                )
+                if html_result:
+                    print(f"[watch] Rebuilt HTML: {html_result}")
 
             print(f"[watch] Rebuilt PDF success={ok} pages={len(ir['pages'])}")
             return ok
@@ -1563,6 +1776,11 @@ def build_parser():
         choices=['screen', 'printer', 'prepress'],
         help='PDF quality preset for Ghostscript processing (only applies with OutputIntent injection)',
     )
+    pdf.add_argument(
+        '--html',
+        action='store_true',
+        help='Also compile to HTML using Typst native HTML export (requires Typst 0.14+)',
+    )
     pdf.set_defaults(func=cmd_pdf)
 
     irp = sub.add_parser('ir', help='emit IR JSON')
@@ -1607,6 +1825,11 @@ def build_parser():
         '--pdf-preset',
         choices=['screen', 'printer', 'prepress'],
         help='PDF quality preset for Ghostscript processing (only applies with OutputIntent injection)',
+    )
+    watch.add_argument(
+        '--html',
+        action='store_true',
+        help='Also compile to HTML using Typst native HTML export (requires Typst 0.14+)',
     )
     watch.set_defaults(func=cmd_watch)
 

@@ -37,8 +37,8 @@ class TestFontHelpers(unittest.TestCase):
         info = _discover_fonts_in_path(self.test_fonts_dir)
         self.assertTrue(info['exists'])
         families = info['families']
-        # Expect test families present
-        for fam in ['Inter', 'Manrope', 'Playfair Display', 'Fauna One']:
+        # Expect test families present (directory names with underscores)
+        for fam in ['Manrope', 'Playfair_Display', 'Fauna_One']:
             self.assertIn(fam, families)
             self.assertGreater(len(families[fam]['files']), 0)
             # total_size is computed and human alias present
@@ -49,7 +49,8 @@ class TestFontHelpers(unittest.TestCase):
         # Should include the real family names from TTFs in test assets
         names = _collect_real_font_names([str(self.test_fonts_dir)])
         # fontTools may normalize spacing; check expected set membership
-        expected = {'Inter', 'Manrope', 'Playfair Display', 'Fauna One'}
+        # Using fonts that are actually present in examples/assets/fonts
+        expected = {'Manrope', 'Playfair Display', 'Fauna One'}
         self.assertTrue(expected.issubset(names))
 
     def test_get_font_paths_includes_examples_and_bundled(self):

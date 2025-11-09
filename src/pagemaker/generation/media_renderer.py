@@ -366,11 +366,13 @@ class SvgRenderStrategy(MediaRenderStrategy):
             img_inner = f"place({', '.join(place_args)}, {img_inner})"
 
         # Add clip block if content overflows frame
-        body_expr = img_inner
+        # NOTE: Alignment is handled by core.py, not here - we only handle sizing/clipping
         if needs_clip:
-            body_expr = f"block(width: {ctx.frame_w_mm:.6f}mm, height: {ctx.frame_h_mm:.6f}mm, clip: true)[{img_inner}]"
+            body_expr = f"block(width: {ctx.frame_w_mm:.6f}mm, height: {ctx.frame_h_mm:.6f}mm, clip: true)[#{img_inner}]"
+        else:
+            body_expr = img_inner
 
-        return RenderedMedia(body_expr, needs_wrapper=False)
+        return RenderedMedia(body_expr, needs_wrapper=True)
 
 
 class PdfRenderStrategy(MediaRenderStrategy):
@@ -423,7 +425,7 @@ class PdfRenderStrategy(MediaRenderStrategy):
     ) -> RenderedMedia:
         """Render PDF with explicit sizing, alignment, and clipping."""
         # Import here to avoid circular dependency
-        from ..generator import _compute_media_drawn_and_offsets, _get_alignment_wrapper
+        from ..generator import _compute_media_drawn_and_offsets
 
         pdf_data = ctx.element.get('pdf', {})
         page_num = pdf_data.get('pages', [1])[0]
@@ -453,21 +455,14 @@ class PdfRenderStrategy(MediaRenderStrategy):
         if place_args:
             img_call = f"place({', '.join(place_args)}, {img_call})"
 
-        # Build alignment wrapper
-        align_token, valign_token = _get_alignment_wrapper(ctx.element)
-        if valign_token:
-            align_expr = f"{align_token} + {valign_token}" if align_token else valign_token
-        else:
-            align_expr = align_token or 'left'
-
         # Add clipping if content overflows
-        inner_expr = img_call
+        # NOTE: Alignment is handled by core.py, not here - we only handle sizing/clipping
         if needs_clip:
-            inner_expr = f"block(width: {ctx.frame_w_mm:.6f}mm, height: {ctx.frame_h_mm:.6f}mm, clip: true)[{img_call}]"
+            code = f"block(width: {ctx.frame_w_mm:.6f}mm, height: {ctx.frame_h_mm:.6f}mm, clip: true)[#{img_call}]"
+        else:
+            code = img_call
 
-        # Wrap in alignment block
-        code = f"block(width: 100%, height: 100%)[#align({align_expr})[{inner_expr}]]"
-        return RenderedMedia(code, needs_wrapper=False)
+        return RenderedMedia(code, needs_wrapper=True)
 
 
 # Factory function for obtaining appropriate strategy

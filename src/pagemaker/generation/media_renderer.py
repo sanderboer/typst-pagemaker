@@ -353,9 +353,18 @@ class SvgRenderStrategy(MediaRenderStrategy):
                     offset_y_mm = -overflow_y / 2.0
                     needs_clip = True
 
-        # Generate image call with explicit dimensions and fit mode to preserve behavior
+        # For contain mode: use frame dimensions and let Typst scale the content
+        # For cover/stretch: use drawn dimensions (cover needs oversized content for clipping)
+        if fit == 'contain':
+            img_w_mm = ctx.frame_w_mm
+            img_h_mm = ctx.frame_h_mm
+        else:
+            img_w_mm = drawn_w_mm
+            img_h_mm = drawn_h_mm
+
+        # Generate image call with explicit dimensions and fit mode
         img_inner = (
-            f'image("{src}", width: {drawn_w_mm:.6f}mm, height: {drawn_h_mm:.6f}mm, fit: "{fit}")'
+            f'image("{src}", width: {img_w_mm:.6f}mm, height: {img_h_mm:.6f}mm, fit: "{fit}")'
         )
 
         # Add place() offsets for centering/alignment
@@ -445,8 +454,17 @@ class PdfRenderStrategy(MediaRenderStrategy):
             drawn_w_mm *= float(user_scale)
             drawn_h_mm *= float(user_scale)
 
-        # Generate image call with explicit dimensions and contain fit to preserve aspect ratio
-        img_call = f'image("{src}", page: {page_num}, width: {drawn_w_mm:.6f}mm, height: {drawn_h_mm:.6f}mm, fit: "contain")'
+        # For contain mode: use frame dimensions and let Typst scale the content
+        # For cover/stretch: use drawn dimensions (cover needs oversized content for clipping)
+        if fit == 'contain':
+            img_w_mm = ctx.frame_w_mm
+            img_h_mm = ctx.frame_h_mm
+        else:
+            img_w_mm = drawn_w_mm
+            img_h_mm = drawn_h_mm
+
+        # Generate image call with explicit dimensions and fit parameter
+        img_call = f'image("{src}", page: {page_num}, width: {img_w_mm:.6f}mm, height: {img_h_mm:.6f}mm, fit: "contain")'
 
         # Add place() offsets for positioning
         place_args = []

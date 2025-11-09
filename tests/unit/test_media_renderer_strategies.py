@@ -164,9 +164,11 @@ class TestSvgStrategy:
             'contain',
         )
 
-        # Verify output contains explicit mm dimensions
-        assert 'width: 75.000000mm' in result.typst_code
-        assert 'height: 37.500000mm' in result.typst_code
+        # For contain mode, output should use FRAME dimensions, not drawn dimensions
+        # This lets Typst handle the scaling properly
+        assert 'width: 100.000000mm' in result.typst_code
+        assert 'height: 100.000000mm' in result.typst_code
+        assert 'fit: "contain"' in result.typst_code
 
     @patch('pagemaker.generator._compute_media_drawn_and_offsets')
     def test_render_manual_cover_with_clip(self, mock_compute):
@@ -191,15 +193,16 @@ class TestSvgStrategy:
 
     @patch('pagemaker.generator._compute_media_drawn_and_offsets')
     def test_render_manual_applies_user_scale(self, mock_compute):
-        """Test user scale multiplier applied to drawn dimensions."""
+        """Test user scale multiplier applied - but for contain mode, we still use frame dimensions."""
         mock_compute.return_value = (100.0, 50.0, 0.0, 0.0, False)
 
         ctx = make_context(element_extra={'svg': {'src': 'icon.svg', 'scale': 2.0}})
 
         result = self.strategy.render_manual(ctx, 'icon.svg', 'contain', 100.0, 50.0)
 
-        # Dimensions should be doubled (100*2=200, 50*2=100)
-        assert 'width: 200.000000mm' in result.typst_code
+        # For contain mode, we use frame dimensions regardless of user scale
+        # User scale affects drawn_w/h calculation but we use frame for image() call
+        assert 'width: 100.000000mm' in result.typst_code
         assert 'height: 100.000000mm' in result.typst_code
 
 
@@ -253,9 +256,9 @@ class TestPdfStrategy:
 
         result = self.strategy.render_manual(ctx, 'doc.pdf', 'contain', 215.9, 279.4)
 
-        # Should use image() with explicit dimensions and contain fit
+        # For contain mode, should use FRAME dimensions, not drawn dimensions
         assert (
-            'image("doc.pdf", page: 2, width: 80.000000mm, height: 100.000000mm, fit: "contain")'
+            'image("doc.pdf", page: 2, width: 100.000000mm, height: 120.000000mm, fit: "contain")'
             in result.typst_code
         )
 

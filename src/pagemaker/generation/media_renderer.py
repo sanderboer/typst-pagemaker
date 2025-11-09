@@ -466,7 +466,7 @@ class PdfRenderStrategy(MediaRenderStrategy):
             inner_expr = f"block(width: {ctx.frame_w_mm:.6f}mm, height: {ctx.frame_h_mm:.6f}mm, clip: true)[{img_call}]"
 
         # Wrap in alignment block
-        code = f"block(width: 100%, height: 100%)[#align({align_expr})[# {inner_expr}]]"
+        code = f"block(width: 100%, height: 100%)[#align({align_expr})[{inner_expr}]]"
         return RenderedMedia(code, needs_wrapper=False)
 
 

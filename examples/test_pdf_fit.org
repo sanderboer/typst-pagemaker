@@ -25,6 +25,7 @@
 :PAGE: 1
 :AREA: A1, g10
 :PADDING: 0
+:FIT: contain
 :caption: Test caption with a pdf
 :align: left
 :END:
@@ -49,6 +50,25 @@
 :CAPTION: kitten - contain
 :END:
 [[file:assets/test-images/kittens/kitten-2.jpg]]
+** Square-ish Kitten (contain)
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-2.jpg
+:AREA: e2,g3
+:FIT: cover
+:align: left
+:CAPTION: kitten - contain
+:END:
+** Square-ish Kitten (contain)
+:PROPERTIES:
+:TYPE: figure
+:AREA: e6,g7
+:FIT: cover
+:align: right
+:CAPTION: kitten - contain
+:END:
+[[file:assets/test-images/kittens/kitten-2.jpg]]
+
 
 * 2. 
 ** Element

@@ -116,7 +116,7 @@ Sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciat
 :PAGE: 1
 :SCALE: 0.8
 :END:
-(May fail with MuchPDF; use sanitize/SVG fallback)
+(If Typst fails to embed, use sanitize/SVG fallback)
 
 ** Exploded View (fixed)
 :PROPERTIES:

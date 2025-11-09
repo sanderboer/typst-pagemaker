@@ -86,7 +86,7 @@ Standard org file with:
 
 ### pdf_test.org  
 Tests PDF embedding:
-- PDF element with native Typst image() embedding (legacy MuchPDF path optional via PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1)
+- PDF element with native Typst image() embedding
 - Page selection and scaling options
 
 ### edge_cases.org

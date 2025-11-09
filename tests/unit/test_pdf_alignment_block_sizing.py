@@ -31,7 +31,16 @@ def test_pdf_left_top_alignment_uses_sized_block():
     ]
     ir = {'meta': {}, 'pages': [base]}
     typ = generate_typst(ir)
-    # Aligned element should use align wrapper directly with sized image (no extra block wrapper)
-    assert 'align(left + top)[#image("dummy.pdf", page: 1, width:' in typ
-    # Non-aligned should use PdfEmbed with scale mode
-    assert 'PdfEmbed("dummy.pdf", page: 1, scale:' in typ
+    # Both should use PdfEmbed (no caption), but aligned gets align wrapper
+    assert 'align(left + top)[#PdfEmbed("dummy.pdf", page: 1, scale:' in typ
+    # Non-aligned should use PdfEmbed without align wrapper
+    import re
+
+    # Find the non-aligned element section (entire layer_grid call)
+    no_align_match = re.search(
+        r'// Element pdf_no_align.*?#layer_grid\([^)]+, (PdfEmbed[^)]+\)[^)]*)\)', typ, re.DOTALL
+    )
+    assert no_align_match is not None
+    no_align_code = no_align_match.group(1)
+    assert 'PdfEmbed("dummy.pdf", page: 1, scale:' in no_align_code
+    assert 'align(' not in no_align_code

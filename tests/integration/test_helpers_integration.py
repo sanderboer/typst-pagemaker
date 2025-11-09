@@ -27,9 +27,8 @@ import pagemaker as pm  # noqa: E402
 def _has_typst() -> bool:
     """Return True if the `typst` CLI is available.
 
-    The old MuchPDF availability check has been removed; native Typst PDF embedding
-    is now used by pagemaker. Set PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1 only to exercise
-    the deprecated MuchPDF path (not required for normal operation).
+    Native Typst PDF embedding is now used by pagemaker; legacy MuchPDF path has been
+    removed (no env flag).
     """
     try:
         res = subprocess.run(['typst', '--version'], capture_output=True, text=True)

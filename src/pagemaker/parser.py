@@ -35,6 +35,7 @@ DEFAULTS = {
     'GRID_DEBUG': 'false',
     'MARGINS': '',
     'DEFAULT_MASTER': '',
+    'MIN_RESOLUTION': '72',
 }
 
 
@@ -632,28 +633,215 @@ class OrgElement:
                 if m:
                     img = m.group('path')
                     break
+            # Unified media source precedence: :SRC: overrides legacy figure link and legacy keys
+            src_decl = self.props.get('SRC')
+            if isinstance(src_decl, str) and src_decl.strip() != '':
+                img_src = src_decl.strip()
+            else:
+                img_src = img
+
+            # Helper for safe integer parsing
+            def _to_int(val, default: int) -> int:
+                try:
+                    s = str(val).strip()
+                    return int(s) if s != '' else default
+                except Exception:
+                    return default
+
             figure = {
-                'src': img,
+                'src': img_src,
                 'caption': self.props.get('CAPTION'),
                 'fit': self.props.get('FIT', 'contain'),
+                'pages': [
+                    _to_int(self.props.get('PAGE', '1'), 1)
+                ],  # Support :PAGE: for PDF sources
             }
         if self.type == 'pdf':
+            # Scan content lines for [[file:path]] links
+            link_src = None
+            for line in self.content_lines:
+                m = LINK_IMG_RE.match(line.strip())
+                if m:
+                    link_src = m.group('path')
+                    break
+            # Unified media source precedence: :SRC: overrides [[file:]] link, which overrides legacy :PDF:
+            src_decl = self.props.get('SRC')
+            legacy_pdf = self.props.get('PDF')
+            pdf_src = None
+            if isinstance(src_decl, str) and src_decl.strip() != '':
+                pdf_src = src_decl.strip()
+                if legacy_pdf:
+                    warnings.warn(
+                        f":PDF: ignored because :SRC: present on pdf '{self.id}'",
+                        DeprecationWarning,
+                    )
+            elif link_src:
+                pdf_src = link_src
+                if legacy_pdf:
+                    warnings.warn(
+                        f":PDF: ignored because [[file:]] link present on pdf '{self.id}'",
+                        DeprecationWarning,
+                    )
+            else:
+                pdf_src = legacy_pdf
+                if legacy_pdf:
+                    warnings.warn(
+                        f"Use :SRC: instead of deprecated :PDF: on pdf '{self.id}'",
+                        DeprecationWarning,
+                    )
+
+            # Safe parse functions
+            def _to_int(val, default: int) -> int:
+                try:
+                    s = str(val).strip()
+                    return int(s) if s != '' else default
+                except Exception:
+                    return default
+
+            def _to_float(val, default: float) -> float:
+                try:
+                    s = str(val).strip()
+                    return float(s) if s != '' else default
+                except Exception:
+                    return default
+
+            # Unified FIT handling: prefer :FIT:, map legacy :PDF_SCALE_MODE:
+            fit_decl = None
+            fit_prop = self.props.get('FIT')
+            if isinstance(fit_prop, str) and fit_prop.strip() != '':
+                fit_decl = fit_prop.strip().lower()
+            sm_val = self.props.get('PDF_SCALE_MODE')
+            if fit_decl:
+                if isinstance(sm_val, str) and sm_val.strip():
+                    warnings.warn(
+                        f":PDF_SCALE_MODE: ignored because :FIT: present on pdf '{self.id}'",
+                        DeprecationWarning,
+                    )
+                fit_val = fit_decl
+            else:
+                if isinstance(sm_val, str) and sm_val.strip():
+                    fit_val = sm_val.strip().lower()
+                    warnings.warn(
+                        f"Use :FIT: instead of deprecated :PDF_SCALE_MODE: on pdf '{self.id}'",
+                        DeprecationWarning,
+                    )
+                else:
+                    fit_val = 'contain'
+
+            # Accept fit values: contain (default), cover, stretch. Unknown -> contain with warning.
+            if isinstance(fit_val, str):
+                fv = fit_val.strip().lower()
+                if fv == "":
+                    fit_val = 'contain'
+                elif fv not in ('contain', 'cover', 'stretch'):
+                    warnings.warn(
+                        f":FIT: '{fit_val}' on PDF '{pdf_src}' not recognized; falling back to 'contain'.",
+                        UserWarning,
+                    )
+                    fit_val = 'contain'
+            else:
+                fit_val = 'contain'
+
+            # Optional crop box override
+            box_pref = None
+            raw_box = self.props.get('CROP_BOX') or self.props.get('BOX')
+            if isinstance(raw_box, str) and raw_box.strip():
+                rb = raw_box.strip().lower()
+                box_map = {
+                    'media': 'media',
+                    'mediabox': 'media',
+                    'crop': 'crop',
+                    'cropbox': 'crop',
+                    'trim': 'trim',
+                    'trimbox': 'trim',
+                    'bleed': 'bleed',
+                    'bleedbox': 'bleed',
+                    'art': 'art',
+                    'artbox': 'art',
+                }
+                box_pref = box_map.get(rb)
+                if box_pref is None:
+                    warnings.warn(
+                        f":CROP_BOX: '{raw_box}' not recognized on PDF '{self.id}'; using automatic box preference.",
+                        UserWarning,
+                    )
             pdf = {
-                'src': self.props.get('PDF'),
-                'pages': [int(self.props.get('PAGE', '1'))],
-                'scale': float(self.props.get('SCALE', '1.0')),
-                # New: scale mode (contain | cover) for auto scaling strategy
-                'scale_mode': (self.props.get('PDF_SCALE_MODE') or 'contain').strip().lower(),
+                'src': pdf_src,
+                'pages': [_to_int(self.props.get('PAGE', '1'), 1)],
+                'scale': _to_float(self.props.get('SCALE', '1.0'), 1.0),
+                'fit': fit_val,
+                'box': box_pref,
+                'caption': self.props.get('CAPTION'),  # Support :CAPTION: for PDF elements
             }
         if self.type == 'svg':
-            svg = {'src': self.props.get('SVG'), 'scale': float(self.props.get('SCALE', '1.0'))}
+            # Scan content lines for [[file:path]] links
+            link_src = None
+            for line in self.content_lines:
+                m = LINK_IMG_RE.match(line.strip())
+                if m:
+                    link_src = m.group('path')
+                    break
+            # Unified media source precedence: :SRC: overrides [[file:]] link, which overrides legacy :SVG:
+            src_decl = self.props.get('SRC')
+            legacy_svg = self.props.get('SVG')
+            svg_src = None
+            if isinstance(src_decl, str) and src_decl.strip() != '':
+                svg_src = src_decl.strip()
+                if legacy_svg:
+                    warnings.warn(
+                        f":SVG: ignored because :SRC: present on svg '{self.id}'",
+                        DeprecationWarning,
+                    )
+            elif link_src:
+                svg_src = link_src
+                if legacy_svg:
+                    warnings.warn(
+                        f":SVG: ignored because [[file:]] link present on svg '{self.id}'",
+                        DeprecationWarning,
+                    )
+            else:
+                svg_src = legacy_svg
+                if legacy_svg:
+                    warnings.warn(
+                        f"Use :SRC: instead of deprecated :SVG: on svg '{self.id}'",
+                        DeprecationWarning,
+                    )
+
+            def _to_float(val, default: float) -> float:
+                try:
+                    s = str(val).strip()
+                    return float(s) if s != '' else default
+                except Exception:
+                    return default
+
+            # Unified FIT handling for SVG: accept contain (default), cover, stretch. Unknown -> contain with warning.
+            fit_val_svg = self.props.get('FIT', 'contain')
+            if isinstance(fit_val_svg, str):
+                fvs = fit_val_svg.strip().lower()
+                if fvs == "":
+                    fit_val_svg = 'contain'
+                elif fvs not in ('contain', 'cover', 'stretch'):
+                    warnings.warn(
+                        f":FIT: '{fit_val_svg}' on SVG '{svg_src}' not recognized; falling back to 'contain'.",
+                        UserWarning,
+                    )
+                    fit_val_svg = 'contain'
+            else:
+                fit_val_svg = 'contain'
+            svg = {
+                'src': svg_src,
+                'scale': _to_float(self.props.get('SCALE', '1.0'), 1.0),
+                'fit': fit_val_svg,
+            }
         if self.type == 'rectangle':
             rectangle = {}
             if 'COLOR' in self.props:
                 rectangle['color'] = self.props.get('COLOR')
             if 'ALPHA' in self.props:
                 try:
-                    rectangle['alpha'] = float(self.props.get('ALPHA'))
+                    alpha_val = self.props.get('ALPHA')
+                    if alpha_val is not None:
+                        rectangle['alpha'] = float(alpha_val)
                 except Exception:
                     pass
             # Optional stroke properties (element-level overrides)
@@ -1088,11 +1276,9 @@ def parse_org(path):
                     # Also ignore all subsequent sections until next page
                     ignore_depth = 1
                 # Capture page-level PADDING for inheritance
-                if (
-                    isinstance(prop_buf.get('PADDING'), str)
-                    and prop_buf.get('PADDING').strip() != ''
-                ):
-                    current_page_padding_str = prop_buf.get('PADDING')
+                padding_prop = prop_buf.get('PADDING')
+                if isinstance(padding_prop, str) and padding_prop.strip() != '':
+                    current_page_padding_str = padding_prop
             prop_buf = {}
             continue
         if prop_mode:

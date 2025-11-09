@@ -207,7 +207,7 @@ Typst code generation for grid-based page layouts.
 
 This module handles the conversion from intermediate representation (IR) to 
 Typst markup, supporting precise element positioning, professional typography,
-and PDF embedding via native Typst image() with optional deprecated MuchPDF legacy flag (PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1).
+and PDF embedding via native Typst image().
 
 Classes:
     TypstGenerator: Main code generation orchestrator
@@ -238,7 +238,7 @@ def render_pdf_element(
     """
     Generate Typst code for PDF element with automatic contain scaling.
 
-    Renders a PDF element using a PdfEmbed helper that defaults to native Typst image() embedding with auto-contain scaling; when PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1 is set, it uses the deprecated MuchPDF macro.
+    Renders a PDF element using a PdfEmbed helper that uses native Typst image() embedding with auto-contain scaling; ensures the PDF content fits within the element's padded frame.
     the PDF content fits entirely within the element's padded frame. Handles
     path resolution, scale calculation, and alignment positioning.
 

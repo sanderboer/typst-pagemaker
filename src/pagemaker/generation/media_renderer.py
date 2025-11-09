@@ -252,6 +252,8 @@ class FigureRenderStrategy(MediaRenderStrategy):
         from ..generator import escape_text
 
         align = ctx.align or 'left'
+        valign = ctx.valign or 'top'
+        has_alignment = bool(ctx.align or ctx.valign)
 
         # Map fit values (handle legacy 'fill' alias)
         fit_map = {
@@ -262,22 +264,47 @@ class FigureRenderStrategy(MediaRenderStrategy):
         }
         fit_val = fit_map.get(fit.lower(), fit)
 
-        # For contain mode with non-center alignment, omit explicit dimensions
-        # to let Typst handle intrinsic sizing naturally
-        if fit_val == "contain" and align != "center":
-            img_call = f'image("{src}")'
-        else:
-            img_call = f'image("{src}", width: 100%, height: 100%, fit: "{fit_val}")'
+        # Check if source is a PDF and page is specified (for multi-page PDF support)
+        pages_list = ctx.element.get('figure', {}).get('pages', [1])
+        page_num = pages_list[0] if pages_list else 1
+        src_lower = src.lower()
+        is_pdf = src_lower.endswith('.pdf')
 
-        # Get caption from figure metadata
+        # Get caption to determine sizing strategy
         caption = ctx.element.get('figure', {}).get('caption')
+
+        # IMPORTANT: When there's a caption AND alignment, don't use 100% dimensions
+        # Instead, the image will be contained naturally within the Fig() grid cell,
+        # allowing the align() wrapper inside Fig() to actually position it
+        if caption and has_alignment:
+            # For alignment to work, image must not fill 100% - it should size to content
+            # We still apply contain fit, but without forcing 100% dimensions
+            if is_pdf and page_num:
+                img_call = f'image("{src}", page: {page_num}, fit: "{fit_val}")'
+            else:
+                img_call = f'image("{src}", fit: "{fit_val}")'
+        else:
+            # No caption or no alignment: fill the entire space as before
+            if is_pdf and page_num:
+                img_call = (
+                    f'image("{src}", page: {page_num}, width: 100%, height: 100%, fit: "{fit_val}")'
+                )
+            else:
+                img_call = f'image("{src}", width: 100%, height: 100%, fit: "{fit_val}")'
+
         if caption:
             cap_e = escape_text(caption)
+            # When caption + alignment, pass fill_space: false to allow alignment
+            fill_space = "false" if has_alignment else "true"
             code = (
-                f"Fig({img_call}, caption: [{cap_e}], caption_align: {align}, img_align: {align})"
+                f"Fig({img_call}, caption: [{cap_e}], caption_align: {align}, img_align: {align}, "
+                f"caption_valign: {valign}, img_valign: {valign}, fill_space: {fill_space})"
             )
         else:
-            code = f"Fig({img_call}, caption_align: {align}, img_align: {align})"
+            code = (
+                f"Fig({img_call}, caption_align: {align}, img_align: {align}, "
+                f"caption_valign: {valign}, img_valign: {valign})"
+            )
 
         return RenderedMedia(code, needs_wrapper=False)
 
@@ -403,8 +430,15 @@ class PdfRenderStrategy(MediaRenderStrategy):
         return True
 
     def render_simple(self, ctx: RenderContext, src: str, fit: str) -> RenderedMedia:
-        """Render PDF using PdfEmbed macro with contain scaling."""
+        """Render PDF using PdfEmbed macro or Fig() if caption is present."""
+        # Import here to avoid circular dependency
+        from ..generator import escape_text
+
         page_num = ctx.element.get('pdf', {}).get('pages', [1])[0]
+        caption = ctx.element.get('pdf', {}).get('caption')
+        align = ctx.align or 'left'
+        valign = ctx.valign or 'top'
+        has_alignment = bool(ctx.align or ctx.valign)
 
         # Get intrinsic size for computing contain scale
         # Size provider should already be set, but handle gracefully
@@ -421,58 +455,43 @@ class PdfRenderStrategy(MediaRenderStrategy):
         else:
             base_scale = 1.0
 
-        code = f'PdfEmbed("{src}", page: {page_num}, scale: {base_scale:.6f})'
+        # If caption is present, use Fig() helper for consistent caption rendering
+        if caption:
+            cap_e = escape_text(caption)
+            # IMPORTANT: When there's alignment, don't use 100% dimensions
+            # This allows align() inside Fig() to actually position the image
+            if has_alignment:
+                img_call = f'image("{src}", page: {page_num}, fit: "contain")'
+            else:
+                img_call = (
+                    f'image("{src}", page: {page_num}, width: 100%, height: 100%, fit: "contain")'
+                )
+            # When caption + alignment, pass fill_space: false to allow alignment
+            fill_space = "false" if has_alignment else "true"
+            code = (
+                f'Fig({img_call}, caption: [{cap_e}], caption_align: {align}, img_align: {align}, '
+                f'caption_valign: {valign}, img_valign: {valign}, fill_space: {fill_space})'
+            )
+        else:
+            # Use PdfEmbed for backward compatibility when no caption
+            code = f'PdfEmbed("{src}", page: {page_num}, scale: {base_scale:.6f})'
+
         return RenderedMedia(code, needs_wrapper=False)
 
     def render_manual(
         self, ctx: RenderContext, src: str, fit: str, intrinsic_w_mm: float, intrinsic_h_mm: float
     ) -> RenderedMedia:
-        """Render PDF with explicit sizing, alignment, and clipping."""
-        # Import here to avoid circular dependency
-        from ..generator import _compute_media_drawn_and_offsets
+        """Render PDF with explicit sizing, alignment, and clipping.
 
-        pdf_data = ctx.element.get('pdf', {})
-        page_num = pdf_data.get('pages', [1])[0]
-        user_scale = pdf_data.get('scale', 1.0) or 1.0
+        For PDFs, we delegate to render_simple() to ensure captions are handled
+        correctly. The Fig() helper (updated in core.py) now properly handles
+        alignment internally, so we don't need separate manual rendering logic.
 
-        # Compute drawn size based on fit mode
-        drawn_w_mm, drawn_h_mm, offset_x_mm, offset_y_mm, needs_clip = (
-            _compute_media_drawn_and_offsets(
-                intrinsic_w_mm, intrinsic_h_mm, ctx.frame_w_mm, ctx.frame_h_mm, fit
-            )
-        )
-
-        # Apply user scale multiplicatively to drawn size only (not frame)
-        if isinstance(user_scale, (int, float)) and user_scale not in (0, 1):
-            drawn_w_mm *= float(user_scale)
-            drawn_h_mm *= float(user_scale)
-
-        # For contain mode: use percentage-based sizing to allow alignment to work
-        # For cover/stretch: use explicit mm dimensions (cover needs oversized content for clipping)
-        if fit == 'contain':
-            img_call = (
-                f'image("{src}", page: {page_num}, width: 100%, height: 100%, fit: "contain")'
-            )
-        else:
-            img_call = f'image("{src}", page: {page_num}, width: {drawn_w_mm:.6f}mm, height: {drawn_h_mm:.6f}mm, fit: "{fit}")'
-
-        # Add place() offsets for positioning
-        place_args = []
-        if offset_x_mm != 0.0:
-            place_args.append(f"dx: {offset_x_mm:.6f}mm")
-        if offset_y_mm != 0.0:
-            place_args.append(f"dy: {offset_y_mm:.6f}mm")
-        if place_args:
-            img_call = f"place({', '.join(place_args)}, {img_call})"
-
-        # Add clipping if content overflows
-        # NOTE: Alignment is handled by core.py, not here - we only handle sizing/clipping
-        if needs_clip:
-            code = f"block(width: {ctx.frame_w_mm:.6f}mm, height: {ctx.frame_h_mm:.6f}mm, clip: true)[#{img_call}]"
-        else:
-            code = img_call
-
-        return RenderedMedia(code, needs_wrapper=True)
+        This matches the approach used by FigureRenderStrategy.
+        """
+        # PDFs with alignment should still use Fig() to preserve captions
+        # The Fig() helper now handles alignment correctly (fixed in core.py)
+        return self.render_simple(ctx, src, fit)
 
 
 # Factory function for obtaining appropriate strategy

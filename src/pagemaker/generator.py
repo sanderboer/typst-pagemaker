@@ -728,6 +728,58 @@ def _compute_element_frame_size_mm(
     return frame_w, frame_h
 
 
+def _compute_media_drawn_and_offsets(
+    intrinsic_w: float, intrinsic_h: float, frame_w: float, frame_h: float, fit: str
+) -> tuple[float, float, float, float, bool]:
+    """Compute drawn width/height and offset (dx, dy) inside frame for media.
+
+    Args:
+        intrinsic_w, intrinsic_h: intrinsic media size in mm (positive)
+        frame_w, frame_h: target frame size in mm (non-negative)
+        fit: one of 'contain', 'cover', 'stretch'
+
+    Returns:
+        (drawn_w, drawn_h, offset_x_mm, offset_y_mm, needs_clip)
+        Offsets are the top-left translation when drawn content exceeds frame (for cover).
+        needs_clip indicates whether the media exceeds frame and should be clipped.
+    """
+    if not (intrinsic_w > 0 and intrinsic_h > 0 and frame_w >= 0 and frame_h >= 0):
+        return frame_w, frame_h, 0.0, 0.0, False
+    aspect = intrinsic_w / intrinsic_h
+    frame_aspect = frame_w / frame_h if frame_h != 0 else aspect
+    fit_norm = (fit or 'contain').strip().lower()
+    if fit_norm not in ('contain', 'cover', 'stretch'):
+        fit_norm = 'contain'
+
+    if fit_norm == 'stretch':
+        drawn_w, drawn_h = frame_w, frame_h
+        return drawn_w, drawn_h, 0.0, 0.0, False
+
+    if fit_norm == 'contain':
+        if frame_aspect <= aspect:
+            drawn_w = frame_w
+            drawn_h = frame_w / aspect
+        else:
+            drawn_h = frame_h
+            drawn_w = frame_h * aspect
+        return drawn_w, drawn_h, 0.0, 0.0, False
+
+    # cover
+    if frame_aspect <= aspect:
+        # frame narrower than media; scale by height to cover width
+        drawn_h = frame_h
+        drawn_w = frame_h * aspect
+        overflow_x = drawn_w - frame_w
+        offset_x = -overflow_x / 2.0 if overflow_x > 0 else 0.0
+        return drawn_w, drawn_h, offset_x, 0.0, overflow_x > 0
+    else:
+        drawn_w = frame_w
+        drawn_h = frame_w / aspect if aspect != 0 else frame_h
+        overflow_y = drawn_h - frame_h
+        offset_y = -overflow_y / 2.0 if overflow_y > 0 else 0.0
+        return drawn_w, drawn_h, 0.0, offset_y, overflow_y > 0
+
+
 # Deprecated: PDF size cache moved to generation.pdf_processor
 
 
@@ -740,9 +792,20 @@ def _fmt_len(val: float) -> str:
 
 # TODO(deprecation): use pdf_processor.pdf_intrinsic_size_mm; remove this alias after minor release.
 def _pdf_intrinsic_size_mm(path: str) -> tuple[float, float]:
-    from .generation.pdf_processor import pdf_intrinsic_size_mm
+    """Deprecated alias for pdf_processor.pdf_intrinsic_size_mm.
 
-    return pdf_intrinsic_size_mm(path)
+    Emits a DeprecationWarning when used. Will be removed in a future minor release.
+    """
+    import warnings
+
+    warnings.warn(
+        "_pdf_intrinsic_size_mm is deprecated; import from pagemaker.generation.pdf_processor instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    from .generation.pdf_processor import pdf_intrinsic_size_mm as _impl
+
+    return _impl(path)
 
 
 def _is_typst_directive(line):

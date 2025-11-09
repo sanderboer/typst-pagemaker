@@ -78,11 +78,11 @@ class TestFigureStrategy:
         assert self.strategy.can_use_simple_path(ctx, 'stretch')
 
     def test_render_simple_contain_no_caption(self):
-        """Test simple rendering without caption."""
+        """Test simple rendering without caption uses explicit dimensions and fit."""
         ctx = make_context(element_extra={'figure': {'src': 'photo.jpg'}})
         result = self.strategy.render_simple(ctx, 'photo.jpg', 'contain')
 
-        assert 'image("photo.jpg")' in result.typst_code
+        assert 'image("photo.jpg", width: 100%, height: 100%, fit: "contain")' in result.typst_code
         assert 'Fig(' in result.typst_code
         assert result.needs_wrapper is False
 
@@ -242,9 +242,15 @@ class TestPdfStrategy:
     @patch('pagemaker.generator._compute_media_drawn_and_offsets')
     @patch('pagemaker.generator._get_alignment_wrapper')
     def test_render_manual_with_alignment(self, mock_align, mock_compute):
-        """Test manual rendering with alignment."""
+        """Test manual rendering with alignment - now delegates to render_simple."""
         mock_compute.return_value = (80.0, 100.0, 0.0, 0.0, False)
         mock_align.return_value = ('center', 'horizon')
+
+        # Mock the size provider since render_simple needs it
+        from unittest.mock import Mock
+
+        self.strategy.size_provider = Mock()
+        self.strategy.size_provider.get_size_mm.return_value = (215.9, 279.4)
 
         ctx = make_context(
             frame_w_mm=100.0,
@@ -256,14 +262,12 @@ class TestPdfStrategy:
 
         result = self.strategy.render_manual(ctx, 'doc.pdf', 'contain', 215.9, 279.4)
 
-        # For contain mode, should use percentage-based sizing to allow alignment to work
-        assert (
-            'image("doc.pdf", page: 2, width: 100%, height: 100%, fit: "contain")'
-            in result.typst_code
-        )
+        # render_manual now delegates to render_simple, which uses PdfEmbed for PDFs without captions
+        # Scale should be contain scale: min(100/215.9, 120/279.4) = min(0.463, 0.429) = 0.429
+        assert 'PdfEmbed("doc.pdf", page: 2, scale:' in result.typst_code
+        assert '0.4' in result.typst_code  # Approximate check
 
         # Alignment is handled by core.py, not by render_manual
-        # render_manual should only handle sizing, NOT alignment wrapping
         assert 'align(' not in result.typst_code
 
 

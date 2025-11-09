@@ -687,9 +687,37 @@ def generate_header_and_setup(ir: Dict[str, Any], theme: dict) -> List[str]:
     out.append("#let page_no = context counter(page).display()\n")
     out.append("#let page_total = context counter(page).final().at(0)\n")
 
-    # Figure helper function
+    # Figure helper function with image and optional caption
+    # Images are passed with width/height 100% and fit parameter already set
+    # Caption is rendered below the image with appropriate styling
+    # Alignment is handled internally to work within the layer_grid cell
     out.append(
-        "#let Fig(img, caption: none, caption_align: left, img_align: left) = if caption == none { \n  block(width: 100%, height: 100%)[#align(img_align)[#img]] \n} else { \n  block(width: 100%, height: 100%)[\n    #block(height: 85%)[#align(img_align)[#img]] \n    #block(height: 15%)[#align(caption_align)[#text(size: 0.75em, fill: rgb(60%,60%,60%), font: theme.font_body)[#caption]]] \n  ] \n}\n"
+        "#let Fig(img, caption: none, caption_align: left, img_align: left, caption_valign: top, img_valign: top, fill_space: true) = {\n"
+        "  let img_alignment = if img_valign == none { img_align } else { img_align + img_valign }\n"
+        "  if caption == none {\n"
+        "    // No caption: wrap image in 100% block with internal alignment\n"
+        "    block(width: 100%, height: 100%)[#align(img_alignment)[#img]]\n"
+        "  } else {\n"
+        "    // With caption: use flexible grid layout with proper cell alignment\n"
+        "    // The grid itself fills the full cell, but image content is aligned within it\n"
+        "    block(width: 100%, height: 100%)[\n"
+        "      #grid(\n"
+        "        columns: (100%),\n"
+        "        rows: (1fr, auto),\n"
+        "        row-gutter: 0.3em,\n"
+        "        // First cell: conditionally fill space or allow natural sizing for alignment\n"
+        "        if fill_space {\n"
+        "          block(width: 100%, height: 100%)[#align(img_alignment)[#img]]\n"
+        "        } else {\n"
+        "          // Don't fill space - let image size naturally and align() will position it\n"
+        "          align(img_alignment)[#img]\n"
+        "        },\n"
+        "        // Second cell: caption with alignment\n"
+        "        align(caption_align)[#text(size: 0.75em, fill: rgb(60%,60%,60%), font: theme.font_body)[#caption]]\n"
+        "      )\n"
+        "    ]\n"
+        "  }\n"
+        "}\n"
     )
 
     # ColorRect helper function (extended with optional stroke + stroke_color)

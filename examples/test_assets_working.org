@@ -116,7 +116,7 @@ Technical Architecture Overview
 :PAGE: 1
 :SCALE: 0.8
 :END:
-(Vector PDF embedded via muchpdf)
+(Vector PDF embedded via native Typst)
 
 ** Implementation Notes
 :PROPERTIES:

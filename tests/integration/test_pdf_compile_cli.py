@@ -32,24 +32,37 @@ class TestPDFCompileCLI(unittest.TestCase):
         fixtures = Path(PROJECT_ROOT) / 'tests' / 'fixtures'
         org_path = fixtures / 'pdf_test.org'
         with tempfile.TemporaryDirectory() as td:
-            cmd = [
-                sys.executable,
-                '-m',
-                'pagemaker.cli',
-                'pdf',
-                str(org_path),
-                '--export-dir',
-                td,
-                '--pdf-output',
-                'out.pdf',
-                '--no-clean',
-            ]
-            env = os.environ.copy()
-            env['PYTHONPATH'] = SRC_PATH + os.pathsep + env.get('PYTHONPATH', '')
-            res = subprocess.run(cmd, cwd=PROJECT_ROOT, env=env, capture_output=True, text=True)
-            if res.returncode != 0:
-                self.fail(f"CLI pdf compile failed. STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}")
-            self.assertTrue((Path(td) / 'out.pdf').exists())
+            export_dir = Path(PROJECT_ROOT) / 'temp_test_pdfcli_export'
+            export_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                cmd = [
+                    sys.executable,
+                    '-m',
+                    'pagemaker.cli',
+                    'pdf',
+                    str(org_path),
+                    '--export-dir',
+                    str(export_dir),
+                    '--pdf-output',
+                    'out.pdf',
+                    '--no-clean',
+                ]
+                env = os.environ.copy()
+                env['PYTHONPATH'] = SRC_PATH + os.pathsep + env.get('PYTHONPATH', '')
+                res = subprocess.run(cmd, cwd=PROJECT_ROOT, env=env, capture_output=True, text=True)
+                if res.returncode != 0:
+                    self.fail(
+                        f"CLI pdf compile failed. STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+                    )
+                self.assertTrue((export_dir / 'out.pdf').exists())
+            finally:
+                try:
+                    pdf_path = export_dir / 'out.pdf'
+                    if pdf_path.exists():
+                        pdf_path.unlink()
+                    export_dir.rmdir()
+                except OSError:
+                    pass
 
 
 if __name__ == '__main__':

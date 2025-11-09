@@ -20,7 +20,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.parse
 import urllib.request
@@ -33,6 +32,12 @@ from .fonts import (
     _get_bundled_fonts,
     _get_font_paths,
     _get_project_fonts,
+)
+from .generation.pdf_processor import (
+    apply_pdf_fallbacks as _apply_pdf_svg_fallbacks,
+)
+from .generation.pdf_processor import (
+    sanitize_pdf_assets as _apply_pdf_sanitized_copies,
 )
 from .validation import validate_ir
 
@@ -658,200 +663,6 @@ def _compile_pdf(
 
 def _bin_exists(name: str) -> bool:
     return shutil.which(name) is not None
-
-
-def _make_sanitized_copy(src: pathlib.Path, dst: pathlib.Path) -> bool:
-    # Try qpdf repair; mutool clean; ghostscript distill. Writes to dst.
-    tmpdir = pathlib.Path(tempfile.mkdtemp(prefix='pm_pdf_'))
-    try:
-        work_in = src
-        # qpdf stage
-        qpdf_out = tmpdir / 'q1.pdf'
-        if _bin_exists('qpdf'):
-            res = subprocess.run(
-                [
-                    'qpdf',
-                    '--stream-data=uncompress',
-                    '--recompress-flate',
-                    '--object-streams=disable',
-                    str(work_in),
-                    str(qpdf_out),
-                ],
-                capture_output=True,
-                text=True,
-            )
-            if res.returncode == 0 and qpdf_out.exists():
-                work_in = qpdf_out
-        # mutool clean stage
-        mutool_out = tmpdir / 'm1.pdf'
-        if _bin_exists('mutool'):
-            res = subprocess.run(
-                ['mutool', 'clean', '-gg', '-d', str(work_in), str(mutool_out)],
-                capture_output=True,
-                text=True,
-            )
-            if res.returncode == 0 and mutool_out.exists():
-                work_in = mutool_out
-        # ghostscript stage
-        gs_out = tmpdir / 'g1.pdf'
-        if _bin_exists('gs'):
-            res = subprocess.run(
-                [
-                    'gs',
-                    '-sDEVICE=pdfwrite',
-                    '-dCompatibilityLevel=1.7',
-                    '-dPDFSETTINGS=/prepress',
-                    '-dNOPAUSE',
-                    '-dBATCH',
-                    f'-sOutputFile={gs_out}',
-                    str(work_in),
-                ],
-                capture_output=True,
-                text=True,
-            )
-            if res.returncode == 0 and gs_out.exists():
-                work_in = gs_out
-        # Finalize to dst
-        try:
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            dst.write_bytes(pathlib.Path(work_in).read_bytes())
-            return True
-        except Exception:
-            return False
-    finally:
-        try:
-            for p in tmpdir.glob('*'):
-                try:
-                    p.unlink()
-                except OSError:
-                    pass
-            tmpdir.rmdir()
-        except OSError:
-            pass
-
-
-def _convert_pdf_to_svg(src_pdf: pathlib.Path, out_svg: pathlib.Path, page: int = 1) -> bool:
-    if not _bin_exists('mutool'):
-        return False
-    # Render only the requested page to a single SVG
-    res = subprocess.run(
-        ['mutool', 'draw', '-F', 'svg', '-o', str(out_svg), str(src_pdf), str(page)],
-        capture_output=True,
-        text=True,
-    )
-    if res.returncode != 0:
-        return False
-    return out_svg.exists()
-
-
-def _convert_pdf_to_png(
-    src_pdf: pathlib.Path, out_png: pathlib.Path, page: int = 1, dpi: int = 160
-) -> bool:
-    # Prefer mutool PNG rendering; fallback to Ghostscript pngalpha
-    if _bin_exists('mutool'):
-        res = subprocess.run(
-            [
-                'mutool',
-                'draw',
-                '-F',
-                'png',
-                '-r',
-                str(dpi),
-                '-o',
-                str(out_png),
-                str(src_pdf),
-                str(page),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if res.returncode == 0 and out_png.exists():
-            return True
-    if _bin_exists('gs'):
-        res = subprocess.run(
-            [
-                'gs',
-                '-sDEVICE=pngalpha',
-                f'-r{dpi}',
-                '-dNOPAUSE',
-                '-dBATCH',
-                f'-dFirstPage={page}',
-                f'-dLastPage={page}',
-                f'-sOutputFile={out_png}',
-                str(src_pdf),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if res.returncode == 0 and out_png.exists():
-            return True
-    return False
-
-
-def _apply_pdf_sanitized_copies(ir: dict, export_dir: pathlib.Path) -> dict:
-    import copy
-
-    new_ir = copy.deepcopy(ir)
-    for page in new_ir.get('pages', []):
-        for el in page.get('elements', []):
-            pdf = el.get('pdf')
-            if not pdf or not pdf.get('src'):
-                continue
-            src_path = pathlib.Path(pdf['src'])
-            if src_path.suffix.lower() != '.pdf':
-                continue
-            abs_src = src_path if src_path.is_absolute() else (export_dir / src_path)
-            if not abs_src.exists():
-                abs_src = pathlib.Path.cwd() / src_path
-            abs_src = abs_src.resolve()
-            if not abs_src.exists():
-                continue
-            out_dir = export_dir / 'assets' / 'sanitized-pdfs'
-            out_dir.mkdir(parents=True, exist_ok=True)
-            sanitized = out_dir / abs_src.name
-            if _make_sanitized_copy(abs_src, sanitized):
-                pdf['src'] = os.path.relpath(sanitized, export_dir)
-    return new_ir
-
-
-def _apply_pdf_svg_fallbacks(ir: dict, export_dir: pathlib.Path) -> dict:
-    import copy
-
-    new_ir = copy.deepcopy(ir)
-    for page in new_ir.get('pages', []):
-        for el in page.get('elements', []):
-            pdf = el.get('pdf')
-            if not pdf or not pdf.get('src'):
-                continue
-            src_path = pathlib.Path(pdf['src'])
-            # Only handle PDFs; skip if already not a PDF (e.g., sanitized to SVG/PNG)
-            if src_path.suffix.lower() != '.pdf':
-                continue
-            abs_src = src_path if src_path.is_absolute() else (export_dir / src_path)
-            if not abs_src.exists():
-                abs_src = pathlib.Path.cwd() / src_path
-            abs_src = abs_src.resolve()
-            if not abs_src.exists():
-                continue
-            # Determine page (1-based in IR), default 1
-            try:
-                pg = int(pdf.get('pages', [1])[0])
-            except Exception:
-                pg = 1
-            # Try SVG first
-            svg_name = f"{abs_src.stem}-p{pg}.svg"
-            svg_out = export_dir / 'assets' / 'pdf-fallbacks' / svg_name
-            svg_out.parent.mkdir(parents=True, exist_ok=True)
-            if _convert_pdf_to_svg(abs_src, svg_out, page=pg):
-                pdf['src'] = os.path.relpath(svg_out, export_dir)
-                continue
-            # If SVG fails, try PNG raster fallback
-            png_name = f"{abs_src.stem}-p{pg}.png"
-            png_out = export_dir / 'assets' / 'pdf-fallbacks' / png_name
-            png_out.parent.mkdir(parents=True, exist_ok=True)
-            if _convert_pdf_to_png(abs_src, png_out, page=pg):
-                pdf['src'] = os.path.relpath(png_out, export_dir)
-    return new_ir
 
 
 def _compile_with_fallback(

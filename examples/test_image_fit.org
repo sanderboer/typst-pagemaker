@@ -71,6 +71,8 @@ Testing with different aspect ratios
  :AREA: F1,G3
 :FIT: contain
 :CAPTION: kitten - contain
+:align: left
+:valign: bottom
 :END:
 [[file:assets/test-images/kittens/kitten-2.jpg]]
 

@@ -23,16 +23,18 @@ This approach is ideal for creating presentations, posters, reports, and any doc
 ## Features
 
 ### Migration Notice (Breaking Change)
-PDF embedding now always uses automatic contain scaling (legacy `:FIT:` modes and the `:FULL_PAGE:` flag for `pdf` elements were removed). A previously documented optional `:SCALE:` multiplier is currently ignored and will emit a warning when specified.
+PDF embedding now always uses automatic contain scaling with permitted upscaling (legacy `:FIT:` modes and the `:FULL_PAGE:` flag for `pdf` elements were removed). A previously documented optional `:SCALE:` multiplier is currently ignored and will emit a warning when specified.
 
-New behavior (pdf elements only):
-- The system computes a base auto-contain scale so the intrinsic PDF page fits entirely within the element's padded frame (respecting margins + element `:PADDING:`).
+New behavior (pdf elements only, upscaling enabled):
+- The system computes a base auto-contain scale so the intrinsic PDF page fits entirely within the element's padded frame (respecting margins + element `:PADDING:`). This scale may exceed 1.0 when the frame is larger than the intrinsic page (upscaling allowed).
 - User `:SCALE:` values (if present in older documents) are ignored for now (warning emitted). Future releases may reintroduce controlled fit modes.
-- Result: PDFs never overflow their frame via scale; enlarge the `:AREA:` to show more context.
+- Any `:FIT:` value other than `contain` on a `pdf` element is ignored with a warning (contain-only scaling is enforced).
+- Result: PDFs always fit within their frame via contain scaling (may downscale or upscale). Enlarge the `:AREA:` to show more context; reduce to zoom in with upscaling.
 
 Migration:
 - Remove any `:FIT:` / `:FULL_PAGE:` properties on `pdf` elements (ignored if still present).
-- If you previously relied on `:FIT: contain` just delete it (behavior now default). If you relied on oversizing via `:FIT: fill` or manual big areas, you may enlarge the `:AREA:` instead; scale no longer exceeds containment.
+- If you previously relied on `:FIT: contain` just delete it (behavior now default). If you relied on oversizing via `:FIT: fill` or manual big areas, you may enlarge the `:AREA:` or rely on intrinsic upscaling (scale may now exceed 1.0 when frame larger).
+- Non-contain `:FIT:` values (e.g. `cover`, `fill`, `stretch`) on `pdf` elements now emit a warning and are ignored.
 - Image `figure` elements still support `:FIT:` (contain|cover|fill) unchanged.
 - Legacy per-PDF alignment property (`pdf_align` / `:PDF_ALIGN:`) has been removed; use the standard `:ALIGN:` / `:VALIGN:` properties on `pdf` elements.
 
@@ -46,7 +48,7 @@ See the Vector PDF Embedding section below for details and examples.
 - **Typography**: Fonts and basic theming
 
 ### Features
-- **PDF embedding**: Native Typst image() PDF page embedding (automatic contain scaling) with optional deprecated MuchPDF legacy path (set PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1) and sanitize/SVG/PNG fallback
+- **PDF embedding**: Native Typst image() PDF page embedding (automatic contain scaling, upscaling allowed) with optional sanitize/SVG/PNG fallback
 - **Rectangles**: Colored overlays with alpha transparency; optional stroke, stroke_color fallback, and corner radius
 - **Images**: Fit modes (contain, cover, fill) and captions
 - **Debug grid**: Optional grid lines and labels (columns 1..N, rows a..z)
@@ -63,9 +65,9 @@ See the Vector PDF Embedding section below for details and examples.
 | `header` | Main headings | Font: Inter Bold, 24pt |
 | `subheader` | Section headings | Font: Inter SemiBold, 18pt |  
 | `body` | Regular text | Font: Inter Regular |
-| `figure` | Images with optional captions | Supports fit modes, captions |
-| `pdf` | Vector PDF embedding | Page selection, scaling |
-| `svg` | SVG image embedding | Fit: contain; path via `:SVG:` |
+| `figure` | Images/PDFs with captions | Supports fit modes, captions, page selection (`:PAGE:`) |
+| `pdf` | Vector PDF embedding | Page selection (`:PAGE:`), captions (`:CAPTION:`), auto contain scaling |
+| `svg` | SVG image embedding | Contain-only scaling (non-contain `:FIT:` ignored with warning); path via `:SVG:` |
 | `rectangle` | Colored overlays | Color, alpha, optional stroke/stroke_color/radius |
 | `toc` | Table of contents | Auto-lists slide titles (• 1. Title); supports :AREA:, :PADDING:, :ALIGN: |
 
@@ -227,6 +229,81 @@ When exporting into an `export/` directory, any relative asset references in the
 :SVG: assets/graphics/logo.svg
 ```
 are automatically rewritten so the generated `deck.typ` can reside in `export/` while still finding the assets in the project root. You can also use absolute paths if preferred.
+
+#### Unified Media Source (:SRC:)
+Media elements (`figure`, `pdf`, `svg`) now accept a unified `:SRC:` property for their primary asset path. Precedence rules:
+1. If `:SRC:` is present and non-empty it is used.
+2. Else legacy keys are used (`:PDF:` for pdf, `:SVG:` for svg), or for figures a single `[[file:...]]` link.
+3. When both `:SRC:` and a legacy key are present, the legacy key is ignored (deprecation warning emitted).
+4. Using only `:PDF:` or `:SVG:` emits a deprecation warning advising migration to `:SRC:`.
+
+Examples:
+```org
+** Vector Logo
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/graphics/logo.svg
+:END:
+
+** Plan Page 2
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/spec.pdf
+:PAGE: 2
+:END:
+
+** Cover Image
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/forest.jpg
+:FIT: cover
+:END:
+```
+Figure elements still accept a lone `[[file:...]]` link when `:SRC:` is omitted, but new documents should prefer explicit `:SRC:` for consistency.
+
+### Asset Path Resolver (Detailed Behavior)
+All path rewriting is centralized in `AssetPathResolver` (`src/pagemaker/utils/assets_paths.py`). It converts element `figure`/`pdf`/`svg` `src` values into paths relative to the chosen export (`--export-dir`) so the `.typ` file can move independently of your assets.
+
+Precedence (non-strict mode):
+1. Absolute paths or protocol URLs (`/abs/path`, `https://...`) are passed through unchanged.
+2. Invocation current working directory (the directory you run `pagemaker` from).
+3. Source document directory (only used when caller supplies it; current CLI path does not pass this yet).
+4. Project root (auto-detected by searching upward for `pyproject.toml` or `.git`).
+5. Typst export directory (the directory that will contain `deck.typ`).
+6. Examples fallback: if the unresolved relative path starts with `assets/`, the resolver also tries `<project_root>/examples/<src>`.
+7. Best-effort rewrite: if still unresolved and non-strict, the relative path is mapped through the project root so that a stable relative reference is emitted instead of leaving it unchanged.
+
+Strict mode difference: In strict mode (unused by CLI today) missing relative paths are left unchanged (they will likely cause a later failure) instead of being rewritten via best-effort mapping.
+
+Caching: Resolutions are memoized per original `src` string for the lifetime of the resolver instance (improves large document builds).
+
+Examples Fallback Use Case:
+If you reference an asset that only exists under `examples/assets/...` (e.g. `[[file:assets/test-images/forest.jpg]]`) and you run the CLI from the project root, the resolver will rewrite the path to a relative traversal pointing into `examples/assets/...`. This lets example Org files stay portable without copying assets into the top-level `assets/` folder.
+
+Debugging Path Decisions:
+Set environment variable `PAGEMAKER_DEBUG_ASSET_PATHS=1` when running any CLI command to log each asset rewrite:
+```
+PAGEMAKER_DEBUG_ASSET_PATHS=1 pagemaker build examples/sample.org --export-dir export
+```
+Log lines look like:
+```
+[asset-path-debug] src='assets/test-images/forest.jpg' -> '../examples/assets/test-images/forest.jpg' (resolved:/absolute/path/to/examples/assets/test-images/forest.jpg)
+```
+Reason codes:
+- `resolved:<absolute>`: Chosen candidate path existed.
+- `unchanged-strict-or-absent`: Strict mode left path unchanged or no mapping was possible.
+
+Absolute / Protocol Short-Circuit:
+Values beginning with `/` or containing a protocol scheme (e.g. `https://`, `s3://`) bypass all rewriting and remain exactly as specified.
+
+Best Practices:
+- Prefer relative `assets/...` paths for portability (works with examples fallback).
+- Use absolute paths only for external or system-managed locations.
+- To troubleshoot a missing image/PDF/SVG, rerun with the debug flag and inspect which candidate actually resolved.
+
+Future Enhancements:
+- CLI may pass the source document directory to further prioritize colocated assets.
+- Strict asset validation (`--strict-assets`) already exists on the `validate` subcommand for treating missing figure/pdf assets as errors (operates after rewriting).
 
 ### Example Org File
 
@@ -770,6 +847,10 @@ Emission rules:
 
 
 ### Vector PDF Embedding
+
+Developer API deprecation note:
+- `pagemaker.generator._pdf_intrinsic_size_mm` is deprecated. Import `pdf_intrinsic_size_mm` from `pagemaker.generation.pdf_processor` instead. The old alias emits a DeprecationWarning and will be removed in a future minor release.
+- PDF point-to-mm conversion uses `PAGEMAKER_PDF_PT_PER_IN` (default `72`). Future releases may probe DPI dynamically.
 Include high-quality PDF pages with fallback support:
 ```org
 ** Technical Diagram
@@ -783,23 +864,25 @@ Include high-quality PDF pages with fallback support:
 :END:
 ```
 Notes:
-- For problematic PDFs, run the CLI with `--sanitize-pdfs` (legacy MuchPDF path is deprecated and optional).
+- For problematic PDFs, run the CLI with `--sanitize-pdfs`. If sanitization still fails, pagemaker auto-falls back to SVG/PNG for the requested page.
 - If sanitization still fails, the first requested page is auto-converted to SVG (preferred) or PNG and embedded as an image.
 - Fallback assets are written under `export_dir/assets/pdf-fallbacks/` and linked in the generated Typst.
 
-PDF scaling semantics (automatic contain + multiplier):
+PDF scaling semantics (automatic contain scaling with upscaling):
 - Intrinsic PDF size is parsed (MediaBox) to obtain its natural width/height in mm.
 - The usable element frame is the declared `:AREA:` cell span minus element `:PADDING:` (and respects page `#+MARGINS:` when present).
-- Applied scale: `base_scale = min(frame_w_mm / pdf_w_mm, frame_h_mm / pdf_h_mm)` (falls back to 1.0 when intrinsic probing fails).
+- Applied scale: `base_scale = min(frame_w_mm / pdf_w_mm, frame_h_mm / pdf_h_mm)` (falls back to 1.0 when intrinsic probing fails). Upscaling is allowed when the frame is larger than the intrinsic page (no upper cap).
 - Any legacy `:SCALE:` property (from earlier docs) is currently ignored with a warning; only containment is applied.
+- Any `:FIT:` value other than `contain` on a `pdf` element is ignored with a single parser warning; non-contain values are normalized to `contain`.
 - Element `:PADDING:` reduces the frame before base scale calculation (shrinking resulting size).
+- Alignment (`:ALIGN:` / `:VALIGN:`) now influences PDF placement: when alignment or vertical alignment is specified, the generator wraps `PdfEmbed` in a `block(width: <drawn_w>, height: <drawn_h>)` sized to the scaled intrinsic PDF page so Typst `align(...)[]` positioning affects that block inside the element frame. Without alignment, `PdfEmbed` occupies the full frame (100% width/height) and is visually centered by contain-fit.
 
 Legacy validation errors related to `:SCALE:` are currently dormant because `:SCALE:` is ignored; future fit/scale options may restore stricter validation.
 
 Migration from older versions:
 - Remove any `:FIT:` or `:FULL_PAGE:` on pdf elements (ignored if present).
 - If you depended on `:FIT: contain`, just delete it (now default implicit behavior).
-- If you previously used `:FIT: fill` to overshoot, enlarge the `:AREA:` instead; scale is capped at containment.
+- If you previously used `:FIT: fill` to overshoot, enlarge the `:AREA:` or rely on upscaling; contain scaling is always applied and may exceed 1.0 when the frame is larger.
 - To simulate a full-page background, span the entire (including margin tracks) grid with `:AREA:` and keep default scale.
 
 Planned (optional) debug: A future `:PDF_DEBUG_SCALE:` flag may emit computed `pdf_w_mm`, `pdf_h_mm`, `frame_w_mm`, `frame_h_mm`, `base_scale` as Typst comments for troubleshooting (user scale currently unused).
@@ -816,6 +899,49 @@ Embed SVG graphics directly:
 ```
 - Paths are treated like other assets and adjusted relative to the export directory.
 - Fit defaults to contain within the target area.
+
+### Media Consolidation: Cross-Type Features
+
+The `figure` and `pdf` element types now share common capabilities, allowing flexible media handling:
+
+**Figure with PDF Pages:**
+Use `:PAGE:` property on `figure` elements to select specific pages from multi-page PDFs:
+```org
+** Specification Page 3
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/documentation.pdf
+:PAGE: 3
+:CAPTION: System Architecture Overview
+:AREA: A1,L8
+:END:
+```
+
+**PDF with Captions:**
+Use `:CAPTION:` property on `pdf` elements to add descriptive text:
+```org
+** Technical Drawing
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/blueprint.pdf
+:PAGE: 1
+:CAPTION: Floor Plan - Ground Level
+:AREA: A1,L8
+:END:
+```
+
+**Feature Unification:**
+- Both types support `:SRC:` for the asset path
+- Both types support `pages:` list internally (`:PAGE:` property translates to `pages: [N]`)
+- Both types support `:CAPTION:` for figure captions
+- Both types support alignment (`:ALIGN:`, `:VALIGN:`) and fit modes
+- Semantic distinction remains: use `figure` for raster/vector images, `pdf` for document pages
+- The choice between types is primarily semantic rather than functional
+
+**Benefits:**
+- More flexible workflows: embed captioned PDFs or specific pages from image-based PDFs
+- Consistent property interface across media types
+- Easier migration between element types when document structure changes
 
 ### Margins
 Define outer margins in millimeters that expand the total grid while keeping your content coordinates stable. Format: `top,right,bottom,left` (CSS TRBL order).
@@ -964,7 +1090,7 @@ make test
 python -m unittest discover tests -v
 ```
 
-- The suite includes an optional PDF compile test that runs `pagemaker pdf` end-to-end and compiles via Typst. It automatically skips if `typst` is unavailable. Legacy MuchPDF-specific tests only run when PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1 is set.
+- The suite includes an optional PDF compile test that runs `pagemaker pdf` end-to-end and compiles via Typst. It automatically skips if `typst` is unavailable.
 
 ### Code Style & Pre-commit
 

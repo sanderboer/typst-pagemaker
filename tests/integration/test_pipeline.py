@@ -30,11 +30,8 @@ class TestPipeline(unittest.TestCase):
         # Generate typst code
         typst_code = pm.generate_typst(ir)
         self.assertIsInstance(typst_code, str)
-        # Legacy muchpdf import should only appear when PAGEMAKER_ENABLE_MUCHPDF_LEGACY=1
-        if os.environ.get('PAGEMAKER_ENABLE_MUCHPDF_LEGACY') == '1':
-            self.assertIn('#import "@preview/muchpdf:0.1.1"', typst_code)
-        else:
-            self.assertNotIn('#import "@preview/muchpdf:0.1.1"', typst_code)
+        # Legacy muchpdf import path removed; import must never appear
+        self.assertNotIn('#import "@preview/muchpdf:0.1.1"', typst_code)
 
     def test_pdf_org_to_typst(self):
         """Test converting PDF org file to typst"""
@@ -43,11 +40,8 @@ class TestPipeline(unittest.TestCase):
 
         # Generate typst code
         typst_code = pm.generate_typst(ir)
-        # Native embedding should use PdfEmbed macro; muchpdf only in legacy mode.
-        if os.environ.get('PAGEMAKER_ENABLE_MUCHPDF_LEGACY') == '1':
-            self.assertIn('muchpdf', typst_code)
-        else:
-            self.assertNotIn('muchpdf', typst_code)
+        # Native embedding uses PdfEmbed macro; legacy muchpdf path removed.
+        self.assertNotIn('muchpdf', typst_code)
         self.assertIn('PdfEmbed(', typst_code)
         self.assertIn('assets/test-pdfs/test-plan.pdf', typst_code)
 

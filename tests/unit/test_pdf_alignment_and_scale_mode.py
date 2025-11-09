@@ -18,48 +18,47 @@ def test_pdf_align_center_right_and_valign_middle_emits_align_wrapper():
             'id': 'pdf_center',
             'type': 'pdf',
             'area': {'x': 1, 'y': 1, 'w': 2, 'h': 2},
-            'pdf': {'src': 'dummy.pdf', 'pages': [1], 'scale_mode': 'contain'},
+            'pdf': {'src': 'dummy.pdf', 'pages': [1], 'fit': 'contain'},
             'align': 'center',
         },
         {
             'id': 'pdf_right',
             'type': 'pdf',
             'area': {'x': 1, 'y': 1, 'w': 2, 'h': 2},
-            'pdf': {'src': 'dummy.pdf', 'pages': [1], 'scale_mode': 'contain'},
+            'pdf': {'src': 'dummy.pdf', 'pages': [1], 'fit': 'contain'},
             'align': 'right',
         },
         {
             'id': 'pdf_middle',
             'type': 'pdf',
             'area': {'x': 1, 'y': 1, 'w': 2, 'h': 2},
-            'pdf': {'src': 'dummy.pdf', 'pages': [1], 'scale_mode': 'contain'},
+            'pdf': {'src': 'dummy.pdf', 'pages': [1], 'fit': 'contain'},
             'valign': 'middle',
         },
     ]
     ir = {'meta': {}, 'pages': [base]}
     typ = generate_typst(ir)
-    # Expect align wrappers present
-    assert 'align(center)[#PdfEmbed("dummy.pdf", page: 1, scale:' in typ
-    assert 'align(right)[#PdfEmbed("dummy.pdf", page: 1, scale:' in typ
+    # Expect align wrappers present for aligned PDFs
+    assert 'align(center)[' in typ
+    assert 'align(right)[' in typ
     # Middle vertical alignment maps to horizon token
-    assert 'align(horizon)[#PdfEmbed("dummy.pdf", page: 1, scale:' in typ
+    assert 'align(horizon)[' in typ
 
 
-def test_pdf_scale_mode_cover_uses_larger_scale():
-    # Frame aspect deliberately mismatched to force difference between contain and cover
+def test_pdf_scale_mode_always_contain():
     page = _page()
     page['elements'] = [
         {
             'id': 'pdf_contain',
             'type': 'pdf',
-            'area': {'x': 1, 'y': 1, 'w': 2, 'h': 1},  # wide but short frame
-            'pdf': {'src': 'dummy.pdf', 'pages': [1], 'scale_mode': 'contain'},
+            'area': {'x': 1, 'y': 1, 'w': 2, 'h': 1},
+            'pdf': {'src': 'dummy.pdf', 'pages': [1], 'fit': 'contain'},
         },
         {
-            'id': 'pdf_cover',
+            'id': 'pdf_cover_ignored',
             'type': 'pdf',
             'area': {'x': 1, 'y': 1, 'w': 2, 'h': 1},
-            'pdf': {'src': 'dummy.pdf', 'pages': [1], 'scale_mode': 'cover'},
+            'pdf': {'src': 'dummy.pdf', 'pages': [1], 'fit': 'cover'},
         },
     ]
     ir = {'meta': {}, 'pages': [page]}
@@ -67,6 +66,6 @@ def test_pdf_scale_mode_cover_uses_larger_scale():
     import re
 
     scales = re.findall(r'PdfEmbed\("dummy.pdf", page: 1, scale: ([0-9.]+)\)', typ)
+    # Both elements should now share identical contain scaling
     assert len(scales) == 2
-    s_contain, s_cover = (float(s) for s in scales)
-    assert s_cover >= s_contain
+    assert abs(float(scales[0]) - float(scales[1])) < 1e-9

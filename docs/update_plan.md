@@ -1,6 +1,6 @@
 # Pagemaker Modernization Roadmap
 
-**Document Version**: 2.2  
+**Document Version**: 2.3  
 **Last Updated**: 2025-11-09  
 **Status**: Active Development
 
@@ -12,7 +12,9 @@ This document consolidates all planned improvements for pagemaker's media handli
 
 ### High-Level Goals
 1. **Unify Media Embedding**: Single `:FIT:` API for images, SVGs, and PDFs with consistent cover/contain/stretch semantics
-2. **Fix Critical Bugs**: SVG sizing fallback bug causing incorrect scaling with alignment
+2. **Fix Critical Bugs**: 
+   - `:FIT: cover` mode not working for any media type (images, SVGs, PDFs)
+   - SVG sizing fallback bug causing incorrect scaling with alignment
 3. **Improve Code Quality**: Extract ~160 lines of duplicated rendering logic into reusable abstractions
 4. **Modernize PDF Pipeline**: Complete native Typst embedding, deprecate legacy fallbacks
 5. **Enhance Developer Experience**: Clear architecture, comprehensive tests, excellent documentation
@@ -31,9 +33,12 @@ This document consolidates all planned improvements for pagemaker's media handli
   - ✅ PDF placement (positioning in frames) working correctly
   - ✅ PDF alignment (`:ALIGN:` and `:VALIGN:` properties) working correctly
   - ✅ PDF captions with alignment working (bug fix below)
-  - ⚠️ **NOT YET IMPLEMENTED**: PDF/Image/SVG cropping for `:FIT: cover` mode
-    - Cover mode exists in code but clipping/cropping not yet implemented or tested
-    - This is part of **M3: Cover/Contain FIT Unification** milestone
+  - ❌ **BROKEN**: `:FIT: cover` mode does NOT work for any media type
+    - Images (raster): cover mode broken, no clipping/cropping implemented
+    - SVGs (vector): cover mode broken, no clipping/cropping implemented
+    - PDFs: cover mode broken, no clipping/cropping implemented
+    - Parser accepts `:FIT: cover` but rendering doesn't implement cropping logic
+    - **This is a critical bug to be fixed in M3: Cover/Contain FIT Unification**
 - [x] **Bug Fix**: PDF/Image caption + alignment rendering (2025-11-09)
   - Fixed captions not rendering when both caption and alignment specified
   - Added `fill_space` parameter to `Fig()` helper in `core.py`
@@ -51,7 +56,12 @@ This document consolidates all planned improvements for pagemaker's media handli
   - Intrinsic dimensions correctly detected via `pdf_intrinsic_size_mm`
   - Positioning in frames with `:ALIGN:` and `:VALIGN:` properties working
   - Caption rendering with alignment working (see bug fix below)
-  - **Note**: `:FIT: cover` mode with cropping NOT YET implemented (planned for M3)
+- **2025-11-09**: ❌ `:FIT: cover` mode is BROKEN for all media types
+  - Does NOT work for raster images (PNG, JPEG, etc.)
+  - Does NOT work for SVGs
+  - Does NOT work for PDFs
+  - Parser accepts the property, but rendering logic doesn't implement clipping/cropping
+  - Urgent fix needed in **M3: Cover/Contain FIT Unification**
 
 ### Bug Fixes & Code Quality
 - **2025-11-09**: Fixed PDF/image caption + alignment bug where captions disappeared when alignment was specified
@@ -242,8 +252,10 @@ Replace type-specific if/elif branches in `generation/core.py:999-1162` with str
 ## M3: Cover/Contain FIT Unification (Week 3-4)
 **Goal**: Support true cover/contain/stretch semantics uniformly across all media types
 
+**CRITICAL**: `:FIT: cover` mode is currently broken for ALL media types (images, SVGs, PDFs).
+
 ### Overview
-Currently PDFs are forcibly normalized to `contain` and SVGs lack proper cover support. **Basic PDF sizing, placement, and alignment are working correctly** (as of Nov 2025), but `:FIT: cover` mode with cropping is not yet implemented. This milestone will implement full cover semantics with alignment-based cropping for all media types.
+Currently PDFs are forcibly normalized to `contain` and SVGs lack proper cover support. **Basic PDF sizing, placement, and alignment are working correctly** (as of Nov 2025), but `:FIT: cover` mode with cropping is **completely broken across all media types**. This milestone will implement full cover semantics with alignment-based cropping for all media types.
 
 ### Tasks
 
@@ -265,7 +277,16 @@ Currently PDFs are forcibly normalized to `contain` and SVGs lack proper cover s
   - [ ] Cover with alignment (left/center/right offsets)
   - [ ] Edge case: zero-dimension intrinsic
 
-#### M3.3: PDF Cover Support
+#### M3.3: Raster Image Cover Support
+- [ ] **Fix broken cover mode**: Currently does not work at all for raster images (PNG, JPEG, etc.)
+- [ ] Update `FigureRenderStrategy.render()` to support cover fit
+- [ ] Implement clipping for raster images when using cover mode
+- [ ] Test with various image formats (PNG, JPEG, etc.)
+- [ ] Test alignment anchors determine visible region
+- [ ] Create integration test: `tests/integration/test_image_cover_visual.py`
+
+#### M3.4: PDF Cover Support
+- [ ] **Fix broken cover mode**: Currently does not work at all for PDFs
 - [ ] Update `PdfRenderStrategy.render_manual()` to support cover fit
 - [ ] Implement clipping: `block(clip: true)[place(dx, dy)[image(...)]]`
 - [ ] **Note**: PDF sizing and alignment already working, only cropping needs implementation
@@ -278,14 +299,15 @@ Currently PDFs are forcibly normalized to `contain` and SVGs lack proper cover s
   - [ ] Verify clipping applied in Typst output
   - [ ] (Optional) Use pdfplumber to verify visual bounds
 
-#### M3.4: SVG Cover Support
+#### M3.5: SVG Cover Support
+- [ ] **Fix broken cover mode**: Currently does not work at all for SVGs
 - [ ] Update `SvgRenderStrategy` to support cover (uses same math as PDF)
 - [ ] Confirm Typst `image(fit: "cover")` behavior with SVGs
 - [ ] If Typst auto-crops: use built-in, else: manual clip block
 - [ ] Test alignment combinations (3 horizontal × 3 vertical = 9 cases)
 - [ ] Create integration test: `tests/integration/test_svg_cover_visual.py`
 
-#### M3.5: Alignment Offset Verification
+#### M3.6: Alignment Offset Verification
 - [ ] Document alignment-to-offset mapping in code comments
 - [ ] Create visual test document: `examples/alignment_matrix.org`
   - [ ] 3×3 grid showing all alignment combinations
@@ -294,10 +316,11 @@ Currently PDFs are forcibly normalized to `contain` and SVGs lack proper cover s
 - [ ] Compile and manually verify visual correctness
 
 ### Acceptance Criteria
-- [ ] Users can specify `:FIT: cover` on pdf/svg without warnings
+- [ ] **Critical**: Cover mode works for ALL media types (raster images, SVGs, PDFs)
+- [ ] Users can specify `:FIT: cover` on images/svg/pdf without warnings
 - [ ] Cover mode crops correctly based on alignment tokens
 - [ ] All existing tests pass (zero regressions)
-- [ ] 20+ new tests covering cover mode edge cases
+- [ ] 20+ new tests covering cover mode edge cases for all media types
 - [ ] Visual verification document demonstrates alignment behavior
 
 ### Risks & Mitigation
@@ -526,6 +549,7 @@ All milestones must maintain:
 - [ ] <5% performance overhead
 
 ### Qualitative
+- [ ] **Critical Bug Fixed**: `:FIT: cover` mode works for ALL media types (images, SVGs, PDFs)
 - [ ] **Critical Bug Fixed**: SVG alignment/cover sizing works correctly
 - [ ] Consistent behavior across all media types (figure/svg/pdf)
 - [ ] Clear architecture enables easy extension

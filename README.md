@@ -34,8 +34,8 @@ All media types (images, PDFs, SVGs) now support unified fit modes with consiste
 - Intrinsic sizing automatically detected for all media types
 
 **Migration steps:**
-- Legacy `:PDF:` and `:SVG:` properties are deprecated—use `:SRC:` instead
-- Figure elements prefer `[[file:...]]` links (org-mode native syntax); `:SRC:` also supported
+- Legacy `:PDF:` and `:SVG:` properties are deprecated—use `[[file:...]]` links (recommended) or `:SRC:` property
+- All media types support native org-mode `[[file:...]]` link syntax
 - Legacy `:PDF_ALIGN:` property was removed—use standard `:ALIGN:` / `:VALIGN:`
 
 See the [Media Embedding](#media-embedding-images-pdfs-svgs) section for comprehensive documentation.
@@ -234,36 +234,46 @@ When exporting into an `export/` directory, any relative asset references in the
 ```
 are automatically rewritten so the generated `deck.typ` can reside in `export/` while still finding the assets in the project root. You can also use absolute paths if preferred.
 
-#### Unified Media Source (:SRC:)
-Media elements (`figure`, `pdf`, `svg`) now accept a unified `:SRC:` property for their primary asset path. Precedence rules:
-1. If `:SRC:` is present and non-empty it is used.
-2. Else legacy keys are used (`:PDF:` for pdf, `:SVG:` for svg), or for figures a single `[[file:...]]` link.
-3. When both `:SRC:` and a legacy key are present, the legacy key is ignored (deprecation warning emitted).
-4. Using only `:PDF:` or `:SVG:` emits a deprecation warning advising migration to `:SRC:`.
+#### Unified Media Source
+Media elements (`figure`, `pdf`, `svg`) accept source paths via `[[file:...]]` links (preferred, native org-mode) or the `:SRC:` property. Precedence rules:
+1. If `[[file:...]]` link exists in content, it is used (native org-mode syntax - **recommended**)
+2. Else if `:SRC:` property is present and non-empty, it is used
+3. Else legacy keys are used (`:PDF:` for pdf, `:SVG:` for svg - **deprecated**)
+4. When both `:SRC:` and a legacy key are present, the legacy key is ignored (deprecation warning emitted)
 
-Examples:
+**Recommended syntax (native org-mode):**
+```org
+** Vector Logo
+:PROPERTIES:
+:TYPE: svg
+:END:
+[[file:assets/graphics/logo.svg]]
+
+** Plan Page 2
+:PROPERTIES:
+:TYPE: pdf
+:PAGE: 2
+:END:
+[[file:assets/spec.pdf]]
+
+** Cover Image
+:PROPERTIES:
+:TYPE: figure
+:FIT: cover
+:END:
+[[file:assets/test-images/forest.jpg]]
+```
+
+**Alternative syntax (property-based):**
 ```org
 ** Vector Logo
 :PROPERTIES:
 :TYPE: svg
 :SRC: assets/graphics/logo.svg
 :END:
-
-** Plan Page 2
-:PROPERTIES:
-:TYPE: pdf
-:SRC: assets/spec.pdf
-:PAGE: 2
-:END:
-
-** Cover Image
-:PROPERTIES:
-:TYPE: figure
-:SRC: assets/test-images/forest.jpg
-:FIT: cover
-:END:
 ```
-Figure elements still accept a lone `[[file:...]]` link when `:SRC:` is omitted, but new documents should prefer explicit `:SRC:` for consistency.
+
+Both syntaxes work for all media types. Use `[[file:...]]` for consistency with org-mode conventions.
 
 ### Asset Path Resolver (Detailed Behavior)
 All path rewriting is centralized in `AssetPathResolver` (`src/pagemaker/utils/assets_paths.py`). It converts element `figure`/`pdf`/`svg` `src` values into paths relative to the chosen export (`--export-dir`) so the `.typ` file can move independently of your assets.
@@ -469,10 +479,10 @@ typst-pagemaker/
 ** PDF Page
 :PROPERTIES:
 :TYPE: pdf
-:PDF: path/to/doc.pdf
 :PAGE: 2
 :AREA: A5,F8
 :END:
+[[file:path/to/doc.pdf]]
 
 ** Colored Rectangle
 :PROPERTIES:
@@ -834,7 +844,8 @@ All media elements (`figure`, `pdf`, `svg`) support these common properties:
 
 | Property | Values | Description |
 |----------|--------|-------------|
-| `:SRC:` | Path or URL | Primary asset path (replaces legacy `:PDF:` / `:SVG:`) |
+| `[[file:...]]` | Path or URL | Native org-mode link syntax (**recommended**) |
+| `:SRC:` | Path or URL | Alternative property-based syntax |
 | `:FIT:` | `contain`, `cover`, `stretch` | How media scales within its frame |
 | `:ALIGN:` | `left`, `center`, `right` | Horizontal alignment within frame |
 | `:VALIGN:` | `top`, `middle`, `bottom` | Vertical alignment within frame |
@@ -843,7 +854,7 @@ All media elements (`figure`, `pdf`, `svg`) support these common properties:
 | `:PAGE:` | Number | Select page from multi-page PDF (figure and pdf) |
 | `:Z:` | Number | Stacking order |
 
-**Migration Note:** Legacy `:PDF:` and `:SVG:` properties are deprecated. Use `:SRC:` instead. Figure elements can still use `[[file:...]]` links but `:SRC:` is recommended for consistency.
+**Migration Note:** Legacy `:PDF:` and `:SVG:` properties are deprecated. Use `[[file:...]]` links (recommended) or `:SRC:` property instead.
 
 #### Fit Modes Explained
 
@@ -855,10 +866,10 @@ The `:FIT:` property controls how media scales to fill its frame (defined by `:A
 ** Logo (centered, no cropping)
 :PROPERTIES:
 :TYPE: figure
-:SRC: assets/logo.png
 :FIT: contain
 :AREA: B2,D4
 :END:
+[[file:assets/logo.png]]
 ```
 
 **`cover`**: Scales media to completely fill the frame while preserving aspect ratio. Media is cropped if aspect ratios don't match. Use `:ALIGN:` and `:VALIGN:` to control which part is visible.
@@ -867,12 +878,12 @@ The `:FIT:` property controls how media scales to fill its frame (defined by `:A
 ** Hero Image (fills area, crops edges)
 :PROPERTIES:
 :TYPE: figure
-:SRC: assets/hero.jpg
 :FIT: cover
 :ALIGN: center
 :VALIGN: middle
 :AREA: A1,L4
 :END:
+[[file:assets/hero.jpg]]
 ```
 
 **`stretch`**: Distorts media to exactly match frame dimensions, ignoring aspect ratio. Rarely needed but useful for precise graphic alignment.
@@ -881,10 +892,10 @@ The `:FIT:` property controls how media scales to fill its frame (defined by `:A
 ** Exact Fit (may distort)
 :PROPERTIES:
 :TYPE: figure
-:SRC: assets/bg-pattern.png
 :FIT: stretch
 :AREA: A1,L8
 :END:
+[[file:assets/bg-pattern.png]]
 ```
 
 #### Alignment Behavior
@@ -915,12 +926,12 @@ Example: Cover mode with alignment to focus on specific area:
 ** Portrait Photo (focus on face)
 :PROPERTIES:
 :TYPE: figure
-:SRC: assets/portrait.jpg
 :FIT: cover
 :ALIGN: center
 :VALIGN: top    # Keep top portion visible (face)
 :AREA: C2,E6
 :END:
+[[file:assets/portrait.jpg]]
 ```
 
 Example: Landscape photo with left-aligned crop:
@@ -928,12 +939,12 @@ Example: Landscape photo with left-aligned crop:
 ** Landscape (focus on left side)
 :PROPERTIES:
 :TYPE: figure
-:SRC: assets/landscape.jpg
 :FIT: cover
 :ALIGN: left    # Keep left edge visible
 :VALIGN: middle
 :AREA: B3,F5
 :END:
+[[file:assets/landscape.jpg]]
 ```
 
 #### Media Type Reference
@@ -948,11 +959,11 @@ Example: Landscape photo with left-aligned crop:
 ** Product Photo
 :PROPERTIES:
 :TYPE: figure
-:SRC: assets/product.jpg
 :FIT: cover
 :CAPTION: Premium Widget - Model XL
 :AREA: B2,F6
 :END:
+[[file:assets/product.jpg]]
 ```
 
 **PDF Elements** (`pdf`): For embedded PDF pages with precise sizing
@@ -965,12 +976,12 @@ Example: Landscape photo with left-aligned crop:
 ** Technical Specification
 :PROPERTIES:
 :TYPE: pdf
-:SRC: assets/spec.pdf
 :PAGE: 2
 :FIT: contain
 :CAPTION: System Architecture Diagram
 :AREA: D2,I6
 :END:
+[[file:assets/spec.pdf]]
 ```
 
 **Cover Mode Example:** PDF cropped to fill area with alignment control:
@@ -978,12 +989,12 @@ Example: Landscape photo with left-aligned crop:
 ** Blueprint Detail
 :PROPERTIES:
 :TYPE: pdf
-:SRC: assets/plans.pdf
 :FIT: cover
 :ALIGN: left
 :VALIGN: top
 :AREA: C3,H7
 :END:
+[[file:assets/plans.pdf]]
 ```
 
 **SVG Elements** (`svg`): For vector graphics with intrinsic sizing
@@ -996,12 +1007,12 @@ Example: Landscape photo with left-aligned crop:
 ** Vector Logo
 :PROPERTIES:
 :TYPE: svg
-:SRC: assets/logo.svg
 :FIT: contain
 :ALIGN: center
 :VALIGN: middle
 :AREA: A1,C2
 :END:
+[[file:assets/logo.svg]]
 ```
 
 **SVG Sizing:** The system intelligently detects SVG intrinsic size from viewBox, width, height attributes, and falls back to content bounding box analysis for proper scaling.
@@ -1011,11 +1022,11 @@ Example: Landscape photo with left-aligned crop:
 ** Icon Background
 :PROPERTIES:
 :TYPE: svg
-:SRC: assets/pattern.svg
 :FIT: cover
 :ALIGN: center
 :AREA: B2,D4
 :END:
+[[file:assets/pattern.svg]]
 ```
 
 #### Caption Handling
@@ -1026,11 +1037,11 @@ Both `figure` and `pdf` elements support captions:
 ** Captioned Image
 :PROPERTIES:
 :TYPE: figure
-:SRC: assets/chart.png
 :FIT: contain
 :CAPTION: Q4 Sales Performance - Up 23% YoY
 :AREA: A5,F8
 :END:
+[[file:assets/chart.png]]
 ```
 
 **Caption Behavior:**
@@ -1045,7 +1056,7 @@ The unified architecture allows flexible cross-type capabilities:
 
 - **PDFs in figures**: Use `figure` with `:PAGE:` to embed PDF pages
 - **Captions on PDFs**: Use `pdf` with `:CAPTION:` for captioned document pages
-- **Consistent properties**: All types use `:SRC:`, `:ALIGN:`, `:VALIGN:`, `:PADDING:`
+- **Consistent syntax**: All types use `[[file:...]]` links or `:SRC:` property
 - **Semantic choice**: Choose type based on intent (image vs. document) rather than capabilities
 
 #### Common Patterns
@@ -1055,11 +1066,11 @@ The unified architecture allows flexible cross-type capabilities:
 ** Background
 :PROPERTIES:
 :TYPE: figure
-:SRC: assets/texture.jpg
 :FIT: cover
 :AREA: A1,L8
 :Z: -10
 :END:
+[[file:assets/texture.jpg]]
 ```
 
 **Contained logo with padding:**
@@ -1067,13 +1078,13 @@ The unified architecture allows flexible cross-type capabilities:
 ** Company Logo
 :PROPERTIES:
 :TYPE: svg
-:SRC: assets/logo.svg
 :FIT: contain
 :PADDING: 10
 :ALIGN: center
 :VALIGN: middle
 :AREA: A1,B2
 :END:
+[[file:assets/logo.svg]]
 ```
 
 **PDF page with specific focus:**
@@ -1081,13 +1092,13 @@ The unified architecture allows flexible cross-type capabilities:
 ** Blueprint Detail
 :PROPERTIES:
 :TYPE: pdf
-:SRC: assets/plans.pdf
 :PAGE: 3
 :ALIGN: left
 :VALIGN: top
 :AREA: C3,H7
 :CAPTION: Ground Floor Detail
 :END:
+[[file:assets/plans.pdf]]
 ```
 
 #### Troubleshooting Media Issues
@@ -1431,15 +1442,15 @@ Story Mode supports all pagemaker media types:
 ** Technical Diagram
 :PROPERTIES:
 :TYPE: svg
-:SRC: assets/diagram.svg
 :END:
+[[file:assets/diagram.svg]]
 
 ** Document Page
 :PROPERTIES:
 :TYPE: pdf
-:SRC: assets/spec.pdf
 :PAGE: 2
 :END:
+[[file:assets/spec.pdf]]
 ```
 
 **Tables and Lists:**

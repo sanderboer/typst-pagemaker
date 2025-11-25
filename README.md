@@ -2,13 +2,19 @@
 
 Please note: This project is in no way affiliated with or related to the old Aldus PageMaker program from the 90s.
 
-A structured document-to-page layout system for Typst that gives you complete control over element positioning while leveraging Typst's powerful typesetting engine and variable weight font support.
+A dual-mode document layout system that transforms org-mode files into professional PDFs or modern web narratives.
+
+**PDF Mode:** Precise grid-based positioning with Typst's powerful typesetting engine for print-ready documents.
+
+**Story Mode:** Auto-layout scrolling web narratives with responsive design and customizable CSS/JS.
 
 <p><img src="img/aesop.jpg" alt="Alt Text" width="45%"> <img src="img/aesop_with_debug_grid.jpg" alt="Alt Text" width="45%"></p>
 The file examples/custom_styles_demo.org rendered without and with debug grid turned on. Note the custom font, the custom line spacing, the custom paragraph speration, thy hyphenation and the optional justification of the text. 
 
 
 ## Design Philosophy
+
+**PDF Mode (Precision Layout):**
 
 Unlike traditional document systems that rely on automatic text flow and built-in spacing, pagemaker takes a fundamentally different approach:
 
@@ -19,6 +25,18 @@ Unlike traditional document systems that rely on automatic text flow and built-i
 - **Professional typography** - leverages Typst's advanced typesetting with three bundled professional fonts (Inter, Crimson Pro, JetBrains Mono)
 
 This approach is ideal for creating presentations, posters, reports, and any document where you need pixel-perfect control over layout and positioning.
+
+**Story Mode (Web Narratives):**
+
+For web-focused content, Story Mode offers an alternative approach:
+
+- **Automatic layout** - intelligent grid arrangements for content blocks
+- **Scrolling narrative** - full-viewport sections with smooth navigation
+- **Responsive design** - CSS Grid layouts that adapt to screen size
+- **Customizable styling** - separate CSS/JS files for easy theming
+- **Rich media support** - images, SVGs, PDFs, tables, lists
+
+Story Mode is ideal for creating interactive presentations, marketing pages, documentation, and web-based stories that prioritize readability and user experience over precise positioning.
 
 ## Features
 
@@ -41,13 +59,34 @@ All media types (images, PDFs, SVGs) now support unified fit modes with consiste
 See the [Media Embedding](#media-embedding-images-pdfs-svgs) section for comprehensive documentation.
 
 ### Core Functionality
-- **Org-mode to Typst conversion (optional)**: Converts Org documents to Typst
-- **Grid-based positioning**: Grid layout (e.g., 12x8) with A1-style areas
-- **Element types**: Header, subheader, body text, image, PDF, rectangle, TOC
+
+**Two Output Modes:**
+- **PDF Mode**: Org-mode to Typst to PDF conversion with precise grid-based positioning
+- **Story Mode**: Org-mode to HTML conversion for scrolling web narratives with automatic layout
+
+**Common Features:**
+- **Grid-based positioning**: Grid layout (e.g., 12x8) with A1-style areas (PDF mode) or auto-layout (Story mode)
+- **Element types**: Header, subheader, body text, image, PDF, SVG, rectangle, TOC
 - **Z-order**: Element stacking control
-- **Typography**: Fonts and basic theming
+- **Typography**: Professional fonts and theming
+- **Watch mode**: Auto-rebuild on file/asset changes
+
+**When to Use Each Mode:**
+
+| Use Case | PDF Mode | Story Mode |
+|----------|----------|------------|
+| Print documents | ✅ Best choice | ❌ Not suitable |
+| Presentations (offline) | ✅ Precise control | ⚠️ Web only |
+| Web presentations | ⚠️ Static PDF | ✅ Interactive, responsive |
+| Documentation | ✅ Professional | ✅ Modern, searchable |
+| Marketing materials | ✅ Print-ready | ✅ Web-optimized |
+| Precise positioning required | ✅ Pixel-perfect | ❌ Auto-layout |
+| Quick prototyping | ⚠️ Requires positioning | ✅ Fast auto-layout |
+| Custom styling needed | ⚠️ Typst syntax | ✅ Standard CSS |
 
 ### Features
+- **Story Mode**: Modern scrolling web narratives with auto-layout, responsive grids, keyboard navigation, and customizable CSS/JS output
+- **Watch Mode**: Auto-rebuild on file/asset changes for both PDF and Story Mode workflows
 - **Unified media embedding**: Consistent interface for images, PDFs, and SVGs with full support for all fit modes (contain, cover, stretch), alignment-based cropping, captions, and intrinsic sizing
 - **Cover mode support**: All media types support cover mode with alignment-based cropping—control which part is visible when media fills the frame
 - **PDF embedding**: Native Typst PDF embedding with all fit modes, alignment, sanitize/fallback support, and precise intrinsic size detection
@@ -127,8 +166,10 @@ pagemaker --help
 ### Basic Usage (New Multi-Command CLI)
 
 #### Watch Mode
-Continuously rebuild Typst (and optionally PDF) when the source Org file changes.
-```
+Continuously rebuild output when the source Org file or referenced assets change.
+
+**PDF/Typst Mode:**
+```bash
 # Rebuild typst on change
 pagemaker watch examples/sample.org --export-dir export
 
@@ -138,15 +179,37 @@ pagemaker watch examples/sample.org --pdf --no-clean --export-dir export
 # Single build (no loop) - useful for tests
 pagemaker watch examples/sample.org --once --export-dir export
 ```
-Options:
+
+**Story Mode (HTML):**
+```bash
+# Auto-rebuild story HTML on changes (inline CSS/JS)
+pagemaker watch examples/story_demo.org --story
+
+# Auto-rebuild with separate CSS/JS files (recommended for development)
+pagemaker watch examples/story_demo.org --story --separate-assets
+
+# Custom export directory
+pagemaker watch document.org --story --export-dir web/
+```
+
+Watch mode monitors your org file and all referenced assets (images, SVGs, PDFs via `[[file:...]]` links). When any file changes, output is automatically regenerated.
+
+**Options:**
 - `--interval <seconds>`: Polling interval (default 1.0)
+- `--once`: Perform exactly one build then exit
+- `--export-dir <path>`: Custom export directory (default: `export/`)
+
+**PDF/Typst Mode Options:**
 - `--pdf`: Also compile PDF each rebuild
 - `--pdf-output <file>`: Custom PDF filename
 - `--typst-bin <path>`: Path to `typst` binary
 - `--no-clean`: Keep the intermediate `.typ` after PDF build
 - `--update-html <path>`: Update existing HTML file's page count placeholder
-- `--once`: Perform exactly one build then exit
 - `--sanitize-pdfs`: Attempt to sanitize PDFs; if Typst compile still fails, auto-fallback to SVG or PNG for the requested page
+
+**Story Mode Options:**
+- `--story`: Generate story mode HTML instead of PDF/Typst
+- `--separate-assets`: Generate separate CSS/JS files (easier to customize)
 
 ```bash
 # Build Typst from Org (org -> typst)
@@ -158,11 +221,40 @@ pagemaker pdf examples/sample.org --pdf-output deck.pdf
 # Build with PDF sanitize + fallback (qpdf/mutool/gs optional)
 pagemaker pdf examples/sample.org --sanitize-pdfs --pdf-output deck.pdf
 
+# Generate Story Mode HTML (scrolling web narrative)
+pagemaker story examples/story_demo.org
+pagemaker story examples/story_demo.org --separate-assets  # Easier to customize
+
 # Emit IR JSON to stdout
 pagemaker ir examples/sample.org > ir.json
 
 # Validate IR (non-zero exit on error)
 pagemaker validate examples/sample.org
+```
+
+#### Commands Overview
+
+| Command | Purpose | Output |
+|---------|---------|--------|
+| `watch` | Auto-rebuild on changes | PDF or HTML (story mode) |
+| `story` | Generate web narrative | HTML with CSS/JS |
+| `pdf` | Build PDF document | PDF file |
+| `build` | Generate Typst code | .typ file |
+| `ir` | Export intermediate representation | JSON to stdout |
+| `validate` | Check document validity | Exit code (0=valid) |
+| `fonts list` | Show available fonts | Font list |
+| `fonts download` | Download Google Fonts | Font files |
+| `fonts analyze` | Show document font usage | Usage report |
+
+**Most Common Workflows:**
+```bash
+# Development: Live preview while editing
+pagemaker watch document.org --story --separate-assets    # Web (HTML)
+pagemaker watch document.org --pdf                        # Print (PDF)
+
+# Production: Final output
+pagemaker story document.org --separate-assets            # Web
+pagemaker pdf document.org --pdf-output final.pdf         # Print
 ```
 
 ### PDF OutputIntent Injection (PDF/A Compliance)
@@ -440,6 +532,8 @@ typst-pagemaker/
 ## Quick Reference
 
 ### Common Element Properties
+
+**PDF Mode:**
 | Property | Values | Description |
 |----------|--------|-------------|
 | `:TYPE:` | `header`, `subheader`, `body`, `figure`, `pdf`, `svg`, `rectangle`, `toc` | Element type |
@@ -451,7 +545,21 @@ typst-pagemaker/
 | `:JUSTIFY:` | (bare) or `true`/`false` | Full text justification |
 | `:IGNORE:` | `true`, `false` | When `true`: drop this page (level 1) or this section and its subtree (level ≥2). If `:TYPE:` is missing or `none`, only the element is omitted; children still parse. |
 
+**Story Mode:**
+| Property | Values | Description |
+|----------|--------|-------------|
+| `:BACKGROUND:` | `path/to/image.jpg` | Full-section background image |
+| `:STYLE:` | `background: #f0f0f0; color: #333;` | Custom CSS for section |
+| `:IGNORE:` | `true`, `false` | Skip section in output |
+
+**Both Modes:**
+- Media links: `[[file:path/to/file.jpg]]` (recommended) or `:SRC:` property
+- Captions: Text content in figure/media blocks
+- Rich text: Bold `*bold*`, italic `/italic/`, code `~code~`, links `[[url][text]]`
+
 ### Page Setup Headers
+
+**PDF Mode:**
 | Header | Example | Description |
 |--------|---------|-------------|
 | `#+PAGESIZE:` | `A4`, `A3`, `A1` | Page size |
@@ -459,6 +567,13 @@ typst-pagemaker/
 | `#+GRID:` | `12x8`, `16x9` | Grid dimensions |
 | `#+MARGINS:` | `10,15,10,15` | Margins in mm (TRBL) |
 | `#+GRID_DEBUG:` | `true`, `false` | Show debug grid |
+
+**Story Mode:**
+| Header | Example | Description |
+|--------|---------|-------------|
+| `#+TITLE:` | `My Story` | Document title (optional) |
+
+Story Mode ignores page size, orientation, grid, and margins settings. Layout is handled automatically.
 
 ### Element Types Quick Syntax
 ```org

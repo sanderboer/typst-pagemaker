@@ -1330,6 +1330,10 @@ pagemaker story document.org
 # Generate with separate CSS/JS files (easier to customize)
 pagemaker story document.org --separate-assets
 
+# Watch mode: auto-rebuild on file/asset changes
+pagemaker watch document.org --story
+pagemaker watch document.org --story --separate-assets
+
 # Custom output location
 pagemaker story document.org --export-dir web/
 
@@ -1587,7 +1591,7 @@ Edit `story.js` to add:
 - Navigation UI elements
 - Analytics or tracking
 
-**Example Workflow:**
+**Example Workflow (One-time Build):**
 ```bash
 # 1. Generate with separate assets
 pagemaker story presentation.org --separate-assets
@@ -1598,6 +1602,20 @@ nano export/story.css  # Edit colors, fonts, etc.
 # 3. Regenerate content (preserves your CSS edits if you keep backups)
 # Best practice: version control your customized CSS/JS
 ```
+
+**Development Workflow (Watch Mode):**
+```bash
+# Auto-rebuild on changes (recommended for development)
+pagemaker watch presentation.org --story --separate-assets
+
+# Now you can:
+# 1. Edit presentation.org - auto-rebuilds HTML
+# 2. Edit export/story.css - refresh browser to see changes
+# 3. Modify referenced assets - auto-rebuilds HTML
+# 4. Keep browser open, changes appear on refresh
+```
+
+Watch mode monitors your org file and all referenced assets (images, SVGs, PDFs) for changes. When any file is modified, the HTML is automatically regenerated. This is ideal for iterative development where you're frequently adjusting content and styling.
 
 **Best Practice:** Keep your customized CSS/JS under version control separate from the export directory, then copy them over after regenerating content.
 

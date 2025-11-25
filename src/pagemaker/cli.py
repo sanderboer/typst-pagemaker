@@ -1062,7 +1062,11 @@ def cmd_watch(args):
     export_dir.mkdir(parents=True, exist_ok=True)
     last_hash = None
     last_asset_paths = set()
-    print(f"Watching {org_path} interval={args.interval}s pdf={args.pdf} (once={args.once})")
+
+    # Determine mode
+    story_mode = getattr(args, 'story', False)
+    mode_desc = "story" if story_mode else f"pdf={args.pdf}"
+    print(f"Watching {org_path} interval={args.interval}s mode={mode_desc} (once={args.once})")
 
     def compute_hash(p: pathlib.Path):
         try:
@@ -1097,6 +1101,21 @@ def cmd_watch(args):
 
     def build_once():
         ir = parse_org(str(org_path))
+
+        # Story mode build
+        if story_mode:
+            ir['meta']['STORY_MODE'] = 'true'
+            output_file = 'index.html'
+            output_path = export_dir / output_file
+            separate_assets = getattr(args, 'separate_assets', False)
+            generate_story_html(
+                ir, str(output_path), source_file=str(org_path), separate_assets=separate_assets
+            )
+            asset_mode = "separate files" if separate_assets else "inline"
+            print(f"[watch] Rebuilt story HTML: {output_path} (CSS/JS: {asset_mode})")
+            return True
+
+        # PDF/Typst mode build (existing logic)
         # Try to fetch any missing fonts automatically
         _attempt_auto_download_missing_fonts(ir)
         adjust_asset_paths(ir, export_dir)
@@ -1877,6 +1896,16 @@ def build_parser():
         '--html',
         action='store_true',
         help='Also compile to HTML using Typst native HTML export (requires Typst 0.14+)',
+    )
+    watch.add_argument(
+        '--story',
+        action='store_true',
+        help='Generate story mode HTML instead of PDF/Typst',
+    )
+    watch.add_argument(
+        '--separate-assets',
+        action='store_true',
+        help='Generate separate CSS/JS files (story mode only)',
     )
     watch.set_defaults(func=cmd_watch)
 

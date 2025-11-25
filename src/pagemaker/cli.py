@@ -4,6 +4,7 @@
 Subcommands:
   build     org -> typst (and optional IR export)
   pdf       org -> typst -> pdf
+  story     org -> story HTML (scrolling web narrative with grid layout)
   ir        parse org and emit IR JSON
   validate  parse and validate IR
   watch     rebuild on changes (polling)
@@ -39,6 +40,7 @@ from .generation.pdf_processor import (
 from .generation.pdf_processor import (
     sanitize_pdf_assets as _apply_pdf_sanitized_copies,
 )
+from .generation.story_generator import generate_story_html
 from .validation import validate_ir
 
 DEFAULT_EXPORT_DIR = 'export'
@@ -953,6 +955,36 @@ def cmd_ir(args):
     print(json.dumps(ir, indent=2))
 
 
+def cmd_story(args):
+    """Generate story mode HTML output."""
+    ir = parse_org(args.org)
+
+    # Set story mode flag in metadata (for potential future use)
+    ir['meta']['STORY_MODE'] = 'true'
+
+    # Prepare output path
+    output_file = args.output or 'index.html'
+    export_dir = pathlib.Path(args.export_dir)
+    export_dir.mkdir(parents=True, exist_ok=True)
+
+    output_path = (
+        export_dir / output_file
+        if not pathlib.Path(output_file).is_absolute()
+        else pathlib.Path(output_file)
+    )
+
+    # Generate story HTML
+    print("Generating story mode HTML...")
+    separate_assets = getattr(args, 'separate_assets', False)
+    generate_story_html(ir, str(output_path), source_file=args.org, separate_assets=separate_assets)
+
+    asset_mode = "separate files" if separate_assets else "inline"
+    print(f"Story HTML written to: {output_path} (CSS/JS: {asset_mode})")
+    print(f"Scenes: {len(ir['pages'])}")
+    print("\nOpen the file in a browser to view the story.")
+    print("Navigation: Spacebar/ArrowDown (next), ArrowUp (previous), Home/End")
+
+
 def cmd_validate(args):
     ir = parse_org(args.org)
     result = validate_ir(ir, strict_assets=args.strict_assets)
@@ -1786,6 +1818,21 @@ def build_parser():
     irp = sub.add_parser('ir', help='emit IR JSON')
     irp.add_argument('org')
     irp.set_defaults(func=cmd_ir)
+
+    story = sub.add_parser('story', help='org -> story HTML (scrolling web narrative)')
+    story.add_argument('org', help='org file to convert')
+    story.add_argument(
+        '-o', '--output', default='index.html', help='output HTML filename (default: index.html)'
+    )
+    story.add_argument(
+        '--export-dir', default=DEFAULT_EXPORT_DIR, help='export directory (default: export)'
+    )
+    story.add_argument(
+        '--separate-assets',
+        action='store_true',
+        help='Generate separate CSS/JS files instead of inline (easier to customize)',
+    )
+    story.set_defaults(func=cmd_story)
 
     val = sub.add_parser('validate', help='validate IR')
     val.add_argument('org')

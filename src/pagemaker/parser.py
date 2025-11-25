@@ -36,6 +36,7 @@ DEFAULTS = {
     'MARGINS': '',
     'DEFAULT_MASTER': '',
     'MIN_RESOLUTION': '72',
+    'STORY_MODE': 'false',  # Story mode: scrolling web sections vs static pages
 }
 
 

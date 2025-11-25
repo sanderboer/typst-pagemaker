@@ -6,6 +6,8 @@ This package handles the conversion from parsed IR to Typst code:
 - elements: Element-specific rendering (text, images, PDFs, etc.)
 - pdf_processor: PDF handling, sanitization, and fallback processing
 - typst_builder: Low-level Typst code construction utilities
+- story_generator: HTML generation for story mode (scrolling web narratives)
+- story_auto_placement: Auto-placement algorithm for story mode grid layout
 """
 
 from .core import generate_typst
@@ -26,6 +28,8 @@ from .pdf_processor import (
     sanitize_pdf_assets,
     apply_pdf_fallbacks,
 )
+from .story_generator import generate_story_html
+from .story_auto_placement import compute_auto_placement, area_to_css_grid
 
 __all__ = [
     # Core functionality
@@ -44,4 +48,8 @@ __all__ = [
     'PDFProcessor',
     'sanitize_pdf_assets',
     'apply_pdf_fallbacks',
+    # Story mode
+    'generate_story_html',
+    'compute_auto_placement',
+    'area_to_css_grid',
 ]

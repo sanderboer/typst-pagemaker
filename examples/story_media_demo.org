@@ -1,0 +1,174 @@
+#+TITLE: Story Mode - Media Demo
+#+GRID: 12x12
+#+AUTHOR: Pagemaker
+#+DATE: 2025-11-25
+
+* Scene 1: Single Figure
+:PROPERTIES:
+:END:
+
+** Hero Image
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/forest.jpg
+:CAPTION: A peaceful forest scene
+:FIT: cover
+:END:
+
+* Scene 2: Image Gallery (3 cols)
+:PROPERTIES:
+:END:
+
+** Kitten 1
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-1.jpg
+:CAPTION: First kitten
+:FIT: contain
+:END:
+
+** Kitten 2
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-2.jpg
+:CAPTION: Second kitten
+:FIT: contain
+:END:
+
+** Kitten 3
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/kittens/kitten-3.jpg
+:CAPTION: Third kitten
+:FIT: contain
+:END:
+
+* Scene 3: Text + Image Split
+:PROPERTIES:
+:END:
+
+** Description
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Image Features:
+
+- Support for multiple image formats
+- Automatic aspect ratio preservation
+- Caption rendering
+- Fit modes: contain, cover, fill
+- Alignment options
+- Grid-based positioning
+
+The figure on the right demonstrates the =contain= fit mode with a caption.
+
+** Sample Figure
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-1.jpg
+:CAPTION: Beautiful landscape with contain fit mode
+:FIT: contain
+:END:
+
+* Scene 4: SVG Graphics
+:PROPERTIES:
+:END:
+
+** SVG Title
+:PROPERTIES:
+:TYPE: header
+:END:
+
+SVG Graphics Test
+
+** Technical Diagram
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/test-svgs/test-plan-p11.svg
+:FIT: contain
+:END:
+
+* Scene 5: Grid Gallery (4 images)
+:PROPERTIES:
+:END:
+
+** Ocean 1
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/ocean/ocean-1.jpg
+:CAPTION: Ocean view 1
+:FIT: cover
+:END:
+
+** Ocean 2
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/ocean/ocean-2.jpg
+:CAPTION: Ocean view 2
+:FIT: cover
+:END:
+
+** Ocean 3
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/ocean/ocean-3.jpg
+:CAPTION: Ocean view 3
+:FIT: cover
+:END:
+
+** Ocean 4
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/ocean/ocean-4.jpg
+:CAPTION: Ocean view 4
+:FIT: cover
+:END:
+
+* Scene 6: Mixed Media Layout
+:PROPERTIES:
+:END:
+
+** Image
+:PROPERTIES:
+:TYPE: figure
+:SRC: assets/test-images/landscapes/landscape-2.jpg
+:CAPTION: Landscape photo
+:FIT: contain
+:END:
+
+** Feature List
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Media Capabilities:
+1. Images (JPG, PNG, etc.)
+2. SVG graphics
+3. PDF documents
+4. YouTube videos
+5. Tables
+6. Lists
+
+** Stats Table
+:PROPERTIES:
+:TYPE: body
+:END:
+
+| Metric      | Value |
+|-------------+-------|
+| Total Views | 1.2M  |
+| Engagement  | 87%   |
+| Shares      | 45K   |
+| Comments    | 12K   |
+
+** Notes
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Additional notes:
+- All media types work in story mode
+- Automatic grid placement
+- Responsive layouts
+- Smooth navigation

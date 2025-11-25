@@ -1,0 +1,207 @@
+#+TITLE: Story Mode - Tables and Lists Demo
+#+GRID: 12x12
+#+AUTHOR: Pagemaker
+#+DATE: 2025-11-25
+
+* Scene 1: Table Overview
+:PROPERTIES:
+:END:
+
+** Title
+:PROPERTIES:
+:TYPE: header
+:END:
+
+Table Rendering Test
+
+** Simple Table
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Here's a simple data table:
+
+| Product     | Price  | Stock |
+|-------------+--------+-------|
+| Laptop      | €1299  | 15    |
+| Monitor     | €349   | 23    |
+| Keyboard    | €89    | 67    |
+| Mouse       | €45    | 142   |
+| Headphones  | €129   | 34    |
+
+* Scene 2: Lists Showcase
+:PROPERTIES:
+:END:
+
+** Unordered List
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Shopping list:
+- Milk
+- Bread
+- Eggs
+- Coffee
+  - Dark roast
+  - Medium roast
+- Tea
+- Butter
+
+** Ordered List
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Recipe steps:
+1. Preheat oven to 180°C
+2. Mix dry ingredients
+3. Add wet ingredients
+4. Stir until combined
+5. Pour into baking pan
+6. Bake for 25 minutes
+7. Let cool before serving
+
+* Scene 3: Complex Table
+:PROPERTIES:
+:END:
+
+** Quarter Results
+:PROPERTIES:
+:TYPE: body
+:END:
+
+| Quarter | Revenue | Expenses | Profit  | Growth |
+|---------+---------+----------+---------+--------|
+| Q1 2024 | €125K   | €78K     | €47K    | +12%   |
+| Q2 2024 | €142K   | €82K     | €60K    | +28%   |
+| Q3 2024 | €158K   | €89K     | €69K    | +15%   |
+| Q4 2024 | €171K   | €91K     | €80K    | +16%   |
+| Total   | €596K   | €340K    | €256K   | +18%   |
+
+* Scene 4: Mixed Content (2 cols)
+:PROPERTIES:
+:END:
+
+** Feature Checklist
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Project Status:
+- [X] User authentication
+- [X] Database setup
+- [X] API endpoints
+- [ ] Frontend UI
+- [ ] Testing suite
+- [ ] Documentation
+- [ ] Deployment
+
+** Comparison Table
+:PROPERTIES:
+:TYPE: body
+:END:
+
+| Feature      | Free | Pro  | Enterprise |
+|--------------+------+------+------------|
+| Users        | 5    | 50   | Unlimited  |
+| Storage      | 1GB  | 50GB | 1TB        |
+| Support      | Email| Chat | Dedicated  |
+| Price/month  | €0   | €29  | €299       |
+
+* Scene 5: Three Column Lists
+:PROPERTIES:
+:END:
+
+** Backend Tasks
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Backend:
+- Database design
+- API routes
+- Authentication
+- Authorization
+- Validation
+- Error handling
+
+** Frontend Tasks
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Frontend:
+- Component library
+- Page layouts
+- State management
+- Form handling
+- API integration
+- Responsive design
+
+** DevOps Tasks
+:PROPERTIES:
+:TYPE: body
+:END:
+
+DevOps:
+- CI/CD pipeline
+- Docker setup
+- Monitoring
+- Logging
+- Backups
+- Security audit
+
+* Scene 6: Grid with Tables and Lists
+:PROPERTIES:
+:END:
+
+** Team Members
+:PROPERTIES:
+:TYPE: body
+:END:
+
+| Name         | Role       | Location   |
+|--------------+------------+------------|
+| Alice Chen   | Frontend   | Amsterdam  |
+| Bob Smith    | Backend    | Berlin     |
+| Carol Jones  | Design     | London     |
+| David Lee    | DevOps     | Paris      |
+
+** Sprint Goals
+:PROPERTIES:
+:TYPE: body
+:END:
+
+This Sprint:
+1. Implement user dashboard
+2. Add notification system
+3. Optimize database queries
+4. Write integration tests
+5. Update documentation
+
+** Priorities
+:PROPERTIES:
+:TYPE: body
+:END:
+
+High Priority:
+- [ ] Security patch
+- [ ] Performance fix
+- [ ] Critical bug #234
+
+Medium Priority:
+- [ ] Feature request #112
+- [ ] UI improvements
+- [ ] Refactoring
+
+** Notes
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Meeting notes:
+- Design review Friday
+- Code freeze next Monday
+- Release target: Dec 1st
+- Holiday schedule TBD

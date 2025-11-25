@@ -1,0 +1,113 @@
+#+TITLE: Story Mode - Background Images Demo
+#+GRID: 12x12
+#+AUTHOR: Pagemaker
+#+DATE: 2025-11-25
+
+* Scene 1: Hero with Background
+:PROPERTIES:
+:BACKGROUND: assets/test-images/forest.jpg
+:END:
+
+** Hero Title
+:PROPERTIES:
+:TYPE: header
+:STYLE: color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+:END:
+
+Welcome to the Forest
+
+** Hero Subtitle
+:PROPERTIES:
+:TYPE: body
+:STYLE: color: white; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); font-size: 1.5rem;
+:END:
+
+Full-section background images with fit:cover
+
+Navigate with Spacebar
+
+* Scene 2: Ocean Background Split
+:PROPERTIES:
+:BACKGROUND: assets/test-images/ocean/ocean-1.jpg
+:END:
+
+** Left Text
+:PROPERTIES:
+:TYPE: body
+:STYLE: background: rgba(255,255,255,0.9); padding: 2rem; border-radius: 8px;
+:END:
+
+This scene combines:
+- Full-section background (ocean)
+- 50/50 auto-layout
+- Semi-transparent content boxes
+- Text remains readable
+
+** Right Text
+:PROPERTIES:
+:TYPE: body
+:STYLE: background: rgba(255,255,255,0.9); padding: 2rem; border-radius: 8px;
+:END:
+
+Features:
+1. Cover fit for backgrounds
+2. Content floats above
+3. Responsive design
+4. Beautiful layouts
+
+* Scene 3: No Background (Control)
+:PROPERTIES:
+:END:
+
+** Normal Title
+:PROPERTIES:
+:TYPE: header
+:END:
+
+Scene Without Background
+
+** Normal Content
+:PROPERTIES:
+:TYPE: body
+:END:
+
+This scene has no background image, showing the default alternating gray/white pattern.
+
+Use `:BACKGROUND: path/to/image.jpg` in scene properties to add full-section backgrounds.
+
+* Scene 4: Landscape Background Grid
+:PROPERTIES:
+:BACKGROUND: assets/test-images/landscapes/landscape-1.jpg
+:END:
+
+** Feature 1
+:PROPERTIES:
+:TYPE: body
+:STYLE: background: rgba(255,255,255,0.85); padding: 1.5rem; border-radius: 6px;
+:END:
+
+Grid layouts work beautifully over background images.
+
+** Feature 2
+:PROPERTIES:
+:TYPE: body
+:STYLE: background: rgba(255,255,255,0.85); padding: 1.5rem; border-radius: 6px;
+:END:
+
+Each content block can have its own semi-transparent background.
+
+** Feature 3
+:PROPERTIES:
+:TYPE: body
+:STYLE: background: rgba(255,255,255,0.85); padding: 1.5rem; border-radius: 6px;
+:END:
+
+Perfect for dashboards and info graphics.
+
+** Feature 4
+:PROPERTIES:
+:TYPE: body
+:STYLE: background: rgba(255,255,255,0.85); padding: 1.5rem; border-radius: 6px;
+:END:
+
+The background covers the entire section including padding.

@@ -1304,6 +1304,309 @@ Notes:
 - Slides can reference a master via per-page `:MASTER:` or inherit from `#+DEFAULT_MASTER:`.
 - Master elements are combined with slide elements and z-ordered together.
 
+### Story Mode (Scrolling Web Narratives)
+
+Story Mode is an alternative HTML export format that transforms your org-mode documents into modern, scrolling web narratives with automatic grid layout. Unlike the standard HTML export (content-focused, sequential flow), Story Mode provides a presentation-like experience optimized for web viewing.
+
+#### Quick Start
+
+Generate a Story Mode HTML export:
+
+```bash
+# Generate story mode HTML (inline CSS/JS, fully self-contained)
+pagemaker story document.org
+
+# Generate with separate CSS/JS files (easier to customize)
+pagemaker story document.org --separate-assets
+
+# Custom output location
+pagemaker story document.org --export-dir web/
+
+# Open in browser after generation
+pagemaker story document.org && open export/index.html
+```
+
+**Output Structure (Default - Inline):**
+```
+export/
+  index.html           # Self-contained HTML with inline CSS/JS
+  assets/              # Media assets (images, SVGs, PDFs)
+    image1.jpg
+    diagram.svg
+```
+
+**Output Structure (Separate Assets):**
+```
+export/
+  index.html           # HTML with external CSS/JS references
+  story.css            # Separate CSS file (customizable)
+  story.js             # Separate JavaScript file (customizable)
+  assets/              # Media assets (images, SVGs, PDFs)
+    image1.jpg
+    diagram.svg
+```
+
+#### Key Features
+
+**Visual Design:**
+- ✅ **Auto-layout algorithm**: Intelligent 1/2/3/4-block grid arrangements
+- ✅ **Full-viewport sections**: Each level-1 heading becomes a full-screen section
+- ✅ **Responsive CSS Grid**: Modern layout that adapts to screen size
+- ✅ **Background images**: Full-section backgrounds via `:BACKGROUND:` property
+- ✅ **Custom inline styles**: Per-section styling via `:STYLE:` property
+
+**Content Support:**
+- ✅ **Rich text**: Headings, paragraphs, bold, italic, code, links
+- ✅ **Media**: Images, SVGs, PDFs (auto-converted to images)
+- ✅ **Tables**: Styled tables with headers
+- ✅ **Lists**: Bulleted and numbered lists
+
+**Navigation:**
+- ✅ **Keyboard shortcuts**: Spacebar (next), Shift+Space (prev), arrows, Home/End
+- ✅ **Smooth scrolling**: Animated transitions between sections
+- ✅ **Section anchors**: Direct URL linking to specific sections
+
+**Asset Handling:**
+- ✅ **Collision detection**: Automatically renames duplicate asset filenames
+- ✅ **Security**: Path traversal validation prevents directory escape
+- ✅ **Self-contained**: All assets copied to export directory
+
+#### Story Mode Syntax
+
+**Basic Document Structure:**
+```org
+#+TITLE: My Story
+
+* Introduction Section
+Content for the first full-viewport section.
+
+* Main Content
+Another section - each level-1 heading creates a new full-screen area.
+
+** Subsection
+Level-2+ headings create content blocks within the section.
+```
+
+**Background Images:**
+
+Add full-section background images using the `:BACKGROUND:` property:
+
+```org
+* Hero Section
+:PROPERTIES:
+:BACKGROUND: assets/hero-image.jpg
+:END:
+
+** Welcome Title
+This section has a full-screen background image behind all content.
+```
+
+**Custom Section Styles:**
+
+Apply custom CSS styling to individual sections:
+
+```org
+* Styled Section
+:PROPERTIES:
+:STYLE: background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;
+:END:
+
+** Custom Appearance
+This section has a gradient background and white text.
+```
+
+**Media Embedding:**
+
+Story Mode supports all pagemaker media types:
+
+```org
+* Visual Content
+
+** Hero Image
+:PROPERTIES:
+:TYPE: figure
+:END:
+[[file:assets/photo.jpg]]
+
+** Technical Diagram
+:PROPERTIES:
+:TYPE: svg
+:SRC: assets/diagram.svg
+:END:
+
+** Document Page
+:PROPERTIES:
+:TYPE: pdf
+:SRC: assets/spec.pdf
+:PAGE: 2
+:END:
+```
+
+**Tables and Lists:**
+
+```org
+* Data Section
+
+** Sales Results
+| Product | Q1 | Q2 | Q3 | Q4 |
+|---------+----+----+----+----|
+| Widget  | 45 | 52 | 61 | 58 |
+| Gadget  | 23 | 31 | 35 | 42 |
+
+** Key Features
+- Automatic grid layout
+- Responsive design
+- Smooth scrolling
+- Keyboard navigation
+```
+
+#### Auto-Placement Algorithm
+
+Story Mode automatically arranges content blocks (level-2+ headings) using a responsive grid system:
+
+- **1 block**: Full width, centered
+- **2 blocks**: Side-by-side 50/50 split
+- **3 blocks**: 1 top (full width) + 2 bottom (50/50)
+- **4 blocks**: 2x2 grid
+- **5+ blocks**: CSS Grid auto-flow
+
+Each section (level-1 heading) fills the viewport and contains auto-placed content blocks.
+
+#### Comparison: Story Mode vs. Standard HTML
+
+| Feature | Story Mode | Standard HTML Export |
+|---------|------------|---------------------|
+| Layout | Auto-grid, full-viewport sections | Sequential, flowing content |
+| Navigation | Keyboard shortcuts, smooth scroll | Standard browser scroll |
+| Media | All types, asset copying | All types, base64 embedded |
+| Use Case | Web presentations, portfolios, narratives | Readable documents, archival |
+| Grid positioning | Automatic (ignores `:AREA:`) | N/A (ignores `:AREA:`) |
+| Output | Modern web experience | Content-focused HTML |
+
+#### When to Use Story Mode
+
+**Use Story Mode when you need:**
+- Modern web presentations with visual impact
+- Scrolling narratives or storytelling experiences
+- Portfolio or showcase websites
+- Interactive web content with sections
+- Background images and custom styling
+- Keyboard-navigable content
+
+**Use Standard HTML when you need:**
+- Readable, accessible documents
+- Print-friendly HTML
+- Content archival with semantic markup
+- Simple web publication
+- Screen-reader optimized output
+
+**Use PDF when you need:**
+- Exact grid-based layout control
+- Print-ready presentation slides
+- Precise element positioning
+- Professional typography with Typst
+
+#### Examples
+
+See these examples for Story Mode demonstrations:
+- `examples/story_demo.org` - Basic story mode with auto-layout
+- `examples/story_background_demo.org` - Background images
+- `examples/story_tables_lists_demo.org` - Tables and lists
+- `examples/story_media_demo.org` - Images, SVGs, and PDFs
+
+#### Customization
+
+**Separate CSS/JS Files:**
+
+For easier customization, use the `--separate-assets` flag to generate external CSS and JavaScript files:
+
+```bash
+# Generate with separate assets
+pagemaker story document.org --separate-assets
+
+# Output: index.html, story.css, story.js, assets/
+```
+
+This creates:
+- `story.css` - All styling (fully customizable)
+- `story.js` - Navigation logic (keyboard shortcuts, scrolling)
+- `index.html` - Clean HTML with external references
+
+**Override Styles:**
+
+Edit the generated `story.css` to customize:
+- Colors, fonts, spacing
+- Grid layouts and responsive breakpoints
+- Section backgrounds and transitions
+- Block styling and typography
+
+Example customizations in `story.css`:
+```css
+/* Change default font and colors */
+body {
+    font-family: "Georgia", serif;
+    color: #2c3e50;
+    background: #ecf0f1;
+}
+
+/* Customize section backgrounds */
+.scene {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Style headings */
+.block-header h1 {
+    font-size: 3rem;
+    color: #ffffff;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Adjust grid spacing */
+.grid-container {
+    gap: 2rem;  /* Default is 1.5rem */
+    padding: 3rem;  /* Default is 2rem */
+}
+```
+
+**Extend Navigation:**
+
+Edit `story.js` to add:
+- Custom keyboard shortcuts
+- Progress indicators
+- Navigation UI elements
+- Analytics or tracking
+
+**Example Workflow:**
+```bash
+# 1. Generate with separate assets
+pagemaker story presentation.org --separate-assets
+
+# 2. Customize the CSS
+nano export/story.css  # Edit colors, fonts, etc.
+
+# 3. Regenerate content (preserves your CSS edits if you keep backups)
+# Best practice: version control your customized CSS/JS
+```
+
+**Best Practice:** Keep your customized CSS/JS under version control separate from the export directory, then copy them over after regenerating content.
+
+#### Technical Notes
+
+**Security:**
+- Path traversal validation prevents asset directory escape
+- HTML/CSS properly escaped to prevent XSS
+- Background URLs safely escaped in inline styles
+
+**Asset Management:**
+- Duplicate filenames automatically renamed (e.g., `image.jpg`, `image_1.jpg`)
+- Assets copied from source directory to `export/assets/`
+- Relative paths automatically resolved
+
+**Browser Compatibility:**
+- Modern browsers (Chrome, Firefox, Safari, Edge)
+- CSS Grid and CSS Custom Properties required
+- JavaScript required for keyboard navigation
+
 ## A1 AREA Notation
 
 - Rows are letters A..Z, then AA, AB, etc. (case-insensitive). A maps to row 1.

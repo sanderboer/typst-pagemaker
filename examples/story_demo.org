@@ -1,0 +1,202 @@
+#+TITLE: Story Mode Demo
+#+GRID: 12x12
+#+AUTHOR: Pagemaker
+#+DATE: 2025-11-25
+
+* Scene 1: Hero Introduction
+:PROPERTIES:
+:END:
+
+** Welcome Title
+:PROPERTIES:
+:TYPE: header
+:END:
+
+Welcome to Story Mode
+
+** Hero Description
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Story mode transforms your org-mode documents into scrolling web narratives.
+
+Each top-level headline becomes a full-viewport section with automatic grid-based layout.
+
+Navigate with:
+- Spacebar or Arrow Down: Next scene
+- Arrow Up: Previous scene  
+- Home/End: First/Last scene
+
+* Scene 2: Split Layout (2 Blocks)
+:PROPERTIES:
+:END:
+
+** Left Content
+:PROPERTIES:
+:TYPE: body
+:END:
+
+This scene demonstrates the *2-block auto-layout*.
+
+With two sibling blocks, the viewport automatically splits 50/50 left and right.
+
+Features:
+- No manual :AREA: declarations needed
+- Responsive grid positioning
+- Clean semantic structure
+
+** Right Content
+:PROPERTIES:
+:TYPE: body
+:END:
+
+The second block automatically takes the right half of the viewport.
+
+This makes it easy to create side-by-side layouts without calculating grid coordinates.
+
+Perfect for:
+1. Text + Image layouts
+2. Comparison views
+3. Dual-column presentations
+
+* Scene 3: Three Columns (3 Blocks)
+:PROPERTIES:
+:END:
+
+** Column One
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Three siblings create a three-column layout.
+
+Each column gets 1/3 of the viewport width automatically.
+
+** Column Two
+:PROPERTIES:
+:TYPE: body
+:END:
+
+The middle column shows how content flows naturally across the grid.
+
+Lists and paragraphs render cleanly in each column.
+
+** Column Three
+:PROPERTIES:
+:TYPE: body
+:END:
+
+The third column completes the trio.
+
+This layout is perfect for feature comparisons, timelines, or multi-part narratives.
+
+* Scene 4: Grid Flow (4+ Blocks)
+:PROPERTIES:
+:GRID: 12x12
+:END:
+
+** Block 1
+:PROPERTIES:
+:TYPE: body
+:END:
+
+With four or more blocks, the auto-placement algorithm creates a responsive grid.
+
+** Block 2
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Each block gets equal space, automatically wrapping to new rows as needed.
+
+** Block 3
+:PROPERTIES:
+:TYPE: body
+:END:
+
+This is perfect for galleries, feature grids, or dashboard-style layouts.
+
+** Block 4
+:PROPERTIES:
+:TYPE: body
+:END:
+
+The grid adapts to the number of child blocks dynamically.
+
+** Block 5
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Fifth block wraps to create a multi-row layout automatically.
+
+** Block 6
+:PROPERTIES:
+:TYPE: body
+:END:
+
+The algorithm handles any number of blocks gracefully.
+
+* Scene 5: Custom Override
+:PROPERTIES:
+:END:
+
+** Full Width Header
+:PROPERTIES:
+:TYPE: header
+:AREA: A1,L4
+:END:
+
+Custom Grid Positioning
+
+** Left Sidebar
+:PROPERTIES:
+:TYPE: body
+:AREA: A5,D12
+:END:
+
+Even in auto-placement mode, individual blocks can override their position with explicit :AREA: declarations.
+
+This block uses :AREA: A5,D12 to occupy the left sidebar.
+
+** Main Content
+:PROPERTIES:
+:TYPE: body
+:AREA: E5,L12
+:END:
+
+The main content area is also explicitly positioned.
+
+This gives you the best of both worlds:
+- Auto-placement for simple layouts
+- Manual control when you need it
+
+Mix and match explicit and implicit positioning within the same scene!
+
+* Scene 6: Rich Media
+:PROPERTIES:
+:END:
+
+** Media Title
+:PROPERTIES:
+:TYPE: header
+:END:
+
+Story Mode supports all pagemaker media types
+
+** Media Description
+:PROPERTIES:
+:TYPE: body
+:END:
+
+Story mode reuses pagemaker's existing element rendering:
+
+- *Figures*: Images with captions
+- *SVGs*: Scalable vector graphics  
+- *PDFs*: Embedded documents
+- *Tables*: Structured data
+- *Lists*: Ordered, unordered, checkboxes
+- *Rectangles*: Decorative colored blocks
+
+All the power of pagemaker, optimized for web storytelling!

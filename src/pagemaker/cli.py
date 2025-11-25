@@ -272,7 +272,11 @@ def _analyze_font_usage(ir: dict) -> dict:
                 continue
             font_usage['fonts_found'].add(n)
             font_usage['usage_locations'].append(
-                {'type': 'style_meta', 'font': n, 'location': f'meta {sk}'}
+                {
+                    'type': 'style_meta',
+                    'font': n,
+                    'location': f'meta {sk}',
+                }
             )
 
     # 3) Global FONT meta override
@@ -1563,7 +1567,7 @@ def _generate_font_specimen_org(fonts_info: list, specimen_type: str = 'showcase
 
     if specimen_type == 'showcase':
         # Beautiful showcase with various text samples
-        content = '''#+TITLE: Font Specimen Showcase
+        content = """#+TITLE: Font Specimen Showcase
 #+PAGESIZE: A4
 #+ORIENTATION: portrait  
 #+GRID: 12x16
@@ -1574,7 +1578,7 @@ def _generate_font_specimen_org(fonts_info: list, specimen_type: str = 'showcase
 
 This specimen showcases all available fonts in your pagemaker installation.
 
-'''
+"""
 
         sample_texts = [
             "The quick brown fox jumps over the lazy dog",
@@ -1590,7 +1594,7 @@ This specimen showcases all available fonts in your pagemaker installation.
             size_info = font_info['size_human']
 
             # Font family header
-            content += f'''** {font_name}
+            content += f"""** {font_name}
 :PROPERTIES:
 :TYPE: header
 :AREA: A{row},L{row}
@@ -1599,11 +1603,11 @@ This specimen showcases all available fonts in your pagemaker installation.
 #set text(font: "{font_name}", weight: "bold", size: 14pt)
 {font_name} — {files_count} files ({size_info})
 
-'''
+"""
             row += 1
 
             # Sample text in this font
-            content += f'''*** Sample Text
+            content += f"""*** Sample Text
 :PROPERTIES:
 :TYPE: body
 :AREA: A{row},L{row + 2}
@@ -1620,7 +1624,7 @@ This specimen showcases all available fonts in your pagemaker installation.
 #set text(size: 10pt, style: "normal")
 {sample_texts[3]}
 
-'''
+"""
             row += 4
 
             if row > 14:  # Start new page
@@ -1629,7 +1633,7 @@ This specimen showcases all available fonts in your pagemaker installation.
 
     elif specimen_type == 'comparison':
         # Side-by-side comparison of fonts
-        content = '''#+TITLE: Font Comparison Sheet
+        content = """#+TITLE: Font Comparison Sheet
 #+PAGESIZE: A4
 #+ORIENTATION: landscape
 #+GRID: 16x10
@@ -1640,7 +1644,7 @@ This specimen showcases all available fonts in your pagemaker installation.
 
 Direct comparison of all available fonts using identical text samples.
 
-'''
+"""
         sample_text = "The quick brown fox jumps over the lazy dog 1234567890"
 
         col = 1
@@ -1657,7 +1661,7 @@ Direct comparison of all available fonts using identical text samples.
                 row = 2
                 col = 1
 
-            content += f'''** {font_name}
+            content += f"""** {font_name}
 :PROPERTIES:
 :TYPE: body
 :AREA: {chr(65 + col - 1)}{row},{chr(65 + col + 6)}{row + 1}
@@ -1670,22 +1674,22 @@ Direct comparison of all available fonts using identical text samples.
 #set text(size: 9pt, weight: "normal")
 {sample_text}
 
-'''
+"""
             col += 8
 
     else:  # simple list
-        content = '''#+TITLE: Font List
+        content = """#+TITLE: Font List
 #+CUSTOM_STYLE: #set text(font: "Inter", size: 11pt)
 
 * Available Fonts
 
-'''
+"""
         for font_info in fonts_info:
-            content += f'''** {font_info['name']}
+            content += f"""** {font_info['name']}
 #set text(font: "{font_info['name']}")
 Sample text in {font_info['name']} — {font_info['files_count']} files ({font_info['size_human']})
 
-'''
+"""
 
     return content
 

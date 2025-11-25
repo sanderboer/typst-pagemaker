@@ -74,7 +74,12 @@ def build_text_args(
     for key, value in kwargs.items():
         if value is not None:
             if isinstance(value, str) and not value.startswith(
-                ('rgb(', 'cmyk(', 'luma(', 'color.')
+                (
+                    'rgb(',
+                    'cmyk(',
+                    'luma(',
+                    'color.',
+                )
             ):
                 args.append(f'{key}: "{value}"')
             else:

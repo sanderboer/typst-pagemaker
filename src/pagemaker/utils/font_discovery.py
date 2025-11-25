@@ -478,7 +478,11 @@ def analyze_font_usage(ir: dict) -> dict:
                 continue
             font_usage['fonts_found'].add(n)
             font_usage['usage_locations'].append(
-                {'type': 'style_meta', 'font': n, 'location': f'meta {sk}'}
+                {
+                    'type': 'style_meta',
+                    'font': n,
+                    'location': f'meta {sk}',
+                }
             )
 
     # 3) Global FONT meta override

@@ -13,10 +13,10 @@ class TestSvgSizeProvider:
     def test_viewbox_parsing_standard_format(self, tmp_path):
         """Test parsing standard viewBox="0 0 width height" format."""
         svg_file = tmp_path / "test.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
+        svg_file.write_text("""<?xml version="1.0"?>
 <svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
     <rect width="200" height="100" fill="blue"/>
-</svg>''')
+</svg>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         assert result is not None
@@ -30,10 +30,10 @@ class TestSvgSizeProvider:
     def test_viewbox_with_negative_offset(self, tmp_path):
         """Test viewBox with negative min-x/min-y (should use width/height only)."""
         svg_file = tmp_path / "test.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
+        svg_file.write_text("""<?xml version="1.0"?>
 <svg viewBox="-50 -25 300 150" xmlns="http://www.w3.org/2000/svg">
     <circle cx="0" cy="0" r="50"/>
-</svg>''')
+</svg>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         assert result is not None
@@ -46,8 +46,8 @@ class TestSvgSizeProvider:
     def test_viewbox_with_decimal_values(self, tmp_path):
         """Test viewBox with floating point dimensions."""
         svg_file = tmp_path / "test.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
-<svg viewBox="0 0 123.456 78.9" xmlns="http://www.w3.org/2000/svg"/>''')
+        svg_file.write_text("""<?xml version="1.0"?>
+<svg viewBox="0 0 123.456 78.9" xmlns="http://www.w3.org/2000/svg"/>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         assert result is not None
@@ -59,8 +59,8 @@ class TestSvgSizeProvider:
     def test_width_height_px_units(self, tmp_path):
         """Test width/height attributes with px units."""
         svg_file = tmp_path / "test.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
-<svg width="400px" height="300px" xmlns="http://www.w3.org/2000/svg"/>''')
+        svg_file.write_text("""<?xml version="1.0"?>
+<svg width="400px" height="300px" xmlns="http://www.w3.org/2000/svg"/>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         assert result is not None
@@ -72,8 +72,8 @@ class TestSvgSizeProvider:
     def test_width_height_pt_units(self, tmp_path):
         """Test width/height with PostScript points."""
         svg_file = tmp_path / "test.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
-<svg width="144pt" height="72pt" xmlns="http://www.w3.org/2000/svg"/>''')
+        svg_file.write_text("""<?xml version="1.0"?>
+<svg width="144pt" height="72pt" xmlns="http://www.w3.org/2000/svg"/>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         assert result is not None
@@ -86,8 +86,8 @@ class TestSvgSizeProvider:
     def test_width_height_cm_units(self, tmp_path):
         """Test width/height with centimeters."""
         svg_file = tmp_path / "test.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
-<svg width="10cm" height="5cm" xmlns="http://www.w3.org/2000/svg"/>''')
+        svg_file.write_text("""<?xml version="1.0"?>
+<svg width="10cm" height="5cm" xmlns="http://www.w3.org/2000/svg"/>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         assert result is not None
@@ -99,8 +99,8 @@ class TestSvgSizeProvider:
     def test_width_height_mm_units(self, tmp_path):
         """Test width/height with millimeters."""
         svg_file = tmp_path / "test.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
-<svg width="210mm" height="297mm" xmlns="http://www.w3.org/2000/svg"/>''')
+        svg_file.write_text("""<?xml version="1.0"?>
+<svg width="210mm" height="297mm" xmlns="http://www.w3.org/2000/svg"/>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         assert result is not None
@@ -112,8 +112,8 @@ class TestSvgSizeProvider:
     def test_width_height_inch_units(self, tmp_path):
         """Test width/height with inches."""
         svg_file = tmp_path / "test.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
-<svg width="8.5in" height="11in" xmlns="http://www.w3.org/2000/svg"/>''')
+        svg_file.write_text("""<?xml version="1.0"?>
+<svg width="8.5in" height="11in" xmlns="http://www.w3.org/2000/svg"/>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         assert result is not None
@@ -125,8 +125,8 @@ class TestSvgSizeProvider:
     def test_width_height_no_units(self, tmp_path):
         """Test width/height without units (treated as px)."""
         svg_file = tmp_path / "test.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
-<svg width="96" height="48" xmlns="http://www.w3.org/2000/svg"/>''')
+        svg_file.write_text("""<?xml version="1.0"?>
+<svg width="96" height="48" xmlns="http://www.w3.org/2000/svg"/>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         assert result is not None
@@ -139,8 +139,8 @@ class TestSvgSizeProvider:
     def test_viewbox_preferred_over_width_height(self, tmp_path):
         """Test that viewBox is used when both viewBox and width/height present."""
         svg_file = tmp_path / "test.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
-<svg viewBox="0 0 100 50" width="200" height="100" xmlns="http://www.w3.org/2000/svg"/>''')
+        svg_file.write_text("""<?xml version="1.0"?>
+<svg viewBox="0 0 100 50" width="200" height="100" xmlns="http://www.w3.org/2000/svg"/>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         assert result is not None
@@ -166,10 +166,10 @@ class TestSvgSizeProvider:
     def test_svg_without_dimensions(self, tmp_path):
         """Test SVG with neither viewBox nor width/height."""
         svg_file = tmp_path / "nodim.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
+        svg_file.write_text("""<?xml version="1.0"?>
 <svg xmlns="http://www.w3.org/2000/svg">
     <circle cx="50" cy="50" r="40"/>
-</svg>''')
+</svg>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         # Should return None and emit warning
@@ -178,8 +178,8 @@ class TestSvgSizeProvider:
     def test_invalid_viewbox_format(self, tmp_path):
         """Test viewBox with invalid format (wrong number of values)."""
         svg_file = tmp_path / "badviewbox.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
-<svg viewBox="0 0 100" xmlns="http://www.w3.org/2000/svg"/>''')
+        svg_file.write_text("""<?xml version="1.0"?>
+<svg viewBox="0 0 100" xmlns="http://www.w3.org/2000/svg"/>""")
 
         # Should fall back to width/height (which don't exist), return None
         result = self.provider.get_size_mm(str(svg_file))
@@ -188,8 +188,8 @@ class TestSvgSizeProvider:
     def test_percentage_units_not_supported(self, tmp_path):
         """Test that percentage units are rejected."""
         svg_file = tmp_path / "percent.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
-<svg width="100%" height="50%" xmlns="http://www.w3.org/2000/svg"/>''')
+        svg_file.write_text("""<?xml version="1.0"?>
+<svg width="100%" height="50%" xmlns="http://www.w3.org/2000/svg"/>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         # Percentages not supported, should return None
@@ -198,8 +198,8 @@ class TestSvgSizeProvider:
     def test_zero_dimensions(self, tmp_path):
         """Test rejection of zero-width or zero-height SVGs."""
         svg_file = tmp_path / "zero.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
-<svg viewBox="0 0 0 100" xmlns="http://www.w3.org/2000/svg"/>''')
+        svg_file.write_text("""<?xml version="1.0"?>
+<svg viewBox="0 0 0 100" xmlns="http://www.w3.org/2000/svg"/>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         # Zero dimensions invalid
@@ -208,8 +208,8 @@ class TestSvgSizeProvider:
     def test_negative_dimensions(self, tmp_path):
         """Test rejection of negative dimensions."""
         svg_file = tmp_path / "negative.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
-<svg viewBox="0 0 -100 50" xmlns="http://www.w3.org/2000/svg"/>''')
+        svg_file.write_text("""<?xml version="1.0"?>
+<svg viewBox="0 0 -100 50" xmlns="http://www.w3.org/2000/svg"/>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         # Negative dimensions invalid
@@ -218,10 +218,10 @@ class TestSvgSizeProvider:
     def test_svg_without_namespace(self, tmp_path):
         """Test SVG without XML namespace declaration."""
         svg_file = tmp_path / "nonamespace.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
+        svg_file.write_text("""<?xml version="1.0"?>
 <svg viewBox="0 0 200 100">
     <rect width="200" height="100"/>
-</svg>''')
+</svg>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         # Should still work (namespace optional for parsing)
@@ -232,7 +232,7 @@ class TestSvgSizeProvider:
     def test_complex_svg_with_multiple_elements(self, tmp_path):
         """Test parsing doesn't break on complex SVG structure."""
         svg_file = tmp_path / "complex.svg"
-        svg_file.write_text('''<?xml version="1.0"?>
+        svg_file.write_text("""<?xml version="1.0"?>
 <svg viewBox="0 0 500 250" xmlns="http://www.w3.org/2000/svg">
     <defs>
         <linearGradient id="grad1">
@@ -243,7 +243,7 @@ class TestSvgSizeProvider:
         <rect x="0" y="0" width="100" height="100" fill="url(#grad1)"/>
         <text x="50" y="50">Hello</text>
     </g>
-</svg>''')
+</svg>""")
 
         result = self.provider.get_size_mm(str(svg_file))
         assert result is not None

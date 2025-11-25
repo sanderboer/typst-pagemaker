@@ -135,7 +135,7 @@ def _generate_grid_application_js(ir: Dict[str, Any]) -> str:
     page_count = len(pages)
 
     # JavaScript code (will be prettified in actual implementation)
-    js = '''
+    js = """
 // Pagemaker M7.5: Client-side grid layout application
 (function() {
     'use strict';
@@ -382,7 +382,7 @@ def _generate_grid_application_js(ir: Dict[str, Any]) -> str:
         goto: showPage
     };
 })();
-'''
+"""
 
     return js
 
@@ -473,7 +473,7 @@ def _generate_grid_css(ir: Dict[str, Any]) -> str:
             grid_rows = grid.get('rows', 8)
             break
 
-    css = f'''/* Reset and base styles */
+    css = f"""/* Reset and base styles */
 * {{
     margin: 0;
     padding: 0;
@@ -564,5 +564,5 @@ body {{
     border-radius: 5px;
     font-size: 14px;
 }}
-'''
+"""
     return css

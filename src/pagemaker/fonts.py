@@ -1,5 +1,7 @@
+import os
 import pathlib
-from typing import Dict, List, Set
+import re
+from typing import Any, Dict, List, Set
 
 
 def _format_size(size_bytes: int) -> str:
@@ -214,3 +216,130 @@ def _collect_real_font_names(paths: List[str]) -> Set[str]:
         except Exception:
             continue
     return {n for n in names if n}
+
+
+def analyze_font_usage(ir: Dict[str, Any]) -> Dict[str, Any]:
+    """Analyze which fonts are referenced in the IR.
+
+    Sources scanned:
+    - CUSTOM_STYLE meta/header blocks (quoted font names)
+    - STYLE_* meta declarations (quoted or unquoted font: ...)
+    - Global FONT meta directive
+    - Inline Typst directives in element content (#set text(font: "..."))
+
+    Returns:
+        Dict with keys:
+        - fonts_found: Set[str] - all font families referenced
+        - missing_fonts: Set[str] - fonts not available in font paths
+        - usage_locations: List[Dict] - where each font was found
+    """
+    font_usage: Dict[str, Any] = {
+        'fonts_found': set(),
+        'missing_fonts': set(),
+        'usage_locations': [],
+    }
+
+    meta = ir.get('meta', {}) or {}
+
+    # 1) CUSTOM_STYLE headers (quoted fonts inside the style string)
+    custom_style = ir.get('custom_style', '') or meta.get('CUSTOM_STYLE', '')
+    for font_name in re.findall(r'font:\s*"([^"]+)"', custom_style):
+        if font_name:
+            font_usage['fonts_found'].add(font_name)
+            font_usage['usage_locations'].append(
+                {
+                    'type': 'custom_style',
+                    'font': font_name,
+                    'location': 'document header (#+CUSTOM_STYLE)',
+                }
+            )
+
+    # 2) STYLE_* meta declarations: accept quoted or unquoted
+    #    Examples: 'font: Playfair Display, size: 20mm' or 'font:"Inter"'
+    style_keys = [
+        k
+        for k in meta.keys()
+        if isinstance(k, str) and k.upper().startswith('STYLE_') and k.upper() != 'STYLE'
+    ]
+    for sk in style_keys:
+        decl = meta.get(sk, '') or ''
+        # Prefer quoted first
+        names = re.findall(r'font\s*:\s*"([^"]+)"', decl)
+        if not names:
+            # Fallback to unquoted up to comma/semicolon/end
+            m = re.search(r'font\s*:\s*([^,;]+)', decl)
+            if m:
+                candidate = m.group(1).strip()
+                # Strip potential trailing tokens
+                candidate = candidate.strip('"\' )')
+                if candidate:
+                    names = [candidate]
+        for name in names:
+            n = name.strip()
+            if not n:
+                continue
+            font_usage['fonts_found'].add(n)
+            font_usage['usage_locations'].append(
+                {
+                    'type': 'style_meta',
+                    'font': n,
+                    'location': f'meta {sk}',
+                }
+            )
+
+    # 3) Global FONT meta override
+    font_meta = meta.get('FONT')
+    if isinstance(font_meta, str) and font_meta.strip():
+        n = font_meta.strip()
+        font_usage['fonts_found'].add(n)
+        font_usage['usage_locations'].append({'type': 'meta', 'font': n, 'location': 'meta FONT'})
+
+    # 4) Inline Typst in element content
+    for page_idx, page in enumerate(ir.get('pages', []), 1):
+        for elem_idx, element in enumerate(page.get('elements', []), 1):
+            content = element.get('content', '')
+            if isinstance(content, str):
+                for font_name in re.findall(r'#set\s+text\([^)]*font:\s*"([^"]+)"', content):
+                    font_usage['fonts_found'].add(font_name)
+                    font_usage['usage_locations'].append(
+                        {
+                            'type': 'element_content',
+                            'font': font_name,
+                            'location': f'page {page_idx}, element {elem_idx}',
+                        }
+                    )
+
+    # Build availability set using real font names, with optional env override
+    font_paths = _get_font_paths()
+    disable_ft = str(os.environ.get('PAGEMAKER_DISABLE_FONTTOOLS', '')).strip().lower()
+    force_dirnames = disable_ft not in ('', '0', 'false', 'no')
+    available_real = set() if force_dirnames else _collect_real_font_names(font_paths)
+
+    # Directory-name heuristic (forced or fallback)
+    if force_dirnames or not available_real:
+        available_dirnames = set()
+        for font_path in font_paths:
+            path_obj = pathlib.Path(font_path)
+            if not path_obj.exists():
+                continue
+            try:
+                for item in path_obj.iterdir():
+                    if item.is_dir() and not item.name.startswith('.'):
+                        # Add both underscore and space variants
+                        available_dirnames.add(item.name)
+                        available_dirnames.add(item.name.replace('_', ' '))
+                        available_dirnames.add(item.name.replace(' ', '_'))
+            except Exception:
+                continue
+        available = available_dirnames
+    else:
+        available = available_real
+
+    # Determine missing fonts
+    for font_name in font_usage['fonts_found']:
+        # Check both exact match and underscore/space variants
+        variants = {font_name, font_name.replace(' ', '_'), font_name.replace('_', ' ')}
+        if not any(v in available for v in variants):
+            font_usage['missing_fonts'].add(font_name)
+
+    return font_usage

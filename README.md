@@ -2,11 +2,11 @@
 
 Please note: This project is in no way affiliated with or related to the old Aldus PageMaker program from the 90s.
 
-A dual-mode document layout system that transforms org-mode files into professional PDFs or modern web narratives.
+A dual-export document layout system that transforms org-mode files into professional PDFs and web-optimized HTML.
 
-**PDF Mode:** Precise grid-based positioning with Typst's powerful typesetting engine for print-ready documents.
+**PDF Export:** Precise grid-based positioning with Typst's powerful typesetting engine for print-ready documents.
 
-**Story Mode:** Auto-layout scrolling web narratives with responsive design and customizable CSS/JS.
+**HTML Export:** Grid-faithful web rendering with CSS Grid layouts that mirror PDF positioning, optimized for web viewing.
 
 <p><img src="img/aesop.jpg" alt="Alt Text" width="45%"> <img src="img/aesop_with_debug_grid.jpg" alt="Alt Text" width="45%"></p>
 The file examples/custom_styles_demo.org rendered without and with debug grid turned on. Note the custom font, the custom line spacing, the custom paragraph speration, thy hyphenation and the optional justification of the text. 
@@ -26,17 +26,17 @@ Unlike traditional document systems that rely on automatic text flow and built-i
 
 This approach is ideal for creating presentations, posters, reports, and any document where you need pixel-perfect control over layout and positioning.
 
-**Story Mode (Web Narratives):**
+**HTML Export (Web Viewing):**
 
-For web-focused content, Story Mode offers an alternative approach:
+For web-focused output, HTML export provides maximum PDF fidelity in the browser:
 
-- **Automatic layout** - intelligent grid arrangements for content blocks
-- **Scrolling narrative** - full-viewport sections with smooth navigation
-- **Responsive design** - CSS Grid layouts that adapt to screen size
+- **Grid-faithful positioning** - CSS Grid layouts mirror PDF grid coordinates exactly
+- **Per-page sections** - full-viewport pages with individual grid configurations
+- **Web font support** - same fonts as PDF using WOFF2 web fonts
 - **Customizable styling** - separate CSS/JS files for easy theming
 - **Rich media support** - images, SVGs, PDFs, tables, lists
 
-Story Mode is ideal for creating interactive presentations, marketing pages, documentation, and web-based stories that prioritize readability and user experience over precise positioning.
+HTML export is ideal for creating web presentations, documentation, and any content that needs to match PDF layout while being viewable in browsers.
 
 ## Features
 
@@ -60,33 +60,34 @@ See the [Media Embedding](#media-embedding-images-pdfs-svgs) section for compreh
 
 ### Core Functionality
 
-**Two Output Modes:**
-- **PDF Mode**: Org-mode to Typst to PDF conversion with precise grid-based positioning
-- **Story Mode**: Org-mode to HTML conversion for scrolling web narratives with automatic layout
+**Two Export Formats:**
+- **PDF Export**: Org-mode to Typst to PDF conversion with precise grid-based positioning
+- **HTML Export**: Org-mode to HTML conversion with CSS Grid layouts mirroring PDF positioning
 
 **Common Features:**
-- **Grid-based positioning**: Grid layout (e.g., 12x8) with A1-style areas (PDF mode) or auto-layout (Story mode)
+- **Grid-based positioning**: Grid layout (e.g., 12x8) with A1-style areas, consistent across PDF and HTML
 - **Element types**: Header, subheader, body text, image, PDF, SVG, rectangle, TOC
 - **Z-order**: Element stacking control
 - **Typography**: Professional fonts and theming
-- **Watch mode**: Auto-rebuild on file/asset changes
+- **Watch mode**: Auto-rebuild on file/asset changes for both PDF and HTML
 
-**When to Use Each Mode:**
+**When to Use Each Format:**
 
-| Use Case | PDF Mode | Story Mode |
+| Use Case | PDF Export | HTML Export |
 |----------|----------|------------|
 | Print documents | ✅ Best choice | ❌ Not suitable |
 | Presentations (offline) | ✅ Precise control | ⚠️ Web only |
 | Web presentations | ⚠️ Static PDF | ✅ Interactive, responsive |
 | Documentation | ✅ Professional | ✅ Modern, searchable |
 | Marketing materials | ✅ Print-ready | ✅ Web-optimized |
-| Precise positioning required | ✅ Pixel-perfect | ❌ Auto-layout |
-| Quick prototyping | ⚠️ Requires positioning | ✅ Fast auto-layout |
+| Precise positioning required | ✅ Pixel-perfect | ✅ Grid-faithful CSS |
+| Quick prototyping | ⚠️ Requires positioning | ✅ Same layout as PDF |
 | Custom styling needed | ⚠️ Typst syntax | ✅ Standard CSS |
 
 ### Features
-- **Story Mode**: Modern scrolling web narratives with auto-layout, responsive grids, keyboard navigation, and customizable CSS/JS output
-- **Watch Mode**: Auto-rebuild on file/asset changes for both PDF and Story Mode workflows
+- **HTML Export**: Grid-faithful web rendering with CSS Grid layouts, web fonts, keyboard navigation, and customizable CSS/JS
+- **Watch Mode**: Auto-rebuild on file/asset changes for both PDF and HTML export workflows
+- **Snapshot Packaging**: Create self-contained packages with org file, assets, fonts, and PDF (like InDesign Package)
 - **Unified media embedding**: Consistent interface for images, PDFs, and SVGs with full support for all fit modes (contain, cover, stretch), alignment-based cropping, captions, and intrinsic sizing
 - **Cover mode support**: All media types support cover mode with alignment-based cropping—control which part is visible when media fills the frame
 - **PDF embedding**: Native Typst PDF embedding with all fit modes, alignment, sanitize/fallback support, and precise intrinsic size detection
@@ -180,16 +181,16 @@ pagemaker watch examples/sample.org --pdf --no-clean --export-dir export
 pagemaker watch examples/sample.org --once --export-dir export
 ```
 
-**Story Mode (HTML):**
+**HTML Export:**
 ```bash
-# Auto-rebuild story HTML on changes (inline CSS/JS)
-pagemaker watch examples/story_demo.org --story
+# Auto-rebuild HTML on changes (inline CSS/JS)
+pagemaker watch examples/sample.org --html-mode
 
 # Auto-rebuild with separate CSS/JS files (recommended for development)
-pagemaker watch examples/story_demo.org --story --separate-assets
+pagemaker watch examples/sample.org --html-mode --separate-assets
 
 # Custom export directory
-pagemaker watch document.org --story --export-dir web/
+pagemaker watch document.org --html-mode --export-dir web/
 ```
 
 Watch mode monitors your org file and all referenced assets (images, SVGs, PDFs via `[[file:...]]` links). When any file changes, output is automatically regenerated.
@@ -207,8 +208,8 @@ Watch mode monitors your org file and all referenced assets (images, SVGs, PDFs 
 - `--update-html <path>`: Update existing HTML file's page count placeholder
 - `--sanitize-pdfs`: Attempt to sanitize PDFs; if Typst compile still fails, auto-fallback to SVG or PNG for the requested page
 
-**Story Mode Options:**
-- `--story`: Generate story mode HTML instead of PDF/Typst
+**HTML Export Options:**
+- `--html-mode`: Generate HTML export instead of PDF/Typst (watch mode)
 - `--separate-assets`: Generate separate CSS/JS files (easier to customize)
 
 ```bash
@@ -221,9 +222,9 @@ pagemaker pdf examples/sample.org --pdf-output deck.pdf
 # Build with PDF sanitize + fallback (qpdf/mutool/gs optional)
 pagemaker pdf examples/sample.org --sanitize-pdfs --pdf-output deck.pdf
 
-# Generate Story Mode HTML (scrolling web narrative)
-pagemaker story examples/story_demo.org
-pagemaker story examples/story_demo.org --separate-assets  # Easier to customize
+# Generate HTML Export (grid-faithful web rendering)
+pagemaker html examples/sample.org
+pagemaker html examples/sample.org --separate-assets  # Easier to customize
 
 # Emit IR JSON to stdout
 pagemaker ir examples/sample.org > ir.json
@@ -236,10 +237,11 @@ pagemaker validate examples/sample.org
 
 | Command | Purpose | Output |
 |---------|---------|--------|
-| `watch` | Auto-rebuild on changes | PDF or HTML (story mode) |
-| `story` | Generate web narrative | HTML with CSS/JS |
+| `watch` | Auto-rebuild on changes | PDF or HTML export |
+| `html` | Generate web export | HTML with CSS/JS |
 | `pdf` | Build PDF document | PDF file |
 | `build` | Generate Typst code | .typ file |
+| `snapshot` | Package document with assets | Self-contained directory |
 | `ir` | Export intermediate representation | JSON to stdout |
 | `validate` | Check document validity | Exit code (0=valid) |
 | `fonts list` | Show available fonts | Font list |
@@ -249,13 +251,69 @@ pagemaker validate examples/sample.org
 **Most Common Workflows:**
 ```bash
 # Development: Live preview while editing
-pagemaker watch document.org --story --separate-assets    # Web (HTML)
-pagemaker watch document.org --pdf                        # Print (PDF)
+pagemaker watch document.org --html-mode --separate-assets    # Web (HTML)
+pagemaker watch document.org --pdf                             # Print (PDF)
 
 # Production: Final output
-pagemaker story document.org --separate-assets            # Web
-pagemaker pdf document.org --pdf-output final.pdf         # Print
+pagemaker html document.org --separate-assets            # Web
+pagemaker pdf document.org --pdf-output final.pdf        # Print
+
+# Package: Create self-contained snapshot
+pagemaker snapshot document.org --output-dir ./snapshots # Complete package
 ```
+
+### Snapshot: Package Documents with Assets
+
+Create self-contained packages of your documents, similar to InDesign's "Package" feature. Perfect for archiving, sharing, or moving projects between systems.
+
+**What's Included:**
+- Original .org file with updated asset paths
+- All referenced media assets (images, PDFs, SVGs)
+- All fonts used in the document
+- Compiled PDF output (optional)
+- README with package metadata
+
+**Basic Usage:**
+```bash
+# Create snapshot with PDF (default behavior)
+pagemaker snapshot document.org --output-dir ./snapshots
+
+# Create snapshot without PDF (faster)
+pagemaker snapshot document.org --output-dir ./snapshots --no-build-pdf
+
+# With custom Typst binary
+pagemaker snapshot document.org --typst-bin /usr/local/bin/typst
+```
+
+**Output Structure:**
+```
+251128-document_snapshot/
+├── document.org          # Updated with ./assets/ paths
+├── document.pdf          # Compiled PDF (if built)
+├── assets/               # All media files
+│   ├── photo1.jpg
+│   ├── diagram.svg
+│   └── ...
+├── fonts/                # All referenced fonts
+│   ├── Inter-Regular.woff2
+│   ├── Inter-Bold.woff2
+│   └── ...
+└── README.txt            # Package metadata
+```
+
+**Key Features:**
+- **Self-contained**: Snapshot directory has everything needed to rebuild
+- **Path updates**: Asset paths automatically updated to `./assets/...`
+- **Font collection**: Captures all font variants (weights, styles)
+- **PDF verification**: Tests that snapshot is self-contained by building PDF from it
+- **Duplicate handling**: Files with same name from different dirs are preserved
+
+**Use Cases:**
+- Archive projects with all dependencies
+- Share documents with collaborators
+- Move projects between machines
+- Create backup before major changes
+- Package for external printing services
 
 ### PDF OutputIntent Injection (PDF/A Compliance)
 

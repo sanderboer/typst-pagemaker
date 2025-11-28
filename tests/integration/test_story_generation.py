@@ -3,7 +3,7 @@ Integration tests for story mode HTML generation.
 """
 
 from pagemaker import parse_org
-from pagemaker.generation.story_generator import generate_story_html
+from pagemaker.generation.html_generator import generate_story_html
 
 
 class TestStoryGeneration:

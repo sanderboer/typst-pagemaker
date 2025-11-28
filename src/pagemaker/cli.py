@@ -15,7 +15,6 @@ Subcommands:
 import argparse
 import hashlib
 import json
-import os
 import pathlib
 import re
 import shutil
@@ -24,7 +23,7 @@ import sys
 import time
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List
+from typing import Dict, List
 
 from . import adjust_asset_paths, generate_typst, parse_org, update_html_total
 from .fonts import (
@@ -33,14 +32,15 @@ from .fonts import (
     _get_bundled_fonts,
     _get_font_paths,
     _get_project_fonts,
+    analyze_font_usage,
 )
+from .generation.html_generator import generate_story_html
 from .generation.pdf_processor import (
     apply_pdf_fallbacks as _apply_pdf_svg_fallbacks,
 )
 from .generation.pdf_processor import (
     sanitize_pdf_assets as _apply_pdf_sanitized_copies,
 )
-from .generation.story_generator import generate_story_html
 from .validation import validate_ir
 
 DEFAULT_EXPORT_DIR = 'export'
@@ -216,132 +216,12 @@ def _install_google_font(font_family: str, variants=None, force: bool = False) -
         return False
 
 
-def _analyze_font_usage(ir: dict) -> dict:
-    """Analyze which fonts are referenced in the IR.
-
-    Sources scanned:
-    - CUSTOM_STYLE meta/header blocks (quoted font names)
-    - STYLE_* meta declarations (quoted or unquoted font: ...)
-    - Global FONT meta directive
-    - Inline Typst directives in element content (#set text(font: "..."))
-    """
-    font_usage: dict[str, Any] = {
-        'fonts_found': set(),
-        'missing_fonts': set(),
-        'usage_locations': [],
-    }
-
-    meta = ir.get('meta', {}) or {}
-
-    # 1) CUSTOM_STYLE headers (quoted fonts inside the style string)
-    custom_style = ir.get('custom_style', '') or meta.get('CUSTOM_STYLE', '')
-    for font_name in re.findall(r'font:\s*"([^"]+)"', custom_style):
-        if font_name:
-            font_usage['fonts_found'].add(font_name)
-            font_usage['usage_locations'].append(
-                {
-                    'type': 'custom_style',
-                    'font': font_name,
-                    'location': 'document header (#+CUSTOM_STYLE)',
-                }
-            )
-
-    # 2) STYLE_* meta declarations: accept quoted or unquoted
-    #    Examples: 'font: Playfair Display, size: 20mm' or 'font:"Inter"'
-    style_keys = [
-        k
-        for k in meta.keys()
-        if isinstance(k, str) and k.upper().startswith('STYLE_') and k.upper() != 'STYLE'
-    ]
-    for sk in style_keys:
-        decl = meta.get(sk, '') or ''
-        # Prefer quoted first
-        names = re.findall(r'font\s*:\s*"([^"]+)"', decl)
-        if not names:
-            # Fallback to unquoted up to comma/semicolon/end
-            m = re.search(r'font\s*:\s*([^,;]+)', decl)
-            if m:
-                candidate = m.group(1).strip()
-                # Strip potential trailing tokens
-                candidate = candidate.strip('"\' )')
-                if candidate:
-                    names = [candidate]
-        for name in names:
-            n = name.strip()
-            if not n:
-                continue
-            font_usage['fonts_found'].add(n)
-            font_usage['usage_locations'].append(
-                {
-                    'type': 'style_meta',
-                    'font': n,
-                    'location': f'meta {sk}',
-                }
-            )
-
-    # 3) Global FONT meta override
-    font_meta = meta.get('FONT')
-    if isinstance(font_meta, str) and font_meta.strip():
-        n = font_meta.strip()
-        font_usage['fonts_found'].add(n)
-        font_usage['usage_locations'].append({'type': 'meta', 'font': n, 'location': 'meta FONT'})
-
-    # 4) Inline Typst in element content
-    for page_idx, page in enumerate(ir.get('pages', []), 1):
-        for elem_idx, element in enumerate(page.get('elements', []), 1):
-            content = element.get('content', '')
-            if isinstance(content, str):
-                for font_name in re.findall(r'#set\s+text\([^)]*font:\s*"([^"]+)"', content):
-                    font_usage['fonts_found'].add(font_name)
-                    font_usage['usage_locations'].append(
-                        {
-                            'type': 'element_content',
-                            'font': font_name,
-                            'location': f'page {page_idx}, element {elem_idx}',
-                        }
-                    )
-
-    # Build availability set using real font names, with optional env override
-    font_paths = _get_font_paths()
-    disable_ft = str(os.environ.get('PAGEMAKER_DISABLE_FONTTOOLS', '')).strip().lower()
-    force_dirnames = disable_ft not in ('', '0', 'false', 'no')
-    available_real = set() if force_dirnames else _collect_real_font_names(font_paths)
-
-    # Directory-name heuristic (forced or fallback)
-    if force_dirnames or not available_real:
-        available_dirnames = set()
-        for font_path in font_paths:
-            path_obj = pathlib.Path(font_path)
-            if not path_obj.exists():
-                continue
-            try:
-                for item in path_obj.iterdir():
-                    if item.is_dir() and not item.name.startswith('.'):
-                        font_files = list(item.glob('*.ttf')) + list(item.glob('*.otf'))
-                        if font_files:
-                            n = item.name
-                            available_dirnames.add(n)
-                            if '_' in n:
-                                available_dirnames.add(n.replace('_', ' '))
-                            if ' ' in n:
-                                available_dirnames.add(n.replace(' ', '_'))
-            except OSError:
-                continue
-        if force_dirnames:
-            available_real = available_dirnames
-        else:
-            available_real |= available_dirnames
-
-    # Determine missing fonts
-    font_usage['missing_fonts'] = font_usage['fonts_found'] - available_real
-    font_usage['available_fonts'] = available_real
-
-    return font_usage
+# _analyze_font_usage moved to fonts.py
 
 
 def _validate_fonts_in_build(ir: dict, strict: bool = False) -> bool:
     """Validate fonts used in the document. Returns True if validation passes."""
-    font_usage = _analyze_font_usage(ir)
+    font_usage = analyze_font_usage(ir)
 
     if not font_usage['fonts_found']:
         return True  # No fonts referenced, nothing to validate
@@ -549,7 +429,7 @@ def _attempt_auto_download_missing_fonts(ir: dict) -> None:
     After each download attempt, rescans availability and reports status.
     """
     try:
-        initial_usage = _analyze_font_usage(ir)
+        initial_usage = analyze_font_usage(ir)
         missing = sorted(initial_usage.get('missing_fonts', []))
         if not missing:
             return
@@ -587,7 +467,7 @@ def _attempt_auto_download_missing_fonts(ir: dict) -> None:
                     print(f"  ⚠️  Auto-download (CLI) failed for '{name}': {e}")
 
             # Rescan availability after this attempt
-            available_after = _analyze_font_usage(ir).get('available_fonts', set())
+            available_after = analyze_font_usage(ir).get('available_fonts', set())
             if name in available_after:
                 print(f"  ✅ '{name}' is now available")
             else:
@@ -924,7 +804,7 @@ def cmd_pdf(args):
     # Compile HTML if requested
     if getattr(args, 'html', False):
         # Generate HTML-compatible Typst code using separate HTML generator
-        from .generation.html_generator import generate_html_typst
+        from .generation.html_typst_generator import generate_html_typst
 
         # Use the pre-prepared ir_html with copied assets
         source_basename = pathlib.Path(args.org).stem
@@ -959,12 +839,9 @@ def cmd_ir(args):
     print(json.dumps(ir, indent=2))
 
 
-def cmd_story(args):
-    """Generate story mode HTML output."""
+def cmd_html(args):
+    """Generate HTML export with grid-based layout."""
     ir = parse_org(args.org)
-
-    # Set story mode flag in metadata (for potential future use)
-    ir['meta']['STORY_MODE'] = 'true'
 
     # Prepare output path
     output_file = args.output or 'index.html'
@@ -977,15 +854,15 @@ def cmd_story(args):
         else pathlib.Path(output_file)
     )
 
-    # Generate story HTML
-    print("Generating story mode HTML...")
+    # Generate HTML
+    print("Generating HTML export...")
     separate_assets = getattr(args, 'separate_assets', False)
     generate_story_html(ir, str(output_path), source_file=args.org, separate_assets=separate_assets)
 
     asset_mode = "separate files" if separate_assets else "inline"
-    print(f"Story HTML written to: {output_path} (CSS/JS: {asset_mode})")
-    print(f"Scenes: {len(ir['pages'])}")
-    print("\nOpen the file in a browser to view the story.")
+    print(f"HTML written to: {output_path} (CSS/JS: {asset_mode})")
+    print(f"Pages: {len(ir['pages'])}")
+    print("\nOpen the file in a browser to view.")
     print("Navigation: Spacebar/ArrowDown (next), ArrowUp (previous), Home/End")
 
 
@@ -1000,6 +877,46 @@ def cmd_validate(args):
         sys.exit(1)
 
 
+def _resolve_asset_path(src: str, org_path: pathlib.Path) -> pathlib.Path:
+    """Resolve an asset path relative to the org file's directory.
+
+    Resolution order:
+    1. Absolute paths are used as-is
+    2. Relative to org file directory
+    3. Relative to parent directory (common pattern for shared assets)
+    4. Relative to current working directory
+
+    Args:
+        src: Asset path string (absolute or relative)
+        org_path: Path to the org file
+
+    Returns:
+        Resolved pathlib.Path
+    """
+    if pathlib.Path(src).is_absolute():
+        return pathlib.Path(src)
+
+    org_dir = org_path.parent
+
+    # Try relative to org file directory first
+    relative_path = org_dir / src
+    if relative_path.exists():
+        return relative_path.resolve()
+
+    # Try relative to parent directory (common pattern for shared assets)
+    parent_path = org_dir.parent / src
+    if parent_path.exists():
+        return parent_path.resolve()
+
+    # Try relative to current working directory as fallback
+    cwd_path = pathlib.Path(src)
+    if cwd_path.exists():
+        return cwd_path.resolve()
+
+    # Return the relative path even if it doesn't exist (might exist later)
+    return relative_path
+
+
 def _collect_asset_paths(ir, org_path: pathlib.Path) -> List[pathlib.Path]:
     """Collect all asset file paths referenced in the intermediate representation.
 
@@ -1011,50 +928,78 @@ def _collect_asset_paths(ir, org_path: pathlib.Path) -> List[pathlib.Path]:
         List of pathlib.Path objects for all referenced asset files that exist
     """
     asset_paths = []
-    org_dir = org_path.parent
-
-    def resolve_asset_path(src: str) -> pathlib.Path:
-        """Resolve an asset path relative to the org file's directory."""
-        if pathlib.Path(src).is_absolute():
-            return pathlib.Path(src)
-
-        # Try relative to org file directory first
-        relative_path = org_dir / src
-        if relative_path.exists():
-            return relative_path.resolve()
-
-        # Try relative to current working directory as fallback
-        cwd_path = pathlib.Path(src)
-        if cwd_path.exists():
-            return cwd_path.resolve()
-
-        # Return the relative path even if it doesn't exist (might exist later)
-        return relative_path
 
     for page in ir.get('pages', []):
         for el in page.get('elements', []):
             # Check for figure assets (images)
             fig = el.get('figure')
             if fig and fig.get('src'):
-                asset_path = resolve_asset_path(fig['src'])
+                asset_path = _resolve_asset_path(fig['src'], org_path)
                 if asset_path.exists():
                     asset_paths.append(asset_path)
 
             # Check for PDF assets
             pdf = el.get('pdf')
             if pdf and pdf.get('src'):
-                asset_path = resolve_asset_path(pdf['src'])
+                asset_path = _resolve_asset_path(pdf['src'], org_path)
                 if asset_path.exists():
                     asset_paths.append(asset_path)
 
             # Check for SVG assets
             svg = el.get('svg')
             if svg and svg.get('src'):
-                asset_path = resolve_asset_path(svg['src'])
+                asset_path = _resolve_asset_path(svg['src'], org_path)
                 if asset_path.exists():
                     asset_paths.append(asset_path)
 
     return list(set(asset_paths))  # Remove duplicates
+
+
+def _collect_font_files(ir) -> List[pathlib.Path]:
+    """Collect all font files used in the document.
+
+    Args:
+        ir: Intermediate representation dictionary
+
+    Returns:
+        List of pathlib.Path objects for all font files that are used
+    """
+    from .fonts import _get_font_paths
+    from .utils.font_discovery import analyze_font_usage
+
+    # Get fonts referenced in document
+    font_usage = analyze_font_usage(ir)
+    font_names = font_usage.get('fonts_found', set())
+
+    if not font_names:
+        return []
+
+    # Get font search paths
+    font_paths = _get_font_paths()
+
+    # Collect all font files for the referenced font families
+    font_files = []
+    font_extensions = {'.ttf', '.otf', '.woff', '.woff2'}
+
+    for font_name in font_names:
+        # Search in all font paths
+        for font_path_str in font_paths:
+            font_path = pathlib.Path(font_path_str)
+            if not font_path.exists():
+                continue
+
+            # Look for font files matching this font family
+            # Font files are typically named like: Inter-Regular.woff2, Inter-Bold.ttf, etc.
+            try:
+                for file_path in font_path.rglob('*'):
+                    if file_path.suffix.lower() in font_extensions:
+                        # Check if filename starts with font family name (case-insensitive)
+                        if file_path.stem.lower().startswith(font_name.lower().replace(' ', '')):
+                            font_files.append(file_path)
+            except Exception:
+                pass
+
+    return list(set(font_files))  # Remove duplicates
 
 
 def cmd_watch(args):
@@ -1068,8 +1013,8 @@ def cmd_watch(args):
     last_asset_paths = set()
 
     # Determine mode
-    story_mode = getattr(args, 'story', False)
-    mode_desc = "story" if story_mode else f"pdf={args.pdf}"
+    html_mode = getattr(args, 'html_mode', False)
+    mode_desc = "html" if html_mode else f"pdf={args.pdf}"
     print(f"Watching {org_path} interval={args.interval}s mode={mode_desc} (once={args.once})")
 
     def compute_hash(p: pathlib.Path):
@@ -1106,9 +1051,8 @@ def cmd_watch(args):
     def build_once():
         ir = parse_org(str(org_path))
 
-        # Story mode build
-        if story_mode:
-            ir['meta']['STORY_MODE'] = 'true'
+        # HTML mode build
+        if html_mode:
             output_file = 'index.html'
             output_path = export_dir / output_file
             separate_assets = getattr(args, 'separate_assets', False)
@@ -1116,7 +1060,7 @@ def cmd_watch(args):
                 ir, str(output_path), source_file=str(org_path), separate_assets=separate_assets
             )
             asset_mode = "separate files" if separate_assets else "inline"
-            print(f"[watch] Rebuilt story HTML: {output_path} (CSS/JS: {asset_mode})")
+            print(f"[watch] Rebuilt HTML: {output_path} (CSS/JS: {asset_mode})")
             return True
 
         # PDF/Typst mode build (existing logic)
@@ -1169,7 +1113,7 @@ def cmd_watch(args):
             # Compile HTML if requested
             if getattr(args, 'html', False):
                 # Regenerate HTML-specific Typst code
-                from .generation.html_generator import generate_html_typst
+                from .generation.html_typst_generator import generate_html_typst
 
                 html_typst_code = generate_html_typst(ir)
                 _write(typst_path, html_typst_code)
@@ -1514,7 +1458,7 @@ def cmd_fonts_analyze(args):
 
     try:
         ir = parse_org(org_file)
-        font_usage = _analyze_font_usage(ir)
+        font_usage = analyze_font_usage(ir)
 
         if not font_usage['fonts_found']:
             print("📊 No fonts explicitly referenced in document")
@@ -1560,6 +1504,288 @@ def cmd_fonts_analyze(args):
     except Exception as e:
         print(f"❌ Failed to analyze document: {e}")
         sys.exit(1)
+
+
+def cmd_snapshot(args):
+    """Create a snapshot package of the org file, all referenced assets, and compiled PDF.
+
+    Creates a directory with format: yymmdd-<doc_name_slug>_snapshot/
+    Contains:
+    - The .org source file
+    - All referenced media assets (images, PDFs, SVGs)
+    - The compiled PDF output
+
+    Similar to InDesign's "Package" feature.
+    """
+    from datetime import datetime
+
+    org_path = pathlib.Path(args.org)
+    if not org_path.exists():
+        print(f"❌ Error: org file not found: {org_path}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"📦 Creating snapshot for: {org_path.name}")
+    print("=" * 50)
+
+    # Parse the org file to get IR
+    print("🔍 Scanning document for assets and fonts...")
+    ir = parse_org(str(org_path))
+
+    # Collect all referenced assets
+    asset_paths = _collect_asset_paths(ir, org_path)
+
+    # Collect all font files
+    font_files = _collect_font_files(ir)
+
+    # Create snapshot directory name: yymmdd-doc_name_slug_snapshot
+    now = datetime.now()
+    date_prefix = now.strftime("%y%m%d")
+    doc_slug = org_path.stem.replace(' ', '_').replace('-', '_').lower()
+    snapshot_dir_name = f"{date_prefix}-{doc_slug}_snapshot"
+
+    snapshot_dir = pathlib.Path(args.output_dir) / snapshot_dir_name
+
+    # Create snapshot directory structure
+    print(f"📁 Creating snapshot directory: {snapshot_dir}")
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+
+    assets_dir = snapshot_dir / "assets"
+    assets_dir.mkdir(exist_ok=True)
+
+    fonts_dir = snapshot_dir / "fonts"
+    fonts_dir.mkdir(exist_ok=True)
+
+    # Copy org file and update asset paths
+    print(f"📄 Copying org file: {org_path.name}")
+    org_dest = snapshot_dir / org_path.name
+
+    # Read org file content
+    org_content = org_path.read_text(encoding='utf-8')
+
+    # Extract all file references from org content using regex
+    # This captures the exact strings used in the org file
+    import re
+
+    file_link_pattern = re.compile(r'\[\[file:([^\]]+)\]\]')
+    prop_pattern = re.compile(r':(SRC|SVG|PDF|IMAGE):\s*(\S+)')
+
+    org_file_refs = set()
+    for match in file_link_pattern.finditer(org_content):
+        org_file_refs.add(match.group(1))
+    for match in prop_pattern.finditer(org_content):
+        org_file_refs.add(match.group(2))
+
+    # Build a mapping from resolved absolute paths to their org file reference strings
+    # Use same resolution logic as _collect_asset_paths for consistency
+    asset_to_org_ref = {}
+    for ref_str in org_file_refs:
+        resolved = _resolve_asset_path(ref_str, org_path)
+        if resolved.exists():
+            asset_to_org_ref[str(resolved)] = ref_str
+
+    # Build mapping of old paths to new paths
+    asset_path_mapping = {}
+
+    # Copy all referenced assets
+    print(f"🖼️  Copying {len(asset_paths)} referenced assets...")
+    copied_assets = []
+    for asset_path in asset_paths:
+        try:
+            # Preserve relative directory structure for assets
+            # If asset is in a subdirectory, recreate that structure
+            relative_name = asset_path.name
+            asset_dest = assets_dir / relative_name
+
+            # Handle duplicate filenames by adding parent directory
+            if asset_dest.exists() and not asset_dest.samefile(asset_path):
+                relative_name = f"{asset_path.parent.name}_{asset_path.name}"
+                asset_dest = assets_dir / relative_name
+
+            shutil.copy2(asset_path, asset_dest)
+            copied_assets.append(relative_name)
+
+            # Map the original org file reference string to the new path
+            new_path = f"assets/{relative_name}"
+            asset_key = str(asset_path.resolve())
+            if asset_key in asset_to_org_ref:
+                org_ref_string = asset_to_org_ref[asset_key]
+                asset_path_mapping[org_ref_string] = new_path
+
+            print(f"  ✅ {relative_name}")
+        except Exception as e:
+            print(f"  ⚠️  Failed to copy {asset_path.name}: {e}", file=sys.stderr)
+
+    # Copy all font files
+    print(f"🔤 Copying {len(font_files)} font files...")
+    copied_fonts = []
+    for font_file in font_files:
+        try:
+            font_dest = fonts_dir / font_file.name
+
+            # Handle duplicate filenames by adding parent directory
+            if font_dest.exists() and not font_dest.samefile(font_file):
+                font_dest = fonts_dir / f"{font_file.parent.name}_{font_file.name}"
+
+            shutil.copy2(font_file, font_dest)
+            copied_fonts.append(font_file.name)
+            print(f"  ✅ {font_file.name}")
+        except Exception as e:
+            print(f"  ⚠️  Failed to copy {font_file.name}: {e}", file=sys.stderr)
+
+    # Update asset paths in org file content
+    # Look for [[file:path]] links and :SRC: properties
+    # All paths in org files should be relative
+    print("🔧 Updating asset paths in org file...")
+    updated_count = 0
+
+    # Sort keys by length (longest first) to avoid partial replacements
+    for old_path in sorted(asset_path_mapping.keys(), key=len, reverse=True):
+        new_path = asset_path_mapping[old_path]
+
+        # Make new_path relative with ./ prefix for consistency
+        new_relative_path = f"./{new_path}"
+
+        # Replace in [[file:...]] links
+        old_link = f"[[file:{old_path}]]"
+        new_link = f"[[file:{new_relative_path}]]"
+        if old_link in org_content:
+            org_content = org_content.replace(old_link, new_link)
+            updated_count += 1
+
+        # Replace in :SRC: properties (also make relative)
+        old_src = f":SRC: {old_path}"
+        new_src = f":SRC: {new_relative_path}"
+        if old_src in org_content:
+            org_content = org_content.replace(old_src, new_src)
+            updated_count += 1
+
+        # Replace in legacy :SVG: properties
+        old_svg = f":SVG: {old_path}"
+        new_svg = f":SVG: {new_relative_path}"
+        if old_svg in org_content:
+            org_content = org_content.replace(old_svg, new_svg)
+            updated_count += 1
+
+        # Replace in legacy :PDF: properties
+        old_pdf = f":PDF: {old_path}"
+        new_pdf = f":PDF: {new_relative_path}"
+        if old_pdf in org_content:
+            org_content = org_content.replace(old_pdf, new_pdf)
+            updated_count += 1
+
+        # Replace in legacy :IMAGE: properties (if any)
+        old_image = f":IMAGE: {old_path}"
+        new_image = f":IMAGE: {new_relative_path}"
+        if old_image in org_content:
+            org_content = org_content.replace(old_image, new_image)
+            updated_count += 1
+
+    if updated_count > 0:
+        print(f"  ✅ Updated {updated_count} asset path references")
+
+    # Write the updated org file
+    org_dest.write_text(org_content, encoding='utf-8')
+
+    # Compile PDF by default (unless --no-build-pdf is specified)
+    pdf_path = None
+    pdf_output_name = f"{org_path.stem}.pdf"
+    build_pdf = not getattr(args, 'no_build_pdf', False)
+
+    if build_pdf:
+        print("\n📄 Compiling PDF...")
+
+        try:
+            import os
+
+            # Parse the UPDATED org file from the snapshot directory
+            # This ensures we're testing that the snapshot is self-contained
+            ir_snapshot = parse_org(str(org_dest))
+
+            # Try to auto-download missing fonts
+            _attempt_auto_download_missing_fonts(ir_snapshot)
+
+            # Build PDF directly in snapshot directory
+            # The updated org file already has correct ./assets/... paths
+            typst_path = snapshot_dir / 'deck.typ'
+            pdf_temp_path = snapshot_dir / pdf_output_name
+
+            # Adjust asset paths relative to snapshot directory
+            adjust_asset_paths(ir_snapshot, snapshot_dir)
+
+            # Change to snapshot directory for compilation
+            # This ensures Typst can find all files with relative paths
+            original_cwd = pathlib.Path.cwd()
+            try:
+                os.chdir(snapshot_dir)
+
+                ok = _compile_with_fallback(
+                    ir=ir_snapshot,
+                    export_dir=snapshot_dir,
+                    typst_path=typst_path,
+                    pdf_path=pdf_temp_path,
+                    typst_bin=args.typst_bin,
+                    sanitize=getattr(args, 'sanitize_pdfs', False),
+                    no_clean=False,
+                )
+            finally:
+                os.chdir(original_cwd)
+
+            if ok and pdf_temp_path.exists():
+                pdf_path = pdf_temp_path
+                print(f"  ✅ PDF compiled successfully: {pdf_output_name}")
+
+            # Clean up intermediate typst file
+            if typst_path.exists():
+                typst_path.unlink()
+
+        except Exception as e:
+            print(f"  ⚠️  PDF compilation failed: {e}", file=sys.stderr)
+
+    # Create a README file in the snapshot
+    readme_path = snapshot_dir / "README.txt"
+    readme_content = f"""Pagemaker Snapshot
+==================
+
+Created: {now.strftime("%Y-%m-%d %H:%M:%S")}
+Source: {org_path.name}
+
+Contents:
+- {org_path.name} (source document)
+- assets/ ({len(copied_assets)} files)
+- fonts/ ({len(copied_fonts)} files)
+"""
+    if pdf_path and pdf_path.exists():
+        readme_content += f"- {pdf_output_name} (compiled PDF)\n"
+    elif build_pdf:
+        readme_content += "- PDF compilation was attempted but failed\n"
+
+    readme_content += f"""
+This snapshot contains all files needed to reproduce the document.
+Asset paths have been updated to reference the assets/ directory.
+Font files are available in the fonts/ directory.
+
+To rebuild:
+  pagemaker pdf {org_path.name}
+"""
+
+    readme_path.write_text(readme_content, encoding='utf-8')
+
+    # Summary
+    print("\n" + "=" * 50)
+    print("✅ Snapshot created successfully!")
+    print(f"📂 Location: {snapshot_dir}")
+    print(f"📄 Org file: {org_path.name}")
+    print(f"🖼️  Assets: {len(copied_assets)} files")
+    print(f"🔤 Fonts: {len(copied_fonts)} files")
+    if pdf_path and pdf_path.exists():
+        print(f"📑 PDF: {pdf_output_name}")
+    elif build_pdf:
+        print("⚠️  PDF compilation failed (snapshot created without PDF)")
+    print(
+        f"\n💡 Total size: {_format_size(sum(f.stat().st_size for f in snapshot_dir.rglob('*') if f.is_file()))}"
+    )
+
+    return snapshot_dir
 
 
 def _generate_font_specimen_org(fonts_info: list, specimen_type: str = 'showcase') -> str:
@@ -1842,20 +2068,20 @@ def build_parser():
     irp.add_argument('org')
     irp.set_defaults(func=cmd_ir)
 
-    story = sub.add_parser('story', help='org -> story HTML (scrolling web narrative)')
-    story.add_argument('org', help='org file to convert')
-    story.add_argument(
+    html = sub.add_parser('html', help='org -> HTML (grid-based web export)')
+    html.add_argument('org', help='org file to convert')
+    html.add_argument(
         '-o', '--output', default='index.html', help='output HTML filename (default: index.html)'
     )
-    story.add_argument(
+    html.add_argument(
         '--export-dir', default=DEFAULT_EXPORT_DIR, help='export directory (default: export)'
     )
-    story.add_argument(
+    html.add_argument(
         '--separate-assets',
         action='store_true',
         help='Generate separate CSS/JS files instead of inline (easier to customize)',
     )
-    story.set_defaults(func=cmd_story)
+    html.set_defaults(func=cmd_html)
 
     val = sub.add_parser('validate', help='validate IR')
     val.add_argument('org')
@@ -1902,9 +2128,9 @@ def build_parser():
         help='Also compile to HTML using Typst native HTML export (requires Typst 0.14+)',
     )
     watch.add_argument(
-        '--story',
+        '--html-mode',
         action='store_true',
-        help='Generate story mode HTML instead of PDF/Typst',
+        help='Generate HTML export instead of PDF/Typst',
     )
     watch.add_argument(
         '--separate-assets',
@@ -1990,6 +2216,35 @@ def build_parser():
         '--pdf', action='store_true', help='automatically build PDF after generating org file'
     )
     specimen.set_defaults(func=cmd_fonts_specimen)
+
+    # snapshot command
+    snapshot_parser = sub.add_parser(
+        'snapshot',
+        help='create snapshot package of org file, assets, and PDF (like InDesign Package)',
+    )
+    snapshot_parser.add_argument('org', help='org file to snapshot')
+    snapshot_parser.add_argument(
+        '-o',
+        '--output-dir',
+        default='.',
+        help='directory to create snapshot in (default: current directory)',
+    )
+    snapshot_parser.add_argument(
+        '--no-build-pdf',
+        action='store_true',
+        help='skip PDF compilation (PDF is built by default)',
+    )
+    snapshot_parser.add_argument(
+        '--typst-bin',
+        default='typst',
+        help='path to typst binary (default: typst)',
+    )
+    snapshot_parser.add_argument(
+        '--sanitize-pdfs',
+        action='store_true',
+        help='attempt to sanitize PDFs and fallback to SVG if necessary',
+    )
+    snapshot_parser.set_defaults(func=cmd_snapshot)
 
     return p
 

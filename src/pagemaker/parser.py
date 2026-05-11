@@ -3,9 +3,21 @@ import warnings
 from typing import Dict, List, Optional
 
 HEADLINE_RE = re.compile(r'^(?P<stars>\*+)\s+(?P<title>.+)$')
+ORG_TAG_RE = re.compile(r'\s{2,}((:\w[\w@#%.-]*:)+)$')
 PROP_BEGIN_RE = re.compile(r'^:PROPERTIES:', re.I)
 PROP_END_RE = re.compile(r'^:END:', re.I)
 LINK_IMG_RE = re.compile(r'^\[\[file:(?P<path>[^\]]+)\]\]')
+
+
+def parse_org_tags(title: str):
+    """Extract Org-mode tags from headline title.  Returns (clean_title, [tags])."""
+    m = ORG_TAG_RE.search(title)
+    if m:
+        raw = m.group(1)
+        tags = [t.strip(':') for t in raw.split(':') if t.strip(':')]
+        return title[: m.start()].strip(), tags
+    return title.strip(), []
+
 
 # List parsing regexes
 UL_RE = re.compile(r'^(\s*)[-+*]\s+(.*)$')
@@ -618,6 +630,7 @@ class OrgElement:
         # New flags for ignore semantics
         self.ignored_self = False
         self.ignored_by_parent = False
+        self.has_ignore_tag = False
 
     def to_ir(self):
         area_obj = None
@@ -861,6 +874,8 @@ class OrgElement:
         align = None
         valign = None
         flow = None
+        columns = None
+        column_gap = None
         if self.type in ('header', 'subheader', 'body'):
             # Parse content into mixed text blocks (plain text and lists)
             text_blocks = _parse_content_blocks(self.content_lines)
@@ -884,6 +899,21 @@ class OrgElement:
             align = parse_align(self.props.get('ALIGN'))
             valign = parse_valign(self.props.get('VALIGN'))
             flow = parse_flow(self.props.get('FLOW'))
+            cols_raw = self.props.get('COLUMNS')
+            if cols_raw is not None:
+                try:
+                    columns = int(str(cols_raw).strip())
+                except (ValueError, TypeError):
+                    pass
+            gap_raw = self.props.get('COLUMN_GAP')
+            if gap_raw is not None:
+                try:
+                    gap_s = str(gap_raw).strip()
+                    m = re.match(r'^(\d+(?:\.\d+)?)\s*(?:mm)?$', gap_s, re.I)
+                    if m:
+                        column_gap = float(m.group(1))
+                except (ValueError, TypeError):
+                    pass
         # Allow padding and alignment for figures/svg/pdf/rectangle/toc too (alignment currently only used for text/toc)
         if self.type in ('figure', 'svg', 'pdf', 'rectangle', 'toc'):
             if padding_mm is None:
@@ -924,6 +954,8 @@ class OrgElement:
             'flow': flow,
             'padding_mm': padding_mm,
             'had_margin_decl': had_margin_decl,
+            'columns': columns,
+            'column_gap': column_gap,
         }
 
 
@@ -936,6 +968,11 @@ class OrgPage:
         self.master = None
         # New: page-level ignore
         self.ignore_page = False
+        self.has_ignore_tag = False
+        self.has_toc_ignore_tag = False
+        self.has_show_grid_tag = False
+        self.master_tag_name: Optional[str] = None
+        self.is_master_def_tag = False
 
     def to_ir(self, global_defaults):
         # Page size and orientation are document-level settings.
@@ -965,6 +1002,21 @@ class OrgPage:
                 margins_declared = False
         grid_total_cols = cols + (2 if margins_declared else 0)
         grid_total_rows = rows + (2 if margins_declared else 0)
+        # Resolve master from tag (wins over property)
+        master_from_tag = self.master_tag_name or ''
+        master_val = (
+            master_from_tag
+            if master_from_tag
+            else self.props.get('MASTER', global_defaults.get('DEFAULT_MASTER', '')).strip()
+        )
+        # Resolve master_def from tag
+        master_def_val = self.props.get('MASTER_DEF', '').strip()
+        if not master_def_val and self.is_master_def_tag:
+            master_def_val = slugify(self.title)
+        # TOC_IGNORE: tag wins over property
+        toc_ignore = self.has_toc_ignore_tag
+        if not toc_ignore:
+            toc_ignore = parse_bool(self.props.get('TOC_IGNORE')) is True
         return {
             'id': self.id,
             'title': self.title,
@@ -976,8 +1028,10 @@ class OrgPage:
             if margins_declared
             else None,
             'margins_declared': margins_declared,
-            'master': self.props.get('MASTER', global_defaults.get('DEFAULT_MASTER', '')).strip(),
-            'master_def': self.props.get('MASTER_DEF', '').strip(),
+            'master': master_val,
+            'master_def': master_def_val,
+            'show_grid': self.has_show_grid_tag,
+            'toc_ignore': toc_ignore,
             # Record any per-page overrides that are ignored for validation/warnings
             'ignored_overrides': [
                 k for k in ('PAGE_SIZE', 'PAGESIZE', 'ORIENTATION') if k in self.props
@@ -1123,6 +1177,8 @@ def parse_org(path):
                 if key == 'TBLFM':
                     # Extra guard: ignore table formulas
                     continue
+                if key == 'SHOW_GRID':
+                    key = 'GRID_DEBUG'
                 meta[key] = v.strip()
             except ValueError:
                 pass
@@ -1130,7 +1186,17 @@ def parse_org(path):
         m = HEADLINE_RE.match(line_stripped)
         if m and not prop_mode:
             level = len(m.group('stars'))
-            title = m.group('title').strip()
+            raw_title = m.group('title').strip()
+            title, tags = parse_org_tags(raw_title)
+            has_ignore_tag = 'ignore' in tags
+            has_toc_ignore_tag = 'toc_ignore' in tags or 'no_toc' in tags
+            has_show_grid_tag = 'show_grid' in tags
+            is_master_def_tag = 'master' in tags
+            master_tag_name = None
+            for t in tags:
+                if t.startswith('master_'):
+                    master_tag_name = t[len('master_') :]
+                    break
             close_element()
             # Leaving an ignored subtree if we move to a headline at or above ignore depth
             if ignore_depth is not None and level <= ignore_depth:
@@ -1148,11 +1214,23 @@ def parse_org(path):
                     area_context.pop(lv, None)
             if level == 1:
                 current_page = OrgPage(id_=slugify(title), title=title, props={})
+                current_page.has_ignore_tag = has_ignore_tag
+                current_page.has_toc_ignore_tag = has_toc_ignore_tag
+                current_page.has_show_grid_tag = has_show_grid_tag
+                current_page.is_master_def_tag = is_master_def_tag
+                current_page.master_tag_name = master_tag_name
+                if has_ignore_tag:
+                    current_page.ignore_page = True
+                    ignore_depth = 1
                 pages.append(current_page)
             elif level >= 2 and current_page:
                 current_element = OrgElement(
                     id_=slugify(title), type_='body', title=title, props={}, area=None, level=level
                 )
+                current_element.has_ignore_tag = has_ignore_tag
+                if has_ignore_tag:
+                    current_element.ignored_self = True
+                    ignore_depth = current_element.level
                 # If we are inside an ignored subtree, mark this element as ignored by parent
                 if ignore_depth is not None and level > ignore_depth:
                     current_element.ignored_by_parent = True
@@ -1186,10 +1264,12 @@ def parse_org(path):
                     if ar:
                         current_element.area = ar
                 # Element-level ignore semantics
-                ig = parse_bool(prop_buf.get('IGNORE'))
-                if ig is True and current_element.level:
+                ig_val = prop_buf.get('IGNORE')
+                ig = parse_bool(ig_val) or (ig_val or '').strip().lower() == 'headline'
+                if current_element.has_ignore_tag:
+                    ig = True
+                if ig and current_element.level:
                     current_element.ignored_self = True
-                    # Ignore entire subtree under this section
                     ignore_depth = current_element.level
                 # If TYPE is explicitly 'none' or missing, ignore just this element (not its children)
                 type_declared = 'TYPE' in prop_buf
@@ -1272,8 +1352,11 @@ def parse_org(path):
             elif current_page:
                 current_page.props.update(prop_buf)
                 # Page-level ignore: drop entire page from IR later
-                ig = parse_bool(prop_buf.get('IGNORE'))
-                if ig is True:
+                ig_val = prop_buf.get('IGNORE')
+                ig = parse_bool(ig_val) or (ig_val or '').strip().lower() == 'headline'
+                if current_page.has_ignore_tag:
+                    ig = True
+                if ig:
                     current_page.ignore_page = True
                     # Also ignore all subsequent sections until next page
                     ignore_depth = 1

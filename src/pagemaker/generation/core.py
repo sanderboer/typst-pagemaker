@@ -881,7 +881,6 @@ def process_pages(ir, masters, render_pages, styles):
         _render_text_element,
         _typst_grid_toc_entry,
         escape_text,
-        parse_bool,
     )
 
     # Direct import of pdf intrinsic size (bypassing deprecated generator alias)
@@ -958,7 +957,13 @@ def process_pages(ir, masters, render_pages, styles):
             content_fragments = []
             pre_comments = []
             if el['type'] in ('header', 'subheader', 'body'):
-                content_fragments.append(_render_text_element(el, styles))
+                text_content = _render_text_element(el, styles)
+                num_cols = el.get('columns')
+                if num_cols and num_cols > 1:
+                    gap = el.get('column_gap')
+                    gap_part = f', gutter: {gap:g}mm' if gap else ''
+                    text_content = f'#columns({num_cols}{gap_part})[{text_content}]'
+                content_fragments.append(text_content)
             elif el['type'] == 'rectangle' and (
                 el.get('rectangle')
                 or (isinstance(el.get('style'), str) and el.get('style').strip().lower() in styles)
@@ -1075,8 +1080,8 @@ def process_pages(ir, masters, render_pages, styles):
                 toc_entries = []
                 page_counter = 1
                 for rp in render_pages:
-                    # Skip pages marked with TOC_IGNORE
-                    if parse_bool(rp.get('props', {}).get('TOC_IGNORE')):
+                    # Skip pages marked with TOC_IGNORE (property or tag; tag wins, resolved in parser)
+                    if rp.get('toc_ignore', False):
                         page_counter += 1
                         continue
                     title = escape_text(rp.get('title', ''))
@@ -1142,7 +1147,7 @@ def process_pages(ir, masters, render_pages, styles):
                 )
             else:
                 out.append(f"#layer_grid(gp,{x_total},{y_total},{wc},{hc}, {arg})\n")
-        if ir['meta'].get('GRID_DEBUG', 'false').lower() == 'true':
+        if ir['meta'].get('GRID_DEBUG', 'false').lower() == 'true' or page.get('show_grid'):
             if margins_declared:
                 out.append("#draw_total_grid(gp)\n")
             else:

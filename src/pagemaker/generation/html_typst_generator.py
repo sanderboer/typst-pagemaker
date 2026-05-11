@@ -270,7 +270,15 @@ def _generate_text_content(elem: Dict[str, Any], plain_text_only: bool = False) 
             if content:
                 parts.append(content)
 
-    return '\n\n'.join(parts)
+    content = '\n\n'.join(parts)
+    if not content:
+        return content
+    cols = elem.get('columns')
+    if cols and cols > 1:
+        gap = elem.get('column_gap')
+        gap_part = f', gutter: {gap:g}mm' if gap else ''
+        return f'#columns({cols}{gap_part})[{content}]'
+    return content
 
 
 def _generate_table(table_block: Dict[str, Any]) -> str:

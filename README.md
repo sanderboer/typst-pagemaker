@@ -759,6 +759,8 @@ See the in-depth guide: docs/master_styles.md (styles, paragraph options, master
   - size | font-size (Typst units like `pt`, `em`)
   - color | colour | fill (supports `#hex`, `rgb(...)`, `hsl(...)`, or named)
 - Use a style on an element by setting `:STYLE:` to the style name (e.g., `hero`). If omitted, the element’s type is used as the style key (`header`, `subheader`, `body`).
+- Styles on `figure`, `svg`, and `pdf` elements control caption text styling (font, size, color) via `:STYLE:`. The media content itself is unaffected.
+- A style without explicit `font`, `size`, or `color` leaves those caption properties at their Typst defaults (theme font, 0.75em, grey).
 - Commas inside parentheses are handled correctly (e.g., `rgb(50%,50%,50%)`).
 
 Example:
@@ -1219,7 +1221,7 @@ Example: Landscape photo with left-aligned crop:
 
 #### Caption Handling
 
-Both `figure` and `pdf` elements support captions:
+All media types (`figure`, `svg`, `pdf`) support captions via `:CAPTION:`:
 
 ```org
 ** Captioned Image
@@ -1235,6 +1237,18 @@ Both `figure` and `pdf` elements support captions:
 **Caption Behavior:**
 - Captions appear below the media
 - Caption space (5mm) is automatically reserved from the frame height
+- **Caption styling**: Use `:STYLE:` to control caption font, size, and color:
+  ```org
+  #+STYLE_CAPTION: font: Inter, size: 8pt, color: #666666
+  
+  ** Captioned Image
+  :PROPERTIES:
+  :TYPE: figure
+  :CAPTION: Sales chart
+  :STYLE: caption
+  :AREA: A5,F8
+  :END:
+  ```
 - Alignment properties apply to both media and caption
 - Works with all fit modes
 

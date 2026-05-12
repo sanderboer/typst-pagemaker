@@ -212,18 +212,22 @@ def _render_text_blocks(text_blocks: list, el: dict, styles: dict) -> str:
             content = block['content']
             if content.strip():
                 chunks = content.split('{{colbreak}}')
-                rendered_chunks = []
-                for chunk in chunks:
+                colbreak_parts = []
+                for i, chunk in enumerate(chunks):
                     chunk = chunk.strip()
                     if not chunk:
                         continue
                     fragments = _process_mixed_content(chunk)
                     has_mixed_content = any(f['type'] in ('typst', 'codeblock') for f in fragments)
 
+                    # Use split index to track colbreak positions
+                    if i > 0:
+                        colbreak_parts.append('#colbreak()')
+
                     if has_mixed_content:
                         for fragment in fragments:
                             if fragment['type'] == 'typst':
-                                rendered_chunks.append(fragment['content'])
+                                colbreak_parts.append(fragment['content'])
                             elif fragment['type'] == 'codeblock':
                                 code_content = fragment['content']
                                 lang = fragment['lang']
@@ -233,37 +237,38 @@ def _render_text_blocks(text_blocks: list, el: dict, styles: dict) -> str:
                                     .replace('\n', '\\n')
                                 )
                                 if lang and lang != 'text':
-                                    rendered_chunks.append(
+                                    colbreak_parts.append(
                                         f'#raw("{escaped_code}", lang: "{lang}", block: true)'
                                     )
                                 else:
-                                    rendered_chunks.append(f'#raw("{escaped_code}", block: true)')
+                                    colbreak_parts.append(f'#raw("{escaped_code}", block: true)')
                             elif fragment['type'] == 'text' and fragment['content'].strip():
                                 text_content = fragment['content']
                                 paras = _split_paragraphs(text_content)
                                 if paras:
                                     if len(paras) == 1 and not par_args:
                                         text_call = _render_text_with_hardbreaks(paras[0])
-                                        rendered_chunks.append(text_call)
+                                        colbreak_parts.append(text_call)
                                     else:
                                         text_pieces = []
                                         for p in paras:
                                             text_call = _render_text_with_hardbreaks(p)
                                             text_pieces.append(_typst_par(text_call, par_args))
-                                        rendered_chunks.append("\n".join(text_pieces))
+                                        colbreak_parts.append("\n".join(text_pieces))
                     else:
                         paras = _split_paragraphs(chunk)
                         if paras:
                             if len(paras) == 1 and not par_args:
                                 text_call = _render_text_with_hardbreaks(paras[0])
-                                rendered_chunks.append(text_call)
+                                colbreak_parts.append(text_call)
                             else:
                                 text_pieces = []
                                 for p in paras:
                                     text_call = _render_text_with_hardbreaks(p)
                                     text_pieces.append(_typst_par(text_call, par_args))
-                                rendered_chunks.append("\n".join(text_pieces))
-                result_parts.append('\n#colbreak()\n'.join(rendered_chunks))
+                                colbreak_parts.append("\n".join(text_pieces))
+                if colbreak_parts:
+                    result_parts.append("\n".join(colbreak_parts))
 
         elif block['kind'] == 'list':
             # Handle list blocks

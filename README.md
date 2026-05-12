@@ -96,6 +96,7 @@ See the [Media Embedding](#media-embedding-images-pdfs-svgs) section for compreh
 - **Debug grid**: Optional grid lines and labels for layout precision
 - **Custom fonts**: Integrated font management with Google Fonts integration and project/bundled/system font discovery
 - **Text justification**: `:JUSTIFY:` for header/subheader/body elements
+- **Multi-column layout**: `:COLUMNS:` / `:COLUMN_GAP:` with `{{colbreak}}` inline macro for newspaper-style columns
 - **Padding**: `:PADDING:` on all element types with CSS-like TRBL shorthand
 - **Alignment & flow**: `:ALIGN:` / `:VALIGN:` for precise positioning within frames; `:FLOW:` for layout hints
 - **Custom styles**: Per-document text styles with paragraph options (leading, spacing, indents)
@@ -717,8 +718,22 @@ Exit code 0 means no errors (warnings may still appear).
 - **PADDING**: Optional mm padding around content. CSS-like shorthand: `PADDING: t` | `t,r` | `t,r,b` | `t,r,b,l`. Applies to text (header/subheader/body), figures, SVG, and PDF.
 - **JUSTIFY**: Optional boolean for text elements. `:JUSTIFY:` (bare) or `:JUSTIFY: true` enables full justification; `false` disables. Maps to Typst `par(justify: true)` wrapping.
 - **ALIGN**: Horizontal alignment within the element frame. Values: `left`, `center`, `right`. Applies to text (`header`, `subheader`, `body`) and media (`figure`, `svg`, `pdf`, `toc`).
-- **VALIGN**: Vertical alignment within the element frame. Values: `top`, `middle`, `bottom`. Applies to text elements. Note: `middle` maps to Typst `horizon` (Typst’s vertical-center token).
+- **VALIGN**: Vertical alignment within the element frame. Values: `top`, `middle`, `bottom`. Applies to text elements. Note: `middle` maps to Typst `horizon` (Typst's vertical-center token).
 - **FLOW**: Layout hint for text elements. Values: `normal`, `bottom-up`, `center-out`. Emitted as a comment for visibility, and when `:VALIGN:` is not set it can imply vertical alignment: `bottom-up` -> `bottom`, `center-out` -> `horizon`. Otherwise, explicit `:VALIGN:` wins.
+- **COLUMNS**: Number of columns for text elements. `:COLUMNS: 2` splits the element's text into 2 newspaper-style columns using Typst's native `#columns()` function. Works with any `header`, `subheader`, or `body` element.
+- **COLUMN_GAP**: Gutter width between columns in mm. `:COLUMN_GAP: 4` sets 4mm spacing (default: 0). Accepts both `4` and `4mm`.
+
+  Within multi-column text, use `{{colbreak}}` to force content to the next column:
+  ```org
+  :COLUMNS: 2
+
+  Text in column 1...
+
+  {{colbreak}}
+
+  Text in column 2...
+  ```
+  Renders as Typst's `#colbreak()`. Has no effect outside a `#columns()` context.
 
 ## Tooling
 

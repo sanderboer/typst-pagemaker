@@ -198,6 +198,32 @@ class TestColbreak(unittest.TestCase):
         result = _render_text_blocks(blocks, {}, {'body': {'style': {}}})
         self.assertEqual(result.count('#colbreak()'), 2)
 
+    def test_colbreak_at_start(self):
+        """{{colbreak}} at the start of content forces a leading #colbreak()."""
+        from pagemaker.generator import _render_text_blocks
+
+        blocks = [{'kind': 'plain', 'content': '{{colbreak}}\n\nText after break'}]
+        result = _render_text_blocks(blocks, {}, {'body': {'style': {}}})
+        self.assertTrue(
+            result.startswith('#colbreak()'), f'Expected leading #colbreak(), got: {result}'
+        )
+
+    def test_colbreak_after_list(self):
+        """{{colbreak}} after a list block still produces #colbreak() in the next plain block."""
+        from pagemaker.generator import _render_text_blocks
+
+        blocks = [
+            {
+                'kind': 'list',
+                'type': 'ol',
+                'items': [{'text': 'Item 1'}, {'text': 'Item 2'}],
+                'tight': True,
+            },
+            {'kind': 'plain', 'content': '{{colbreak}}\n\nText after list'},
+        ]
+        result = _render_text_blocks(blocks, {}, {'body': {'style': {}}})
+        self.assertIn('#colbreak()', result)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -934,6 +934,9 @@ class OrgElement:
             # Support STYLE on rectangle/toc for style-driven rectangle attributes
             if self.type == 'rectangle' and style is None:
                 style = self.props.get('STYLE')
+        # Support STYLE on figure/pdf/svg for caption styling
+        if self.type in ('figure', 'svg', 'pdf') and style is None:
+            style = self.props.get('STYLE')
         return {
             'id': self.id,
             'type': self.type,

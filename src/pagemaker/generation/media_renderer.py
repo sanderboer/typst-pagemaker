@@ -38,6 +38,41 @@ from typing import Optional
 from .media_sizing import IntrinsicSizeProvider
 
 
+def _caption_style_args(ctx: 'RenderContext') -> str:
+    """Build Typst kwargs for Fig() caption styling from element's :style:.
+
+    Returns empty string when no style or no relevant style keys.
+    Otherwise returns ', caption_font: ..., caption_size: ..., caption_fill: ...'.
+    """
+    style_name = (
+        (ctx.element.get('style') or '').strip().lower()
+        if isinstance(ctx.element.get('style'), str) and ctx.element.get('style')
+        else ''
+    )
+    if not style_name or not ctx.styles or style_name not in ctx.styles:
+        return ''
+    s = ctx.styles[style_name]
+    parts = []
+    font = s.get('font')
+    if font:
+        parts.append(f'caption_font: "{font}"')
+    size = s.get('size')
+    if size:
+        parts.append(f'caption_size: {size}')
+    color = s.get('color')
+    if color:
+        cv = color.strip()
+        if cv.startswith('#'):
+            parts.append(f'caption_fill: rgb("{cv}")')
+        elif cv.startswith('rgb(') or cv.startswith('hsl('):
+            parts.append(f'caption_fill: {cv}')
+        else:
+            parts.append(f'caption_fill: rgb("{cv}")')
+    if not parts:
+        return ''
+    return ', ' + ', '.join(parts)
+
+
 @dataclass
 class RenderContext:
     """Context data passed to media rendering strategies.
@@ -54,6 +89,7 @@ class RenderContext:
         frame_h_mm: Available height after padding (in mm)
         align: Horizontal alignment ('left', 'center', 'right', None)
         valign: Vertical alignment ('top', 'middle'/'horizon', 'bottom', None)
+        styles: Resolved styles dict (for caption styling via :style:)
     """
 
     element: dict
@@ -64,6 +100,7 @@ class RenderContext:
     frame_h_mm: float
     align: Optional[str]
     valign: Optional[str]
+    styles: Optional[dict] = None
 
 
 @dataclass
@@ -298,11 +335,11 @@ class FigureRenderStrategy(MediaRenderStrategy):
 
         if caption:
             cap_e = escape_text(caption)
-            # When caption + alignment, pass fill_space: false to allow alignment
+            cap_style = _caption_style_args(ctx)
             fill_space = "false" if has_alignment else "true"
             code = (
                 f"Fig({img_call}, caption: [{cap_e}], caption_align: {align}, img_align: {align}, "
-                f"caption_valign: {valign}, img_valign: {valign}, fill_space: {fill_space})"
+                f"caption_valign: {valign}, img_valign: {valign}, fill_space: {fill_space}{cap_style})"
             )
         else:
             code = (
@@ -411,13 +448,14 @@ class FigureRenderStrategy(MediaRenderStrategy):
 
             from ..generator import escape_text
 
+            cap_style = _caption_style_args(ctx)
             cap_e = escape_text(caption)
             align = ctx.align or 'left'
             valign = ctx.valign or 'top'
 
             code = (
                 f"Fig({body_expr_adj}, caption: [{cap_e}], caption_align: {align}, img_align: {align}, "
-                f"caption_valign: {valign}, img_valign: {valign}, fill_space: false)"
+                f"caption_valign: {valign}, img_valign: {valign}, fill_space: false{cap_style})"
             )
             return RenderedMedia(code, needs_wrapper=False)
 
@@ -572,13 +610,14 @@ class SvgRenderStrategy(MediaRenderStrategy):
 
             from ..generator import escape_text
 
+            cap_style = _caption_style_args(ctx)
             cap_e = escape_text(caption)
             align = ctx.align or 'left'
             valign = ctx.valign or 'top'
 
             code = (
                 f"Fig({body_expr_adj}, caption: [{cap_e}], caption_align: {align}, img_align: {align}, "
-                f"caption_valign: {valign}, img_valign: {valign}, fill_space: false)"
+                f"caption_valign: {valign}, img_valign: {valign}, fill_space: false{cap_style})"
             )
             return RenderedMedia(code, needs_wrapper=False)
 
@@ -687,6 +726,7 @@ class PdfRenderStrategy(MediaRenderStrategy):
         # If caption is present, use Fig() helper for consistent caption rendering
         if caption:
             cap_e = escape_text(caption)
+            cap_style = _caption_style_args(ctx)
             # IMPORTANT: When there's alignment, don't use 100% dimensions
             # This allows align() inside Fig() to actually position the image
             if has_alignment:
@@ -699,7 +739,7 @@ class PdfRenderStrategy(MediaRenderStrategy):
             fill_space = "false" if has_alignment else "true"
             code = (
                 f'Fig({img_call}, caption: [{cap_e}], caption_align: {align}, img_align: {align}, '
-                f'caption_valign: {valign}, img_valign: {valign}, fill_space: {fill_space})'
+                f'caption_valign: {valign}, img_valign: {valign}, fill_space: {fill_space}{cap_style})'
             )
         else:
             # No caption: use PdfEmbed for backward compatibility
@@ -799,13 +839,14 @@ class PdfRenderStrategy(MediaRenderStrategy):
 
             from ..generator import escape_text
 
+            cap_style = _caption_style_args(ctx)
             cap_e = escape_text(caption)
             align = ctx.align or 'left'
             valign = ctx.valign or 'top'
 
             code = (
                 f"Fig({body_expr_adj}, caption: [{cap_e}], caption_align: {align}, img_align: {align}, "
-                f"caption_valign: {valign}, img_valign: {valign}, fill_space: false)"
+                f"caption_valign: {valign}, img_valign: {valign}, fill_space: false{cap_style})"
             )
             return RenderedMedia(code, needs_wrapper=False)
 

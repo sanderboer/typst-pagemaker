@@ -692,10 +692,10 @@ def generate_header_and_setup(ir: Dict[str, Any], theme: dict, format: str = 'pd
 
     # Figure helper function with image and optional caption
     # Images are passed with width/height 100% and fit parameter already set
-    # Caption is rendered below the image with appropriate styling
+    # Caption is rendered below the image with appropriate styling (custom or default)
     # Alignment is handled internally to work within the layer_grid cell
     out.append(
-        "#let Fig(img, caption: none, caption_align: left, img_align: left, caption_valign: top, img_valign: top, fill_space: true) = {\n"
+        "#let Fig(img, caption: none, caption_align: left, img_align: left, caption_valign: top, img_valign: top, fill_space: true, caption_font: none, caption_size: none, caption_fill: none) = {\n"
         "  let img_alignment = if img_valign == none { img_align } else { img_align + img_valign }\n"
         "  if caption == none {\n"
         "    // No caption: wrap image in 100% block with internal alignment\n"
@@ -703,6 +703,9 @@ def generate_header_and_setup(ir: Dict[str, Any], theme: dict, format: str = 'pd
         "  } else {\n"
         "    // With caption: use flexible grid layout with proper cell alignment\n"
         "    // The grid itself fills the full cell, but image content is aligned within it\n"
+        "    let cap_font = if caption_font == none { theme.font_body } else { caption_font }\n"
+        "    let cap_size = if caption_size == none { 0.75em } else { caption_size }\n"
+        "    let cap_fill = if caption_fill == none { rgb(60%,60%,60%) } else { caption_fill }\n"
         "    block(width: 100%, height: 100%)[\n"
         "      #grid(\n"
         "        columns: (100%),\n"
@@ -716,7 +719,7 @@ def generate_header_and_setup(ir: Dict[str, Any], theme: dict, format: str = 'pd
         "          align(img_alignment)[#img]\n"
         "        },\n"
         "        // Second cell: caption with alignment\n"
-        "        align(caption_align)[#text(size: 0.75em, fill: rgb(60%,60%,60%), font: theme.font_body)[#caption]]\n"
+        "        align(caption_align)[#text(size: cap_size, fill: cap_fill, font: cap_font)[#caption]]\n"
         "      )\n"
         "    ]\n"
         "  }\n"
@@ -1062,6 +1065,7 @@ def process_pages(ir, masters, render_pages, styles):
                     frame_h_mm=frame_h_mm,
                     align=align,
                     valign=valign,
+                    styles=styles,
                 )
 
                 # Get appropriate renderer and render

@@ -125,5 +125,79 @@ class TestColumnsGenerator(unittest.TestCase):
         self.assertIn('#columns(2)[', typst)
 
 
+class TestColbreak(unittest.TestCase):
+    def test_colbreak_between_paragraphs(self):
+        """{{colbreak}} between paragraphs inserts #colbreak() in output."""
+        from pagemaker.generator import _render_text_blocks
+
+        blocks = [{'kind': 'plain', 'content': 'Col 1 text\n\n{{colbreak}}\n\nCol 2 text'}]
+        result = _render_text_blocks(blocks, {}, {'body': {'style': {}}})
+        self.assertIn('#colbreak()', result)
+
+    def test_colbreak_produces_separate_chunks(self):
+        """Each {{colbreak}} chunk renders as its own paragraph group."""
+        from pagemaker.generator import _render_text_blocks
+
+        blocks = [{'kind': 'plain', 'content': 'First\n\n{{colbreak}}\n\nSecond'}]
+        result = _render_text_blocks(blocks, {}, {'body': {'style': {}}})
+        self.assertIn('First', result)
+        self.assertIn('Second', result)
+        self.assertIn('#colbreak()', result)
+
+    def test_colbreak_with_columns(self):
+        """{{colbreak}} inside #columns() → text flows to next column."""
+        ir = {
+            'meta': {},
+            'pages': [
+                {
+                    'title': 'P',
+                    'page_size': {'w_mm': 210.0, 'h_mm': 297.0},
+                    'grid': {'cols': 12, 'rows': 8},
+                    'elements': [
+                        {
+                            'id': 't',
+                            'type': 'body',
+                            'area': {'x': 1, 'y': 1, 'w': 6, 'h': 4},
+                            'z': 10,
+                            'text_blocks': [
+                                {'kind': 'plain', 'content': 'Col 1\n\n{{colbreak}}\n\nCol 2'}
+                            ],
+                            'style': None,
+                            'columns': 2,
+                            'column_gap': None,
+                        }
+                    ],
+                }
+            ],
+        }
+        typst = pm.generate_typst(ir)
+        self.assertIn('#columns(2)', typst)
+        self.assertIn('#colbreak()', typst)
+
+    def test_colbreak_without_columns(self):
+        """{{colbreak}} renders as #colbreak() even without columns context (Typst ignores it)."""
+        from pagemaker.generator import _render_text_blocks
+
+        blocks = [{'kind': 'plain', 'content': 'A\n\n{{colbreak}}\n\nB'}]
+        result = _render_text_blocks(blocks, {}, {'body': {'style': {}}})
+        self.assertIn('#colbreak()', result)
+
+    def test_no_colbreak_unchanged(self):
+        """Without {{colbreak}}, output has no #colbreak()."""
+        from pagemaker.generator import _render_text_blocks
+
+        blocks = [{'kind': 'plain', 'content': 'Just normal text.'}]
+        result = _render_text_blocks(blocks, {}, {'body': {'style': {}}})
+        self.assertNotIn('#colbreak()', result)
+
+    def test_multiple_colbreaks(self):
+        """Multiple {{colbreak}} markers produce corresponding #colbreak() calls."""
+        from pagemaker.generator import _render_text_blocks
+
+        blocks = [{'kind': 'plain', 'content': 'A\n\n{{colbreak}}\n\nB\n\n{{colbreak}}\n\nC'}]
+        result = _render_text_blocks(blocks, {}, {'body': {'style': {}}})
+        self.assertEqual(result.count('#colbreak()'), 2)
+
+
 if __name__ == '__main__':
     unittest.main()

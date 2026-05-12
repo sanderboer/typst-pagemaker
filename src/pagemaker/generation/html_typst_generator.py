@@ -231,9 +231,19 @@ def _generate_text_content(elem: Dict[str, Any], plain_text_only: bool = False) 
     for block in text_blocks:
         kind = block.get('kind')
 
-        if kind == 'plain':
-            # Regular plain text or paragraph
-            parts.append(block.get('content', ''))
+        if kind == 'colbreak':
+            parts.append('#colbreak()')
+
+        elif kind == 'plain':
+            # Regular plain text or paragraph — split at {{colbreak}}
+            content = block.get('content', '')
+            chunks = content.split('{{colbreak}}')
+            for i, chunk in enumerate(chunks):
+                chunk = chunk.strip()
+                if chunk:
+                    parts.append(chunk)
+                if i < len(chunks) - 1:
+                    parts.append('#colbreak()')
 
         elif kind == 'list':
             if plain_text_only:
